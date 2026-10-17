@@ -10,7 +10,7 @@ const context = await chromium.launchPersistentContext('', { channel: 'chromium'
 try {
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
   const setup = await context.newPage(); await setup.goto(`chrome-extension://${new URL(worker.url()).host}/workspace.html`);
-  await setup.getByRole('button', { name: /Dùng Vương Bình/ }).click();
+  await setup.getByRole('button', { name: /^Chuẩn bị TIỆC/ }).click();
   const picker = setup.getByLabel('Thêm hạng vé ưu tiên');
   const quote = await picker.locator('option').filter({ hasText: 'HAI QUÝ - EB' }).getAttribute('value');
   if (!quote) throw new Error('Expected target tier not present; inspect catalog instead of guessing.');

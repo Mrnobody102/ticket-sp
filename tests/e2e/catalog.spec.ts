@@ -10,7 +10,7 @@ let context: BrowserContext;
 let worker: Worker;
 let extensionId: string;
 const errors: string[] = [];
-type Mock = { path: string; body: unknown; text?: boolean; delay?: number };
+type Mock = { path: string; body: unknown; text?: boolean; delay?: number; status?: number };
 const defaults = (): Mock[] => [
   { path: '/v2/marketplace/search?', body: { errorCode: 0, data: { ticketEvents: [searchItem] } } },
   { path: '/events/catalog-test', body: flightHtml(), text: true },
@@ -27,7 +27,7 @@ async function mockCatalog(mocks = defaults()) {
       const mock = data.find(m => url.includes(m.path));
       if (!mock) throw new Error(`Unexpected catalog URL: ${url}`);
       if (mock.delay) await new Promise(resolve => setTimeout(resolve, mock.delay));
-      return new Response(mock.text ? String(mock.body) : JSON.stringify(mock.body), { status: 200, headers: { 'Content-Type': mock.text ? 'text/html' : 'application/json' } });
+      return new Response(mock.text ? String(mock.body) : JSON.stringify(mock.body), { status: mock.status ?? 200, headers: { 'Content-Type': mock.text ? 'text/html' : 'application/json' } });
     };
   }, mocks);
 }
@@ -98,7 +98,9 @@ test('cấu hình nhanh Hà Nội tự điền link, 12h và 1 vé; chỉ chọn
   mocks.unshift({ path: '/events/vuong-binh-tiec-thanh-than-mam-2', body: flightHtml({ ...eventData, id: 'aAq6NT', pathName: 'vuong-binh-tiec-thanh-than-mam-2', eventCalendar: [{ ...calendar('8h0YGm'), eventId: 'aAq6NT' }] }), text: true });
   mocks.unshift({ path: '/get-summary-event/aAq6NT?', body: ticketReply([{ ...ticketData, eventId: 'aAq6NT', calendarId: '8h0YGm' }]) });
   await mockCatalog(mocks);
-  const page = await workspace(); await page.getByRole('button', { name: /Dùng Vương Bình/ }).click();
+  const page = await workspace();
+  await expect(page.locator('.target-shortcut strong')).toHaveText(HANOI_PRESET.title);
+  await page.getByRole('button', { name: `Chuẩn bị ${HANOI_PRESET.title}` }).click();
   await expect(page.getByLabel('Link concert')).toHaveValue(HANOI_PRESET.eventUrl);
   await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('2026-10-19T12:00');
   await expect(page.getByLabel('Số vé', { exact: true })).toHaveValue('1');
@@ -134,6 +136,23 @@ test('thẻ tiêu đề p → modal 1Zone → số lượng span 2 vé → check
   await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
   await expect(event.locator('#modal-host form')).toContainText('HAI QUÝ - EB · 2 vé');
   await expect(event.getByRole('button', { name: 'Xác nhận đơn hàng', exact: true })).toBeVisible();
+});
+
+test('tải catalog lỗi: báo lỗi và thử lại để có select, không đưa ô nhập thủ công ra mặc định', async () => {
+  const mocks = defaults(); mocks[1]!.status = 503; await mockCatalog(mocks);
+  const page = await workspace();
+  await page.getByLabel('Link concert').fill(catalogUrl + '?calendarId=HN');
+  await page.getByRole('button', { name: 'Tải hạng vé', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('503');
+  await expect(page.locator('textarea')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Lưu & bật theo dõi' })).toBeDisabled();
+  await expect(page.getByLabel('Thêm hạng vé ưu tiên')).toHaveCount(0);
+  await mockCatalog();
+  await page.getByRole('button', { name: 'Tải hạng vé', exact: true }).click();
+  await expect(page.getByLabel('Thêm hạng vé ưu tiên')).toBeVisible();
+  await expect(page.getByLabel('Thêm hạng vé ưu tiên').locator('option')).toContainText(['Chọn hạng và giá vé', 'VIP · 1.200.000']);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.locator('textarea')).toHaveCount(0);
 });
 
 test('nhiều suất yêu cầu chọn; link sai calendarId không tự chuyển suất', async () => {

@@ -1,4 +1,5 @@
 import type { EventPreferences, TaskConfig } from '../core/models';
+import { sendToBackground } from './extension-runtime';
 
 export type Command =
   | { type: 'SAVE'; preferences: EventPreferences }
@@ -9,7 +10,7 @@ export type Command =
   | { type: 'OPEN_WORKSPACE' };
 
 export async function command(message: Command): Promise<TaskConfig> {
-  const reply = await chrome.runtime.sendMessage(message) as { config?: TaskConfig; error?: string } | undefined;
+  const reply = await sendToBackground<{ config?: TaskConfig; error?: string }>(message);
   if (!reply?.config) throw new Error(reply?.error ?? 'Mất kết nối tiện ích. Tải lại trang sau khi cập nhật extension.');
   return reply.config;
 }

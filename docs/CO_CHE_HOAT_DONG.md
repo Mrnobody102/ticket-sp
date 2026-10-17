@@ -1,8 +1,10 @@
-# Cơ chế camp vé · bản 0.4.0
+# Cơ chế camp vé · bản 0.4.1
 
 Bản hiện tại kết nối **tìm sự kiện → chọn đúng suất/hạng/giá → camp tới checkout**. Bản 0.2.0 có bộ thực thi tự chọn vé; 0.3.0 bổ sung catalog API, cấu hình theo ID/giá và kiểm tra trước khi chạy. Tài liệu phân biệt kiểm thử cục bộ, GET công khai đã chạy thật và booking chưa xác minh trên sự kiện mục tiêu.
 
 0.4.0 bổ sung preset Hà Nội, modal theo dấu hiệu public của 1Zone, lịch microtask, reload một lần tại mốc bán và benchmark lặp. Hướng dẫn thực tế: [sẵn sàng mở bán](SAN_SANG_MO_BAN.md).
+
+0.4.1 kiểm tra phiên bản giao diện/worker khi mở cấu hình, mở workspace/demo bằng link extension trực tiếp và chuyển nhập hạng thủ công vào tùy chọn chủ động. Luồng mặc định tải catalog rồi dùng select; lỗi tải không tự chuyển sang textarea.
 
 ## 1. Đầu vào và đầu ra
 
@@ -74,6 +76,8 @@ ID option chỉ tồn tại trong một lần đọc. Qua các lần đọc, l�
 `catalog-service.ts` sở hữu GET allowlist, timeout, cache và gộp request. Những GET tra cứu không đi vào hàng đợi tuần tự của automation. UI không nhận dữ liệu JSON thô hay token. `EventFinder` bỏ response đến muộn bằng phiên bản request; nhiều suất phải chọn rõ, link có ID suất sai không tự chuyển sang suất khác. Giờ diễn luôn ghi riêng, người dùng nhập giờ bán theo thông báo chính thức.
 
 `TicketPriorities` dùng native select, cho thêm/đổi thứ tự/bỏ hạng. Lưu cấu hình giữ ID và giá; reopen vẫn giữ snapshot đã chọn. Form sửa chưa lưu hoặc cấu hình đổi ở cửa sổ khác sẽ khóa Bắt đầu camp cho tới khi lưu/tải lại.
+
+`extension-runtime.ts` nhúng phiên bản build vào giao diện và worker. Lệnh RUNTIME_INFO chỉ từ trang extension trả phiên bản/protocol; khác bản, thiếu hợp đồng hoặc quá 4 giây thì hiển thị hướng dẫn Reload. Các message client dùng chung cách diễn giải lỗi worker cũ/mất context, giữ nguyên lỗi nghiệp vụ. Kiểm tra này chỉ ở màn cấu hình; runner đặt vé không gọi handshake trước từng click. Header hiển thị phiên bản build để người dùng kiểm tra cập nhật.
 
 Giới hạn số vé trên form là giá trị nhỏ nhất trong các giới hạn đã biết của suất và những hạng ưu tiên: mỗi phương án phải đáp ứng toàn bộ số vé. Không biết giới hạn thì không gán nó thành giới hạn của website; mức 100 là trần cấu hình nội bộ. Preset Hà Nội chỉ điền bản nháp giờ/link/1 vé; thứ tự hạng và số vé do người dùng chuẩn bị trước. Mọi show dùng chung cơ chế lưu và preflight.
 

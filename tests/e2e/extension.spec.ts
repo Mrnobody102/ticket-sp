@@ -28,6 +28,8 @@ async function configure(page: Page) {
   await page.getByLabel('Link concert').fill(target);
   await page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)').fill('2026-10-18T12:00');
   await page.getByLabel('Số vé', { exact: true }).fill('1');
+  await page.locator('.extra-settings > summary').click();
+  await page.getByLabel('Nhập hạng vé thủ công', { exact: true }).check();
   await page.getByLabel('Hạng vé ưu tiên · mỗi dòng một hạng').fill('VIP\nKhu A');
   await page.getByRole('button', { name: 'Lưu & bật theo dõi' }).click();
   await expect(page.getByRole('status')).toContainText('Đã lưu');

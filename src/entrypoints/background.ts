@@ -7,6 +7,7 @@ import type { AutoCommand } from '../infrastructure/automation-messages';
 import { handleAutoCommand, readAutoRun, reconcileAutoRun, stopAutoRun } from '../infrastructure/automation-service';
 import { openEventTab } from '../infrastructure/event-tab';
 import { handleCatalogCommand, type CatalogCommand } from '../infrastructure/catalog-service';
+import { RUNTIME_INFO } from '../infrastructure/extension-runtime';
 
 export default defineBackground(() => {
   // Serialize mutations in this worker; durable configuration lives in storage.
@@ -19,8 +20,12 @@ export default defineBackground(() => {
   const reconcile = () => { void enqueue(async () => { await reconcileAutoRun(); await reconcileReminder(); }).catch(() => undefined); };
   chrome.runtime.onMessage.addListener((raw: unknown, sender, respond) => {
     if (sender.id !== chrome.runtime.id || !raw || typeof raw !== 'object') return;
-    const message = raw as Command | AutoCommand | CatalogCommand;
+    const message = raw as Command | AutoCommand | CatalogCommand | { type: 'RUNTIME_INFO' };
     if (typeof message.type !== 'string') return;
+    if (message.type === 'RUNTIME_INFO') {
+      if (sender.url?.startsWith(chrome.runtime.getURL('/'))) respond({ info: RUNTIME_INFO });
+      return;
+    }
     if (message.type.startsWith('CATALOG_')) {
       if (!sender.url?.startsWith(chrome.runtime.getURL('/'))) { respond({ error: 'Mở tiện ích để tìm sự kiện.' }); return; }
       // Network reads must not block the serialized automation/mutation queue.

@@ -1,8 +1,9 @@
 import type { ConcertDetail, ConcertSearchResult, TicketCatalog } from '../core/catalog';
 import type { Platform } from '../core/models';
+import { sendToBackground } from './extension-runtime';
 
 async function request<T>(message: object): Promise<T> {
-  const reply = await chrome.runtime.sendMessage(message) as { data?: T; error?: string } | undefined;
+  const reply = await sendToBackground<{ data?: T; error?: string }>(message);
   if (!reply || reply.error || !reply.data) throw new Error(reply?.error ?? 'Không kết nối được nguồn dữ liệu sự kiện.');
   return reply.data;
 }

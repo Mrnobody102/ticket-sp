@@ -30,6 +30,13 @@ try {
     performance: await page.getByLabel('Suất diễn', { exact: true }).locator('option:checked').innerText(),
     tickets: await page.getByLabel('Thêm hạng vé ưu tiên').locator('option[value]:not([value=""])').evaluateAll(items => items.map(item => ({ id: item.value, label: item.textContent }))),
   };
+  // Exercise the actual select and draft priority list; this never saves or buys.
+  const targetTier = onezone.tickets.find(ticket => ticket.label?.includes('HAI QUÝ - EB'));
+  if (!targetTier) throw new Error('Expected Hanoi tier missing; inspect the catalog before using the preset.');
+  await page.getByLabel('Thêm hạng vé ưu tiên').selectOption(targetTier.id);
+  await page.getByRole('button', { name: 'Thêm ưu tiên', exact: true }).click();
+  onezone.draftPriority = await page.locator('.ticket-priorities li').first().innerText();
+  onezone.quantityMax = await page.getByLabel('Số vé', { exact: true }).getAttribute('max');
   mkdirSync('artifacts', { recursive: true });
   await page.screenshot({ path: 'artifacts/catalog-live-onezone.png', fullPage: true });
   await page.getByLabel('Nguồn sự kiện').selectOption('ticketbox');

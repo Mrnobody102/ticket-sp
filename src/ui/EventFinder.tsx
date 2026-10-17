@@ -11,7 +11,7 @@ export const eventDate = (value?: string) => value ? new Intl.DateTimeFormat('vi
 export function EventFinder({ onLoad, onReset, manualUrl, requestedUrl, shortcut }: {
   onLoad(value: LoadedConcert): void; onReset(): void; manualUrl: string;
   requestedUrl?: { url: string; requestId: number };
-  shortcut?: { label: string; description: string; onChoose(): void };
+  shortcut?: { title: string; description: string; onChoose(): void };
 }) {
   const [query, setQuery] = useState('');
   const [platform, setPlatform] = useState<Platform>('onezone');
@@ -59,7 +59,7 @@ export function EventFinder({ onLoad, onReset, manualUrl, requestedUrl, shortcut
   }, [requestedUrl]);
   return <section className="event-finder" aria-labelledby="finder-title">
     <div className="section-title"><h2 id="finder-title">Tìm sự kiện</h2><span>Dữ liệu từ nền tảng bán vé</span></div>
-    {shortcut && !detail && <button className="target-shortcut" type="button" onClick={shortcut.onChoose}><strong>{shortcut.label}</strong><small>{shortcut.description}</small></button>}
+    {shortcut && !detail && <button className="target-shortcut" type="button" aria-label={`Chuẩn bị ${shortcut.title}`} onClick={shortcut.onChoose}><strong>{shortcut.title}</strong><small>{shortcut.description}</small><span>Chuẩn bị sự kiện →</span></button>}
     <label className="sr-only" htmlFor="source">Nguồn sự kiện</label>
     <select id="source" value={platform} onChange={e => { version.current++; setPlatform(e.target.value as Platform); setResult(null); setDetail(null); setTickets(null); setPerformanceId(''); setError(''); setBusy(false); }}>
       {PLATFORM_CATALOG.map(p => <option key={p.id} value={p.id} disabled={!p.catalogOrigin}>{p.name} · {p.integration ? 'tìm và camp' : p.catalogOrigin ? 'tra cứu vé' : 'chưa kết nối'}</option>)}

@@ -1,11 +1,12 @@
 :root { font-family: "Segoe UI", system-ui, sans-serif; color: #20252c; background: #f4f5f7; font-synthesis: none; }
 * { box-sizing: border-box; }
 body { margin: 0; }
-button, input, textarea, select { font: inherit; }
-button { border: 1px solid #d3d8df; border-radius: 5px; padding: 8px 11px; background: #fff; color: #26313e; cursor: pointer; font-size: 12px; font-weight: 600; }
-button:hover { background: #f2f4f7; border-color: #aab5c3; }
+button, .button-link, input, textarea, select { font: inherit; }
+button, .button-link { border: 1px solid #d3d8df; border-radius: 5px; padding: 8px 11px; background: #fff; color: #26313e; cursor: pointer; font-size: 12px; font-weight: 600; }
+button:hover, .button-link:hover { background: #f2f4f7; border-color: #aab5c3; }
+.button-link { text-decoration: none; white-space: nowrap; }
 button:disabled { opacity: .45; cursor: default; }
-button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid #285cb8; outline-offset: 2px; }
+button:focus-visible, .button-link:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid #285cb8; outline-offset: 2px; }
 input, textarea, select { width: 100%; min-width: 0; background: #fff; border: 1px solid #cdd3dc; border-radius: 5px; padding: 9px 10px; color: #20252c; font-size: 13px; }
 input[type=checkbox] { width: 15px; height: 15px; flex-shrink: 0; accent-color: #2458ae; }
 textarea { resize: vertical; min-height: 66px; }
@@ -26,7 +27,13 @@ summary { cursor: pointer; font-size: 12px; color: #505e70; }
 .app-header h1 { font-size: 19px; margin: 0; letter-spacing: -.4px; font-weight: 650; }
 .app-header p { font-size: 11px; margin: 4px 0 0; color: #697486; }
 .app-header nav { display: flex; gap: 6px; }
-.app-header nav button { padding: 7px 9px; font-size: 11px; font-weight: 500; }
+.app-header nav :is(button, a) { padding: 7px 9px; font-size: 11px; font-weight: 500; }
+.app-title { display: flex; gap: 7px; align-items: baseline; }
+.app-version { font-size: 10px; color: #697486; }
+.runtime-notice { margin: 12px 20px 0; flex-shrink: 0; }
+.runtime-notice p { margin: 5px 0 0; }
+.catalog-needed { padding: 12px; background: #f5f7fa; border: 1px solid #e1e5eb; border-radius: 5px; font-size: 12px; }
+.catalog-needed p { color: #626d7c; margin: 6px 0 10px; }
 .setup-grid { flex: 1; min-height: 0; overflow-y: auto; padding: 20px; display: grid; gap: 24px; align-content: start; }
 .setup-form { display: grid; gap: 15px; align-content: start; min-width: 0; }
 .section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
@@ -45,6 +52,8 @@ summary { cursor: pointer; font-size: 12px; color: #505e70; }
 .event-finder > select { margin-bottom: 9px; }
 .target-shortcut { width: 100%; text-align: left; display: grid; gap: 5px; padding: 12px; margin: 0 0 14px; border-color: #9bb2d4; background: #f5f8fd; }
 .target-shortcut small { font-size: 10px; }
+.target-shortcut strong { line-height: 1.5; }
+.target-shortcut > span { font-size: 11px; color: #2458ae; font-weight: 500; }
 .extra-settings > label { margin-top: 12px; }
 .search-row { display: flex; gap: 7px; }
 .search-row input { flex: 1; }

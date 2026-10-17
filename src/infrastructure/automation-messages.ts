@@ -1,9 +1,10 @@
 import type { AutoProgress, AutoRun } from '../core/automation';
+import { sendToBackground } from './extension-runtime';
 
 export type AutoCommand = { type: 'AUTO_GET' } | { type: 'AUTO_START' } | { type: 'AUTO_STOP' } |
   { type: 'AUTO_STEP'; id: string; revision: number; progress: AutoProgress };
 export async function autoCommand(message: AutoCommand): Promise<AutoRun | null> {
-  const reply = await chrome.runtime.sendMessage(message) as { run?: AutoRun | null; error?: string } | undefined;
+  const reply = await sendToBackground<{ run?: AutoRun | null; error?: string }>(message);
   if (!reply || reply.error || !('run' in reply)) throw new Error(reply?.error ?? 'Mất kết nối bộ camp. Tải lại tab.');
   return reply.run ?? null;
 }

@@ -1,4 +1,4 @@
-# Quyết định triển khai · 0.4.0
+# Quyết định triển khai · 0.4.1
 
 Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp và đi tới checkout nhanh, trên phiên trình duyệt của người dùng. Đã tìm được metadata và hạng vé Vương Bình Hà Nội; người dùng xác nhận 12h ngày 19/10 làm mặc định có thể sửa. Chưa xác minh độc lập giờ bán từ API hoặc DOM booking đăng nhập. TP.HCM và Lavender chỉ dùng tham khảo. Không dùng ước tính 100–200 vé làm tồn kho.
 
@@ -20,6 +20,8 @@ Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp 
 14. Popup gọn, workspace rộng; tìm kiếm theo lệnh người dùng, bỏ response đến muộn. Chặn bắt đầu với thay đổi chưa lưu. Giao diện chỉ nêu khả năng đã triển khai của từng nguồn.
 15. Dấu hiệu đặc thù 1Zone đặt trong `onezone-modal.ts` và adapter: hero CTA data-id, stepper span, nút tiếp tục. Quote hỗ trợ thẻ dùng p, vẫn giữ selected/ID đọc được từ DOM. Chưa truy cập React internals/token hoặc gọi API tạo giỏ riêng.
 16. Mốc người dùng cung cấp được đưa vào preset rõ ngày, chỉ điền bản nháp. Người dùng chọn/sắp ưu tiên và số vé trước; giới hạn theo suất và các hạng đã chọn được lưu, rồi đọc mới khi arm. Benchmark chạy extension production 24 mẫu; phân biệt độ trễ fixture với nhận diện trang thật và giao dịch thật chưa kiểm chứng.
+17. Giao diện/worker trao đổi phiên bản khi mở cấu hình; lỗi không tương thích hoặc timeout chỉ dẫn Reload. Đây là kiểm tra setup, không thêm request vào từng hành động camp. Link workspace/demo mở trực tiếp, không phụ thuộc command nền.
+18. Tên thẻ cấu hình nhanh là tên sự kiện; nhãn thao tác hiển thị riêng. Luồng mặc định tải catalog rồi dùng select; tải lỗi có thể thử lại, không tự đưa người dùng vào textarea. Chế độ thủ công cần bật rõ trong tùy chọn thêm.
 
 ## Phạm vi bàn giao
 

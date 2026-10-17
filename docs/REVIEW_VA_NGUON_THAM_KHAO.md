@@ -1,4 +1,4 @@
-# Rà soát source và cơ chế tham khảo · 0.4.0
+# Rà soát source và cơ chế tham khảo · 0.4.1
 
 Bản 0.1.0 chỉ nhắc giờ và đánh dấu vé, chưa đủ cho yêu cầu camp theo tốc độ. Bản 0.2.0 thêm executor theo trạng thái, dùng chung core/runner cho các nền tảng. Chức năng trên sự kiện thật vẫn cần xác minh từ DOM/luồng của sự kiện đó.
 
@@ -37,6 +37,8 @@ Nguồn catalog 1Zone/Ticketbox là hai provider thật, dùng schema GET đã q
 - Camp dùng microtask ưu tiên; reload một lần chỉ khi trang còn khóa tại giờ bán, dấu được giữ qua điều hướng. Có kiểm tra không reload queue/challenge/checkout.
 - Preset chỉ điền bản nháp; người dùng chuẩn bị thứ tự hạng, số vé và giờ từ trước. Giới hạn suất/hạng được lưu và kiểm tra lại trước khi arm.
 - Benchmark 24 mẫu qua extension production đo từ CTA mở đến click/checkout mô phỏng, kiểm tra không click sớm/lặp/final-payment. Smoke target thật chỉ đọc DOM; không dùng benchmark này để cam kết tốc độ sale.
+- 0.4.1 xử lý phản hồi lỗi thực tế: bỏ chữ “Dùng” khỏi tên sự kiện, chuyển thao tác sang nhãn riêng. Khi catalog chưa tải được, mặc định cho tải/thử lại thay vì hiện textarea. Smoke API thật chọn được HAI QUÝ qua select và đọc max=2, chỉ trong bản nháp.
+- Bộ test trước chỉ nạp extension đồng bộ và mở thẳng workspace, chưa thử nút Mở rộng hoặc UI mới đi cùng worker cũ. Đã thêm E2E cho hai trường hợp, cùng ca API lỗi rồi tải lại. Handshake build/protocol và lỗi mất kết nối dùng chung module; link mở trang không phụ thuộc worker.
 
 TypeScript bật strict, noUncheckedIndexedAccess, noUnusedLocals và noUnusedParameters. Xem [VALIDATION.md](VALIDATION.md) cho kết quả từng bộ test và giới hạn.
 
