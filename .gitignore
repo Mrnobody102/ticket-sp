@@ -1,0 +1,9 @@
+node_modules/
+.wxt/
+.output/
+artifacts/
+test-results/
+playwright-report/
+*.log
+.env*
+!.env.example
