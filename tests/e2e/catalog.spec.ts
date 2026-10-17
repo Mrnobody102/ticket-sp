@@ -3,6 +3,8 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { calendar, catalogUrl, eventData, flightHtml, searchItem, ticketData, ticketReply, ticketboxReply, ticketboxUrl } from '../fixtures/catalog';
 import { installBookingDemo } from '../../src/testing/booking-demo';
+import { installOnezoneDemo } from '../../src/testing/onezone-demo';
+import { HANOI_PRESET } from '../../src/core/task-presets';
 
 let context: BrowserContext;
 let worker: Worker;
@@ -63,7 +65,7 @@ test('tìm → chọn đúng hạng/giá → lưu ID → camp tới checkout v�
   await expect(page.getByLabel('Link concert')).toHaveValue(catalogUrl + '?calendarId=HN');
   await expect(page.getByLabel('Số vé', { exact: true })).toHaveValue('1');
   const stored = await worker.evaluate(async () => (await chrome.storage.local.get('ticket-assistant.config.v1'))['ticket-assistant.config.v1']);
-  expect(stored.preferences.catalog.tickets).toEqual([{ id: 'vip-test', name: 'VIP', priceVnd: 1200000 }]);
+  expect(stored.preferences.catalog.tickets).toEqual([{ id: 'vip-test', name: 'VIP', priceVnd: 1200000, seatMode: 'AUTO', maxQuantity: 2 }]);
   await page.locator('.setup-form').evaluate(element => { element.scrollTop = 0; });
   await page.screenshot({ path: 'artifacts/workspace-catalog.png', fullPage: true });
   await page.getByLabel('Số vé', { exact: true }).fill('2');
@@ -89,6 +91,49 @@ test('giá đổi trước khi bật camp: dừng trước khi mở/giữ vé', 
   await expect(page.getByRole('alert')).toContainText('giá đã đổi');
   expect(context.pages()).toHaveLength(count);
   expect(await worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1'])).toBeUndefined();
+});
+
+test('cấu hình nhanh Hà Nội tự điền link, 12h và 1 vé; chỉ chọn hạng rồi lưu, chưa tự arm', async () => {
+  const mocks = defaults();
+  mocks.unshift({ path: '/events/vuong-binh-tiec-thanh-than-mam-2', body: flightHtml({ ...eventData, id: 'aAq6NT', pathName: 'vuong-binh-tiec-thanh-than-mam-2', eventCalendar: [{ ...calendar('8h0YGm'), eventId: 'aAq6NT' }] }), text: true });
+  mocks.unshift({ path: '/get-summary-event/aAq6NT?', body: ticketReply([{ ...ticketData, eventId: 'aAq6NT', calendarId: '8h0YGm' }]) });
+  await mockCatalog(mocks);
+  const page = await workspace(); await page.getByRole('button', { name: /Dùng Vương Bình/ }).click();
+  await expect(page.getByLabel('Link concert')).toHaveValue(HANOI_PRESET.eventUrl);
+  await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('2026-10-19T12:00');
+  await expect(page.getByLabel('Số vé', { exact: true })).toHaveValue('1');
+  await page.getByLabel('Thêm hạng vé ưu tiên').selectOption('vip-test');
+  await page.getByRole('button', { name: 'Thêm ưu tiên', exact: true }).click();
+  await expect(page.getByLabel('Số vé', { exact: true })).toHaveAttribute('max', '2');
+  await page.getByLabel('Số vé', { exact: true }).fill('3');
+  expect(await page.getByLabel('Số vé', { exact: true }).evaluate((e: HTMLInputElement) => e.validity.rangeOverflow)).toBe(true);
+  await page.getByLabel('Số vé', { exact: true }).fill('1');
+  await page.getByRole('button', { name: 'Lưu & bật theo dõi' }).click();
+  await expect(page.getByRole('status')).toContainText('Đã lưu');
+  const saved = await worker.evaluate(async () => (await chrome.storage.local.get('ticket-assistant.config.v1'))['ticket-assistant.config.v1']);
+  expect(saved.preferences.refreshAtSale).toBe(true); expect(saved.preferences.maxTotalVnd).toBeUndefined();
+  expect(await worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1'])).toBeUndefined();
+  await page.reload();
+  await expect(page.getByLabel('Số vé', { exact: true })).toHaveAttribute('max', '2');
+  await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('2026-10-19T12:00');
+  await expect(page.locator('.saved-tickets')).toContainText('VIP');
+  await page.locator('.setup-form').evaluate(e => { e.scrollTop = 0; });
+  await page.screenshot({ path: 'artifacts/hanoi-preset.png', fullPage: true });
+});
+
+test('thẻ tiêu đề p → modal 1Zone → số lượng span 2 vé → checkout', async () => {
+  const mocks = defaults(); mocks[2]!.body = ticketReply([{ ...ticketData, name: 'HAI QUÝ - EB', finalPriceVn: 2996000 }]); await mockCatalog(mocks);
+  const body = readFileSync('fixtures/onezone-modal.html', 'utf8') + `<script>(${installOnezoneDemo.toString()})(document)</script>`;
+  await context.route('https://ticket.1zone.vn/**', route => route.fulfill({ contentType: 'text/html', body }));
+  const page = await workspace(); await selectEvent(page);
+  await page.getByLabel('Số vé', { exact: true }).fill('2');
+  await page.getByRole('button', { name: 'Lưu & bật theo dõi' }).click();
+  const event = await context.newPage(); await event.goto(catalogUrl + '?calendarId=HN');
+  await expect(event.locator('.status-line')).toContainText('Đang chọn vé');
+  await event.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(event.locator('#modal-host form')).toContainText('HAI QUÝ - EB · 2 vé');
+  await expect(event.getByRole('button', { name: 'Xác nhận đơn hàng', exact: true })).toBeVisible();
 });
 
 test('nhiều suất yêu cầu chọn; link sai calendarId không tự chuyển suất', async () => {

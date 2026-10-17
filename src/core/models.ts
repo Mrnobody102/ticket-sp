@@ -13,6 +13,7 @@ export interface EventPreferences {
   preferredZoneLabels: string[];
   allowAlternatives: boolean;
   catalog?: CatalogSelection;
+  refreshAtSale?: boolean;
 }
 
 export interface VisibleOption {

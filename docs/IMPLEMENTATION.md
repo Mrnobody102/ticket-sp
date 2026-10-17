@@ -1,6 +1,6 @@
-# Quyết định triển khai · 0.3.0
+# Quyết định triển khai · 0.4.0
 
-Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp và đi tới checkout nhanh, trên phiên trình duyệt của người dùng. Đã tìm được metadata và hạng vé Vương Bình Hà Nội; chưa xác minh DOM bước mua/giờ bán. TP.HCM và Lavender chỉ dùng tham khảo. Không dùng ước tính 100–200 vé làm tồn kho.
+Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp và đi tới checkout nhanh, trên phiên trình duyệt của người dùng. Đã tìm được metadata và hạng vé Vương Bình Hà Nội; người dùng xác nhận 12h ngày 19/10 làm mặc định có thể sửa. Chưa xác minh độc lập giờ bán từ API hoặc DOM booking đăng nhập. TP.HCM và Lavender chỉ dùng tham khảo. Không dùng ước tính 100–200 vé làm tồn kho.
 
 ## Các quyết định
 
@@ -10,7 +10,7 @@ Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp 
 4. Background là nơi sở hữu một session camp, khóa tab và revision. Cấu hình bền ở local; phiên camp ở session.
 5. Adapter chịu trách nhiệm đọc DOM và thực thi ENTER/CHOOSE/QUANTITY/ADVANCE. Chỉ 1Zone đã có implementation; nền tảng khác chưa được bật.
 6. URL policy, tên nền tảng và phạm vi host khai báo trong catalog. Validation, manifest/content matches dùng chung khai báo này.
-7. Khi camp, gom DOM changes khoảng 16 ms; chế độ theo dõi khoảng 600 ms. Không polling mạng/refresh tab.
+7. Khi camp, dùng microtask thay cho khoảng gom 16 ms; hủy timer theo dõi chậm khi có việc urgent. Chế độ theo dõi vẫn khoảng 600 ms. Preset cho reload một lần ở mốc bán nếu trang còn khóa, không reload queue/challenge/selection.
 8. Nhắc giờ là tính năng phụ. Đến checkout thì kết thúc automation; người dùng kiểm tra đơn và thanh toán cuối.
 9. Tách fixtures tĩnh nhận diện và demo booking có tương tác. Demo dùng transport bộ nhớ và cùng runner/core/adapter, không sửa cấu hình/phiên thật.
 10. Các lỗi chưa có contract rõ ràng trả PAUSED/UNKNOWN; log trạng thái trên UI, không âm thầm coi click là thành công.
@@ -18,6 +18,8 @@ Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp 
 12. Provider nhận transport từ infrastructure; không tự gọi Chrome, lấy cookie hoặc gửi POST. Parser riêng từng nguồn chuyển schema bên ngoài thành model chung.
 13. Cấu hình từ catalog lưu event/performance/ticket ID và giá snapshot. Khi bật camp, đọc mới detail + tickets song song và đối chiếu; trong lúc chọn vé chỉ dùng dữ liệu đã chuẩn bị và DOM hiện tại.
 14. Popup gọn, workspace rộng; tìm kiếm theo lệnh người dùng, bỏ response đến muộn. Chặn bắt đầu với thay đổi chưa lưu. Giao diện chỉ nêu khả năng đã triển khai của từng nguồn.
+15. Dấu hiệu đặc thù 1Zone đặt trong `onezone-modal.ts` và adapter: hero CTA data-id, stepper span, nút tiếp tục. Quote hỗ trợ thẻ dùng p, vẫn giữ selected/ID đọc được từ DOM. Chưa truy cập React internals/token hoặc gọi API tạo giỏ riêng.
+16. Mốc người dùng cung cấp được đưa vào preset rõ ngày, chỉ điền bản nháp. Người dùng chọn/sắp ưu tiên và số vé trước; giới hạn theo suất và các hạng đã chọn được lưu, rồi đọc mới khi arm. Benchmark chạy extension production 24 mẫu; phân biệt độ trễ fixture với nhận diện trang thật và giao dịch thật chưa kiểm chứng.
 
 ## Phạm vi bàn giao
 

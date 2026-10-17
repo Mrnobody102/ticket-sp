@@ -8,7 +8,11 @@ import { PLATFORM_CATALOG, platformForCatalogUrl, platformForUrl } from '../core
 export interface LoadedConcert { detail: ConcertDetail; performance: Performance; catalog: TicketCatalog }
 export const eventDate = (value?: string) => value ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(value)) : 'Chưa có lịch';
 
-export function EventFinder({ onLoad, onReset, manualUrl }: { onLoad(value: LoadedConcert): void; onReset(): void; manualUrl: string }) {
+export function EventFinder({ onLoad, onReset, manualUrl, requestedUrl, shortcut }: {
+  onLoad(value: LoadedConcert): void; onReset(): void; manualUrl: string;
+  requestedUrl?: { url: string; requestId: number };
+  shortcut?: { label: string; description: string; onChoose(): void };
+}) {
   const [query, setQuery] = useState('');
   const [platform, setPlatform] = useState<Platform>('onezone');
   const [result, setResult] = useState<ConcertSearchResult | null>(null);
@@ -50,8 +54,12 @@ export function EventFinder({ onLoad, onReset, manualUrl }: { onLoad(value: Load
     } catch (e) { if (request === version.current) setError(e instanceof Error ? e.message : 'Không tải được chi tiết.'); }
     finally { if (request === version.current) setBusy(false); }
   }
+  useEffect(() => {
+    if (requestedUrl) void load(requestedUrl.url, platformForCatalogUrl(requestedUrl.url)?.id ?? platform);
+  }, [requestedUrl]);
   return <section className="event-finder" aria-labelledby="finder-title">
     <div className="section-title"><h2 id="finder-title">Tìm sự kiện</h2><span>Dữ liệu từ nền tảng bán vé</span></div>
+    {shortcut && !detail && <button className="target-shortcut" type="button" onClick={shortcut.onChoose}><strong>{shortcut.label}</strong><small>{shortcut.description}</small></button>}
     <label className="sr-only" htmlFor="source">Nguồn sự kiện</label>
     <select id="source" value={platform} onChange={e => { version.current++; setPlatform(e.target.value as Platform); setResult(null); setDetail(null); setTickets(null); setPerformanceId(''); setError(''); setBusy(false); }}>
       {PLATFORM_CATALOG.map(p => <option key={p.id} value={p.id} disabled={!p.catalogOrigin}>{p.name} · {p.integration ? 'tìm và camp' : p.catalogOrigin ? 'tra cứu vé' : 'chưa kết nối'}</option>)}

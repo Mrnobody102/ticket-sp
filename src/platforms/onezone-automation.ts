@@ -4,6 +4,7 @@ import { isSameEvent, normalize } from '../core/preferences';
 import type { EventPreferences } from '../core/models';
 import type { OnezoneInspection } from './onezone';
 import type { PageReader } from './onezone-dom';
+import { readOnezoneModal } from './onezone-modal';
 
 interface QuantityBinding {
   model: AutoQuantity;
@@ -17,6 +18,7 @@ export interface AutoBindings {
   choices: Map<string, HTMLElement>;
   quantity?: QuantityBinding;
   reader: PageReader;
+  reload(): void;
 }
 export interface AutoInspection { page: AutoPage; bindings: AutoBindings }
 
@@ -78,7 +80,10 @@ function findQuantity(document: Document, scope: Element | undefined, reader: Pa
 export function inspectAutoControls(document: Document, inspection: OnezoneInspection, p: EventPreferences, progress: AutoProgress): AutoInspection {
   const { reader, snapshot, optionElements } = inspection;
   const controls = [...document.querySelectorAll<HTMLElement>('button, a[href], input[type="submit"], [role="button"]')].filter(e => enabled(e, reader));
-  const enter = controls.filter(e => buyLabel.test(label(e, reader)) && safeLink(e, p, true));
+  const candidates = controls.filter(e => buyLabel.test(label(e, reader)) && safeLink(e, p, true));
+  // The official hero CTA identifies the event action; the sticky copy has no data-id.
+  const officialEnter = candidates.filter(e => e.matches('button[data-id="btn-by-ticket"]'));
+  const enter = officialEnter.length === 1 && isSameEvent(snapshot.url, p.eventUrl) ? officialEnter : candidates;
   const advance = controls.filter(e => nextLabel.test(label(e, reader)) && safeLink(e, p, false) && !optionElements.some(entry => entry.element.contains(e)));
   const choices = new Map<string, HTMLElement>();
   for (const { element, option } of optionElements) {
@@ -86,21 +91,27 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
       choices.set(option.id, element as HTMLElement); continue;
     }
     const related = [...element.querySelectorAll<HTMLElement>('button, input[type="radio"], [role="option"], [role="radio"]')]
-      .filter(e => enabled(e, reader) && (e.matches('input[type="radio"], [role="radio"], [role="option"]') || selectLabel.test(label(e, reader))));
+      .filter(e => enabled(e, reader) && (e.matches('input[type="radio"], [role="radio"], [role="option"]') || selectLabel.test(label(e, reader)) || buyLabel.test(label(e, reader))));
     if (related.length === 1) choices.set(option.id, related[0]!);
   }
   const chosen = progress.chosen && optionElements.find(entry => sameOption(progress.chosen!, entry.option));
-  const quantity = findQuantity(document, chosen?.element, reader);
+  let quantity = findQuantity(document, chosen?.element, reader);
+  const modal = readOnezoneModal(document, p, reader);
+  if (modal) {
+    quantity = { element: modal.valueElement, model: modal.quantity, increase: modal.increase, decrease: modal.decrease };
+    advance.splice(0, advance.length, ...(enabled(modal.advance, reader) ? [modal.advance] : []));
+  }
   const headings = [...document.querySelectorAll('h1,h2,h3,[role="alert"]')].filter(reader.isVisible).map(e => normalize(reader.text(e))).filter(t => t.length < 200).join(' | ');
   const password = [...document.querySelectorAll('input[type="password"]')].some(reader.isVisible);
   const problem = password || /(?:^|\|\s*)(dang nhap|login|sign in)(\s*\||$)/.test(headings)
     ? 'Đăng nhập trên website rồi bắt đầu camp lại.'
     : /het thoi gian (giu cho|dat ve)|phien (dat ve )?(da )?het han|reservation expired|khong the giu ve|khong the giu cho/.test(headings)
       ? 'Phiên giữ chỗ đã hết hạn hoặc giữ vé thất bại. Kiểm tra trên website.' : undefined;
-  return { page: { snapshot, enterCount: enter.length, advanceCount: advance.length, selectable: [...choices.keys()], quantity: quantity?.model, problem }, bindings: { enter, advance, choices, quantity, reader } };
+  return { page: { snapshot, enterCount: enter.length, advanceCount: advance.length, selectable: [...choices.keys()], quantity: quantity?.model, problem }, bindings: { enter, advance, choices, quantity, reader, reload: () => document.defaultView!.location.reload() } };
 }
 
 export function executeAutoAction(action: AutoAction, bindings: AutoBindings): void {
+  if (action.kind === 'RELOAD') { bindings.reload(); return; }
   const target = action.kind === 'ENTER' ? bindings.enter[0] : action.kind === 'ADVANCE' ? bindings.advance[0] :
     action.kind === 'CHOOSE' ? bindings.choices.get(action.optionId) : undefined;
   if (action.kind !== 'QUANTITY') {

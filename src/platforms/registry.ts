@@ -7,7 +7,7 @@ const adapters: readonly BrowserPlatformAdapter[] = [{
   capabilities: { zone: true, singleSeat: true, adjacentSeats: false },
   matches: onezoneAdapter.matches,
   inspect(document, url, context) {
-    const inspection = inspectOnezonePage(document, url);
+    const inspection = inspectOnezonePage(document, url, context?.preferences);
     if (!context) return inspection;
     const auto = inspectAutoControls(document, inspection, context.preferences, context.progress);
     return { ...inspection, automation: { page: auto.page, execute: action => executeAutoAction(action, auto.bindings) } };

@@ -9,7 +9,7 @@ export function isAutoProgress(value: unknown): value is AutoProgress {
   if (!value || typeof value !== 'object') return false;
   const p = value as AutoProgress;
   if (!AUTO_PHASES.includes(p.phase) || typeof p.message !== 'string' || p.message.length > 500) return false;
-  if ([p.actionAt, p.quantityAfterAction, p.selectionStartedAt, p.checkoutReachedAt].some(v => v !== undefined && (typeof v !== 'number' || !Number.isFinite(v)))) return false;
+  if ([p.actionAt, p.quantityAfterAction, p.selectionStartedAt, p.checkoutReachedAt, p.releaseReloadedAt].some(v => v !== undefined && (typeof v !== 'number' || !Number.isFinite(v)))) return false;
   const chosen = p.chosen;
   if (chosen === undefined) return true;
   return !!chosen && typeof chosen === 'object' && (typeof chosen.label === 'string' && chosen.label.length <= 100 && ['ZONE', 'SEAT'].includes(chosen.kind) &&
@@ -22,7 +22,7 @@ export function allowsAutoTransition(from: AutoPhase, to: AutoPhase): boolean {
   if (from === 'PAUSED' || from === 'CHECKOUT') return false;
   if (to === 'CHECKOUT') return true;
   const next: Record<AutoPhase, readonly AutoPhase[]> = {
-    READY: ['OPENING', 'CHOOSING'], OPENING: ['READY'], CHOOSING: ['QUANTITY'],
+    READY: ['READY', 'OPENING', 'CHOOSING'], OPENING: ['READY'], CHOOSING: ['QUANTITY'],
     QUANTITY: ['SETTING_QUANTITY', 'ADVANCING'], SETTING_QUANTITY: ['QUANTITY'], ADVANCING: [], CHECKOUT: [], PAUSED: [],
   };
   return next[from].includes(to);
@@ -35,6 +35,7 @@ export interface AutoProgress {
   quantityAfterAction?: number;
   selectionStartedAt?: number;
   checkoutReachedAt?: number;
+  releaseReloadedAt?: number;
 }
 export interface AutoRun {
   id: string;
@@ -60,7 +61,7 @@ export interface AutoPage {
   quantity?: AutoQuantity;
   problem?: string;
 }
-export type AutoAction = { kind: 'ENTER' | 'ADVANCE' } | { kind: 'CHOOSE'; optionId: string } | { kind: 'QUANTITY'; value: number };
+export type AutoAction = { kind: 'ENTER' | 'ADVANCE' | 'RELOAD' } | { kind: 'CHOOSE'; optionId: string } | { kind: 'QUANTITY'; value: number };
 export type AutoDecision = { type: 'WAIT'; wakeAt?: number } | { type: 'STEP'; progress: AutoProgress; action?: AutoAction };
 
 export const preferencesKey = (p: EventPreferences) => JSON.stringify(p);
@@ -97,14 +98,20 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
     if (snapshot.state === 'SELECTING') return { type: 'STEP', progress: { ...progress, phase: 'READY', message: 'Đã vào bước chọn vé.' } };
     return pending(AUTO_TIMING.navigationMs, 'Chưa vào được bước chọn vé sau khi bấm mua. Kiểm tra trang.');
   }
-  if (snapshot.state === 'NOT_READY' && progress.phase === 'READY') return wait();
+  if (snapshot.state === 'NOT_READY' && progress.phase === 'READY') {
+    if (p.refreshAtSale && progress.releaseReloadedAt === undefined && now - saleAt < AUTO_TIMING.navigationMs) {
+      return { type: 'STEP', action: { kind: 'RELOAD' }, progress: { ...progress, releaseReloadedAt: now, message: 'Cập nhật trang một lần tại giờ bán vì website vẫn đang khóa.' } };
+    }
+    return wait();
+  }
   if (snapshot.state === 'EVENT_PAGE' && progress.phase === 'READY') {
     if (page.enterCount > 1) return pause(progress, 'Có nhiều nút mua vé. Cần xác định đúng suất trước khi chạy.');
-    return page.enterCount === 1 ? { type: 'STEP', action: { kind: 'ENTER' }, progress: { phase: 'OPENING', message: 'Đang vào bước chọn vé…', actionAt: now } } : wait();
+    return page.enterCount === 1 ? { type: 'STEP', action: { kind: 'ENTER' }, progress: { ...progress, phase: 'OPENING', message: 'Đang vào bước chọn vé…', actionAt: now } } : wait();
   }
   if (!snapshot.supported || snapshot.state !== 'SELECTING') {
     if (snapshot.state === 'UNKNOWN' && !snapshot.reason.includes('UNSUPPORTED_VARIANT')) {
-      if (progress.phase === 'READY' && now < run.startedAt + AUTO_TIMING.navigationMs) return wait(run.startedAt + AUTO_TIMING.navigationMs);
+      const hydrationAt = Math.max(run.startedAt, progress.releaseReloadedAt ?? 0);
+      if (progress.phase === 'READY' && now < hydrationAt + AUTO_TIMING.navigationMs) return wait(hydrationAt + AUTO_TIMING.navigationMs);
       if (['CHOOSING', 'SETTING_QUANTITY'].includes(progress.phase)) return pending(AUTO_TIMING.confirmationMs, 'Giao diện chưa xác nhận thao tác chọn vé.');
     }
     return pause(progress, snapshot.reason || 'Chưa đọc được giao diện chọn vé.');
@@ -119,7 +126,7 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
     if (choice.option.kind === 'ZONE' && ['PICK_SEAT', 'MIXED'].includes(snapshot.selectionMode)) return pause(progress, 'Khu này có thể cần chọn ghế; cần adapter xác nhận cách chọn trước khi tự thao tác.');
     if (snapshot.visibleOptions.filter(o => sameOption(choice.option, o)).length !== 1) return pause(progress, 'Các lựa chọn trùng nhãn/giá, chưa phân biệt được vị trí chính xác.');
     return { type: 'STEP', action: { kind: 'CHOOSE', optionId: choice.option.id }, progress: {
-      phase: 'CHOOSING', chosen: choice.option, message: `Đang chọn ${choice.option.label}…`, actionAt: now, selectionStartedAt: now,
+      ...progress, phase: 'CHOOSING', chosen: choice.option, message: `Đang chọn ${choice.option.label}…`, actionAt: now, selectionStartedAt: now,
     } };
   }
   const chosen = progress.chosen && snapshot.visibleOptions.find(o => sameOption(progress.chosen!, o));

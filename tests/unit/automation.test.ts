@@ -12,6 +12,19 @@ function page(patch: Partial<AutoPage> = {}): AutoPage {
   return { snapshot: { url: p.eventUrl, state: 'SELECTING', selectionMode: 'ZONE_ONLY', supported: true, reason: '', visibleOptions: [vip], maxQuantity: 2 }, enterCount: 0, advanceCount: 1, selectable: ['vip'], quantity: { value: 1, min: 1, max: 2, writable: true, stepper: false }, ...patch };
 }
 describe('máy trạng thái camp dùng chung', () => {
+  it('chỉ tải lại một lần tại giờ bán khi vẫn khóa; không reload queue hoặc selection', () => {
+    const configured = { ...p, refreshAtSale: true };
+    const initial = { ...run(), preferencesKey: preferencesKey(configured) };
+    const view = page(); view.snapshot.state = 'NOT_READY';
+    expect(decideAutomation(initial, view, configured, now - 1)).toMatchObject({ type: 'WAIT', wakeAt: now });
+    const reload = decideAutomation(initial, view, configured, now);
+    expect(reload).toMatchObject({ action: { kind: 'RELOAD' }, progress: { releaseReloadedAt: now } });
+    if (reload.type !== 'STEP') throw new Error('Expected reload');
+    expect(decideAutomation({ ...initial, progress: reload.progress }, view, configured, now + 10).type).toBe('WAIT');
+    view.snapshot.state = 'WAITING_ROOM'; expect(decideAutomation(initial, view, configured, now).type).toBe('WAIT');
+    view.snapshot.state = 'SELECTING'; expect(decideAutomation(initial, view, configured, now)).toMatchObject({ action: { kind: 'CHOOSE' } });
+    view.snapshot.state = 'NOT_READY'; expect(decideAutomation(initial, view, configured, now + 15000).type).toBe('WAIT');
+  });
   it('chọn → xác nhận → số lượng → checkout; không bấm lại khi chờ', () => {
     const first = decideAutomation(run(), page(), p, now);
     expect(first).toMatchObject({ type: 'STEP', action: { kind: 'CHOOSE', optionId: 'vip' }, progress: { phase: 'CHOOSING' } });

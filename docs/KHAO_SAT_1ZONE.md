@@ -58,7 +58,9 @@ Trang TP.HCM có nhóm tên tham khảo **HAI QUÝ - GS**, **BA THƯƠNG - GS**,
 
 Map Lavender tại Cung Thiếu nhi giúp nghiên cứu một kiểu giao diện/địa điểm tham khảo. Cùng địa điểm không bảo đảm cùng bố trí sân khấu, số tầng được mở, ghế bị khóa, vùng camera hoặc cách gắn tên hạng vé. Không dùng tọa độ hay mã ghế của Lavender để chọn vé Vương Bình.
 
-Khi có link Hà Nội cần xác nhận lại bốn nhóm thông tin:
+Từ 0.3.0 đã đọc được đúng link Hà Nội, tên hạng hậu tố `- EB`, giá và `seatType=auto`; xem [nghiên cứu API](NGHIEN_CUU_API.md). Bản 0.4.0 bổ sung CTA chính và modal số lượng theo component public; HTML công khai dùng tiêu đề “Chọn số lượng vé”. Các dấu hiệu này có fixture/E2E, chưa thay thế kiểm chứng booking sau đăng nhập. Người dùng xác nhận mốc 12h ngày 19/10/2026; mốc này có thể sửa trên form.
+
+Với mỗi sự kiện vẫn cần xác nhận bốn nhóm thông tin:
 
 1. **Danh tính suất:** URL, calendarId, thành phố, địa điểm và ngày biểu diễn.
 2. **Danh mục vé:** tên chính xác, giá, quyền lợi, giới hạn số lượng và điều kiện mua.
@@ -79,6 +81,6 @@ Những sửa đổi ở lần khảo sát 0.1.0 chỉ cải thiện nhận di�
 
 Phòng chờ thực tế và bước chọn vé sau đăng nhập vẫn thiếu bằng chứng. Code nhận diện phòng chờ tổng quát; nếu route không giữ danh tính event, panel giữ trạng thái phòng chờ kèm cảnh báo chưa xác nhận thuộc suất đã lưu và không gợi ý. Domain khác chưa có quyền content script.
 
-Cần một lần quan sát đúng suất Hà Nội khi trang được công bố để thu được DOM của từng bước. Ưu tiên tạo fixture riêng cho: thẻ thông tin khác với vùng có thể chọn, lựa chọn số lượng, sơ đồ tương tác có nhãn, thời gian phiên còn lại và hết hạn. Không suy từ ảnh để tự click vào bản đồ.
+Cần quan sát booking đúng suất Hà Nội bằng phiên đăng nhập khi website cho phép để thu được DOM của từng bước. Đã có fixture cho card dùng p và modal số lượng theo dấu hiệu public; các phần còn thiếu gồm sơ đồ tương tác thực tế, thời gian phiên còn lại và lỗi hết hạn. Không suy từ ảnh để tự click vào bản đồ.
 
 Script khảo sát có thể chạy lại toàn bộ bằng `node scripts/inspect-public-cases.mjs`, hoặc một case cố định như `node scripts/inspect-public-cases.mjs lavender-booking`. Script chỉ mở URL công khai; báo cáo JSON/ảnh được lưu local và không được dùng làm cấu hình mua vé.

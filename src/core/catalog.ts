@@ -46,7 +46,8 @@ export interface CatalogSelection {
   venue: string;
   startsAt: string;
   verifiedAt: number;
-  tickets: Pick<TicketType, 'id' | 'name' | 'priceVnd'>[];
+  maxQuantity?: number;
+  tickets: (Pick<TicketType, 'id' | 'name' | 'priceVnd'> & Partial<Pick<TicketType, 'seatMode' | 'maxQuantity'>>)[];
 }
 export interface ConcertSearchResult {
   items: ConcertSummary[];

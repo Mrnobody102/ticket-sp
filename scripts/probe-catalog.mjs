@@ -24,7 +24,9 @@ function objectAt(text, start) {
     else if (char === '}' && --depth === 0) return JSON.parse(text.slice(start, i + 1));
   }
 }
-for (const [name, url] of urls) {
+const selected = process.argv.slice(2);
+if (selected.some(name => !urls.some(([known]) => known === name))) throw new Error('Unknown catalog case.');
+for (const [name, url] of urls.filter(([name]) => !selected.length || selected.includes(name))) {
   try {
     const started = performance.now();
     const response = await fetch(url, { signal: AbortSignal.timeout(15000), credentials: 'omit' });
@@ -38,7 +40,7 @@ for (const [name, url] of urls) {
           const marker = payload[1].indexOf('"eventData":');
           if (marker < 0) continue;
           const event = objectAt(payload[1], marker + '"eventData":'.length);
-          const clean = Object.fromEntries(Object.entries(event).filter(([key]) => /^(id|name|pathName|eventCalendar|location|address|venue|thumbnail|start|end|opening|status|ticket|seat|booking|max|saleConfig|canPurchase|currencyCode)/i.test(key)));
+          const clean = Object.fromEntries(Object.entries(event).filter(([key]) => /^(id|type|eventType|queueId|name|pathName|eventCalendar|location|address|venue|thumbnail|start|end|opening|status|ticket|seat|booking|max|saleConfig|canPurchase|currencyCode)/i.test(key)));
           writeFileSync(resolve(output, `${name}-event-data.json`), JSON.stringify(clean, null, 2));
           console.log(JSON.stringify({ name, keys: Object.keys(event), data: clean }));
         } catch { /* Not a JSON-bearing flight record. */ }

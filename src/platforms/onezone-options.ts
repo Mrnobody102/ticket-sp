@@ -2,6 +2,7 @@ import type { SeatSelectionMode, VisibleOption } from '../core/models';
 import { normalize } from '../core/preferences';
 import { createPageReader, type PageReader } from './onezone-dom';
 import type { OptionElement } from './contracts';
+import type { CatalogSelection } from '../core/catalog';
 export type { OptionElement } from './contracts';
 
 function pricePattern(): RegExp {
@@ -10,13 +11,24 @@ function pricePattern(): RegExp {
   return new RegExp(`(?<![\\p{L}\\p{N}.,])(?:${currency}\\s*(${amount})(?![\\p{L}\\p{N}.,])|(${amount})\\s*${currency}(?![\\p{L}\\p{N}]))`, 'giu');
 }
 
-function priceValues(text: string): number[] {
+export function priceValues(text: string): number[] {
   return [...new Set([...text.matchAll(pricePattern())]
     .map(m => Number((m[1] ?? m[2])?.replace(/[.,\s]/g, ''))).filter(Number.isSafeInteger))];
 }
 
+export function currentPriceValues(element: Element, reader: PageReader): number[] {
+  const walker = element.ownerDocument.createTreeWalker(element, 4);
+  const parts: string[] = [];
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    const parent = node.parentElement;
+    if (parent && reader.isVisible(parent) && !parent.closest('del,s,.line-through')) parts.push(node.textContent ?? '');
+  }
+  return priceValues(parts.join(' '));
+}
+
 /** Read semantic HTML controls. This is not a reader for unlabeled graphical maps. */
-export function readOptionElements(document: Document, mode: SeatSelectionMode = 'UNKNOWN', reader: PageReader = createPageReader(document)): OptionElement[] {
+export function readOptionElements(document: Document, mode: SeatSelectionMode = 'UNKNOWN', reader: PageReader = createPageReader(document), quotes: CatalogSelection['tickets'] = []): OptionElement[] {
   const { isVisible, text } = reader;
   const candidates = [...document.querySelectorAll('button, [role="option"], [role="radio"], label, article, li, section, [role="group"]')];
   const optionsByElement = new Map<Element, Omit<VisibleOption, 'id'>>();
@@ -55,6 +67,27 @@ export function readOptionElements(document: Document, mode: SeatSelectionMode =
     // a group of equally priced seats must never become one purchasable zone.
     for (let parent = element.parentElement; parent; parent = parent.parentElement) optionsByElement.delete(parent);
     optionsByElement.set(element, option);
+  }
+  // Official cards can use <p> for their title. Bind them only with a matching
+  // catalog quote, one explicit select/buy control and an unambiguous unit price.
+  for (const button of document.querySelectorAll<HTMLElement>('button, [role="button"]')) {
+    if (!isVisible(button) || !/^(chon|chon ve|mua ve|dat ve|select)$/.test(normalize(button.getAttribute('aria-label') ?? text(button)))) continue;
+    let card = button.parentElement;
+    for (let depth = 0; card && card !== document.body && depth < 5; card = card.parentElement, depth++) {
+      const names = quotes.filter(q => [...card!.querySelectorAll('p,h2,h3,h4,span')].some(e => isVisible(e) && normalize(text(e)) === normalize(q.name)));
+      if (names.length !== 1) continue;
+      const quote = names[0]!;
+      // Preserve selected/ID evidence already read from a semantic card.
+      if (optionsByElement.has(card)) break;
+      const actions = [...card.querySelectorAll('button, [role="button"]')].filter(e => isVisible(e) && /^(chon|chon ve|mua ve|dat ve|select)$/.test(normalize(e.getAttribute('aria-label') ?? text(e))));
+      if (actions.length !== 1) break;
+      const unique = currentPriceValues(card, reader);
+      if (unique.length !== 1 || unique[0] !== quote.priceVnd) break;
+      const selected = card.matches('[aria-selected="true"],[aria-checked="true"],[aria-pressed="true"]') || button.matches('[aria-selected="true"],[aria-checked="true"],[aria-pressed="true"]');
+      optionsByElement.set(card, { kind: 'ZONE', label: quote.name, displayedPriceVnd: unique[0], selected,
+        displayedAvailability: button.matches(':disabled,[aria-disabled="true"]') ? 'UNAVAILABLE' : 'AVAILABLE' });
+      break;
+    }
   }
   // Apply the display limit after resolving groups, keeping DOM order and unique IDs.
   return [...optionsByElement].slice(0, 100).map(([element, option], index) => ({

@@ -234,8 +234,9 @@ test('camp khóa một tab; phòng chờ tự đi tiếp khi được vào; ẩn
   await second.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
   await expect(second.getByRole('alert')).toContainText('Đang camp trên một tab');
   await popup.getByLabel('Hiển thị panel trên trang vé').uncheck();
-  await event.evaluate(html => { document.querySelector('main')!.outerHTML = new DOMParser().parseFromString(html, 'text/html').querySelector('main')!.outerHTML; }, fixture('booking'));
-  await installBookingOnPage(event);
+  // Install controls and handlers in the same task, as a real framework commit does.
+  const markup = fixture('booking').match(/<main[\s\S]*?<\/main>/)![0];
+  await event.addScriptTag({ content: `document.querySelector('main').outerHTML = ${JSON.stringify(markup)}; (${installBookingDemo.toString()})(document);` });
   await expect(event.locator('main form')).toContainText('VIP · 1 vé');
   await expect.poll(() => worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1']?.progress.phase)).toBe('CHECKOUT');
   await popup.getByLabel('Hiển thị panel trên trang vé').check();
@@ -311,4 +312,22 @@ test('camp một ghế DOM có nhãn tới checkout', async () => {
   await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
   await expect(event.locator('main form')).toContainText('A1 · 1 vé');
   expect(errors).toEqual([]);
+});
+
+test('trang vẫn khóa lúc bán: reload đúng một lần rồi tiếp tục cùng phiên', async () => {
+  const { popup, event } = await prepareAuto();
+  let requests = 0;
+  const booking = target.replace('/events/', '/booking/');
+  await context.route(booking, route => route.fulfill({ contentType: 'text/html', body: requests++ === 0 ? '<!doctype html><html lang="vi"><head><meta charset="utf-8"></head><body><h1>Sắp mở bán</h1><button disabled>Sắp mở bán</button></body></html>' : fixture('booking') + `<script>(${installBookingDemo.toString()})(document)</script>` }));
+  await event.goto(booking);
+  await context.serviceWorkers()[0]!.evaluate(async () => {
+    const key = 'ticket-assistant.config.v1', config = (await chrome.storage.local.get(key))[key];
+    config.preferences.saleStartAt = new Date(Date.now() + 1500).toISOString(); config.preferences.refreshAtSale = true;
+    await chrome.storage.local.set({ [key]: config });
+  });
+  await popup.reload(); await popup.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  expect(requests).toBe(2);
+  const run = await context.serviceWorkers()[0]!.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1']);
+  expect(run.progress.releaseReloadedAt).toBeGreaterThan(0);
 });

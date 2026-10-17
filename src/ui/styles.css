@@ -43,6 +43,9 @@ summary { cursor: pointer; font-size: 12px; color: #505e70; }
 .run-bar p { color: #697486; font-size: 11px; margin: 4px 0 0; max-width: 270px; }
 .run-bar > button { white-space: nowrap; padding: 10px 14px; }
 .event-finder > select { margin-bottom: 9px; }
+.target-shortcut { width: 100%; text-align: left; display: grid; gap: 5px; padding: 12px; margin: 0 0 14px; border-color: #9bb2d4; background: #f5f8fd; }
+.target-shortcut small { font-size: 10px; }
+.extra-settings > label { margin-top: 12px; }
 .search-row { display: flex; gap: 7px; }
 .search-row input { flex: 1; }
 .empty-note { color: #798391; font-size: 12px; margin: 14px 0 3px; }

@@ -1,6 +1,8 @@
-# Cơ chế camp vé · bản 0.3.0
+# Cơ chế camp vé · bản 0.4.0
 
 Bản hiện tại kết nối **tìm sự kiện → chọn đúng suất/hạng/giá → camp tới checkout**. Bản 0.2.0 có bộ thực thi tự chọn vé; 0.3.0 bổ sung catalog API, cấu hình theo ID/giá và kiểm tra trước khi chạy. Tài liệu phân biệt kiểm thử cục bộ, GET công khai đã chạy thật và booking chưa xác minh trên sự kiện mục tiêu.
+
+0.4.0 bổ sung preset Hà Nội, modal theo dấu hiệu public của 1Zone, lịch microtask, reload một lần tại mốc bán và benchmark lặp. Hướng dẫn thực tế: [sẵn sàng mở bán](SAN_SANG_MO_BAN.md).
 
 ## 1. Đầu vào và đầu ra
 
@@ -51,7 +53,7 @@ Core không import React, Chrome hoặc DOM. Runner không import adapter 1Zone.
 | AutoProgress | Bước hiện tại, lựa chọn đã nhắm tới, mốc hành động, số lượng cần xác nhận |
 | AutoPage | Snapshot chuẩn hóa, số nút vào mua/đi tiếp, các lựa chọn có thể bấm, số lượng đọc được, lỗi |
 | AutoDecision | Chờ với mốc đánh thức, hoặc chuyển bước với một hành động |
-| AutoAction | ENTER, CHOOSE, QUANTITY, ADVANCE |
+| AutoAction | ENTER, CHOOSE, QUANTITY, ADVANCE, RELOAD một lần khi được cấu hình |
 
 ID option chỉ tồn tại trong một lần đọc. Qua các lần đọc, lựa chọn được đối chiếu bằng loại, nhãn, khu, giá và ID hạng nếu DOM cung cấp. Nếu hai lựa chọn trùng các dấu hiệu này, core dừng thay vì suy đoán vị trí.
 
@@ -64,7 +66,7 @@ ID option chỉ tồn tại trong một lần đọc. Qua các lần đọc, l�
 | ConcertSummary / ConcertDetail | Event ID, tên/link/địa điểm, các suất và currency |
 | Performance | ID suất, địa điểm, giờ diễn, giới hạn số lượng nếu có |
 | TicketType / TicketCatalog | ID hạng, tên, giá, giới hạn, mode ghế, thời điểm đọc và suất sở hữu |
-| CatalogSelection | Event/suất và danh sách ID hạng + tên + giá đã chọn theo thứ tự |
+| CatalogSelection | Event/suất, giới hạn suất; danh sách ID hạng + tên + giá + mode ghế + giới hạn đã chọn theo thứ tự |
 | CatalogProvider | Contract search/detail/tickets, không có thao tác đặt vé |
 
 `onezone-catalog.ts` đọc search API, JSON eventData trong HTML và summary hạng vé. `ticketbox-catalog.ts` đọc search và event/showings/ticketTypes. Mỗi provider kiểm tra schema, danh tính và giá trước khi trả model chung. Hai parser không gọi nhau.
@@ -72,6 +74,8 @@ ID option chỉ tồn tại trong một lần đọc. Qua các lần đọc, l�
 `catalog-service.ts` sở hữu GET allowlist, timeout, cache và gộp request. Những GET tra cứu không đi vào hàng đợi tuần tự của automation. UI không nhận dữ liệu JSON thô hay token. `EventFinder` bỏ response đến muộn bằng phiên bản request; nhiều suất phải chọn rõ, link có ID suất sai không tự chuyển sang suất khác. Giờ diễn luôn ghi riêng, người dùng nhập giờ bán theo thông báo chính thức.
 
 `TicketPriorities` dùng native select, cho thêm/đổi thứ tự/bỏ hạng. Lưu cấu hình giữ ID và giá; reopen vẫn giữ snapshot đã chọn. Form sửa chưa lưu hoặc cấu hình đổi ở cửa sổ khác sẽ khóa Bắt đầu camp cho tới khi lưu/tải lại.
+
+Giới hạn số vé trên form là giá trị nhỏ nhất trong các giới hạn đã biết của suất và những hạng ưu tiên: mỗi phương án phải đáp ứng toàn bộ số vé. Không biết giới hạn thì không gán nó thành giới hạn của website; mức 100 là trần cấu hình nội bộ. Preset Hà Nội chỉ điền bản nháp giờ/link/1 vé; thứ tự hạng và số vé do người dùng chuẩn bị trước. Mọi show dùng chung cơ chế lưu và preflight.
 
 Khi bật camp có catalog, detail và tickets được GET mới song song (`no-store`, không dùng cache). [catalog-validation.ts](../src/core/catalog-validation.ts) đối chiếu event/suất, ngày/địa điểm, VND, thời gian kết thúc, giới hạn số lượng, ID/tên/giá. Sai lệch thì không tạo phiên camp. Cấu hình cũ nhập thủ công vẫn dùng được, nhưng không có đối chiếu catalog này.
 
@@ -158,12 +162,14 @@ Bộ thao tác chỉ bind điều khiển có ngữ nghĩa rõ ràng:
 
 | Thao tác | Cách thực hiện |
 |---|---|
-| ENTER | Một nút/link mua vé khả dụng; link booking phải đúng concert/calendarId |
+| ENTER | Nút chính `btn-by-ticket` đã biết nếu duy nhất, hoặc một nút/link mua khả dụng không mơ hồ; link booking phải đúng concert/calendarId |
 | CHOOSE | Nút/role chọn trực tiếp hoặc một điều khiển chọn duy nhất trong card |
-| QUANTITY | Native setter + input/change cho input/select; bấm từng bước cho ARIA stepper có nút tăng/giảm |
+| QUANTITY | Native setter + input/change cho input/select; bấm từng bước cho ARIA stepper hoặc stepper modal 1Zone đã đối chiếu |
 | ADVANCE | Một điều khiển tiếp tục đã biết; loại nút trong thẻ vé, nút thanh toán/xác nhận cuối |
 
 Giá/ngân sách, selected và số lượng được kiểm tra lại trước đi tiếp. Thay đổi thuộc tính DOM được quan sát; input/change cũng được lắng nghe vì gán property không nhất thiết tạo mutation.
+
+[onezone-modal.ts](../src/platforms/onezone-modal.ts) đọc modal có `btn-add`, `btn-sub`, số lượng trong span và `btn-continue`. Tên hạng và giá hiện tại phải khớp catalog; giá gốc gạch ngang không tham gia so sánh. Việc modal hiển thị đúng một hạng là bằng chứng chọn trong biến thể này. Reader thẻ có tiêu đề p cũng yêu cầu quote khớp và một nút chọn/mua rõ ràng. Các dấu hiệu lấy từ component public và test bằng mô phỏng, chưa phải DOM booking đăng nhập của suất thật. Tool không truy cập React store hoặc token xác minh.
 
 Synthetic click/input là cơ chế DOM; một số ứng dụng không nhận loại sự kiện này hoặc không công khai trạng thái cần đọc. Khi đó cần bổ sung adapter từ DOM thật, không tuyên bố tương thích bằng fixture.
 
@@ -179,9 +185,9 @@ Nếu website không thể hiện selected hoặc số lượng đủ rõ, tool 
 
 ## 9. Tốc độ được tối ưu ở đâu?
 
-Ở chế độ theo dõi, nhiều mutation được gom theo khoảng 600 ms. Khi có phiên camp hoạt động, controller dùng khoảng gom **16 ms** để phản ứng với thay đổi trang. Runner xử lý tuần tự và phản ứng sau mỗi bước, không đợi countdown UI một giây.
+Ở chế độ theo dõi, nhiều mutation được gom theo khoảng 600 ms. Khi có phiên camp hoạt động hoặc lượt urgent, controller hủy timer chậm đang chờ và dùng microtask thay cho khoảng gom 16 ms. Runner bắt đầu trước phần tính highlight/render, xử lý tuần tự và phản ứng sau mỗi bước; không đợi countdown UI một giây.
 
-Không có vòng polling mạng hoặc tự refresh. Các mốc giờ bán, timeout và hết phiên được đánh thức bằng timer; DOM/event đánh thức ngay khi cần đọc lại.
+Không có vòng polling mạng/refresh lặp. Khi bật `refreshAtSale`, đúng trang còn NOT_READY trong 15 giây từ mốc bán được reload một lần. Core ghi `releaseReloadedAt` trước hành động và giữ nó qua điều hướng/các bước; sau reload có khoảng chờ hydration mới. Queue/challenge/selection/checkout được xét trước nên không bị refresh. Các mốc giờ bán, timeout và hết phiên dùng timer; DOM/event đánh thức khi cần đọc lại.
 
 Chi phí mỗi hành động gồm đọc DOM, quyết định, ghi session qua background, kiểm tra lại và click, sau đó chờ website phản hồi. Tiết kiệm thời gian ở phần người dùng tìm/chọn/bấm; không làm server mở bán sớm hơn.
 

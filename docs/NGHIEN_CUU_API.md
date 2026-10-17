@@ -1,4 +1,4 @@
-# Nguồn dữ liệu, API và giới hạn booking · 0.3.0
+# Nguồn dữ liệu, API và giới hạn booking · 0.4.0
 
 Đối chiếu ngày 18/10/2026 bằng Chromium profile tạm và HTTP GET không đăng nhập. Đây là các endpoint do website chính thức sử dụng, **chưa phải API tích hợp có cam kết ổn định**. Không gửi POST giữ vé/tạo đơn, không sao chép token, cookie hoặc thông tin thanh toán.
 
@@ -45,6 +45,14 @@ Parser dùng `JSON.parse` và đếm ngoặc có xử lý chuỗi/escape; **khô
 
 Summary trả `seatType=auto` và bật CAPTCHA ở các hạng trên. Giá/tên/giới hạn có thể đổi theo đợt. Tool không tự ghi sự kiện này vào cấu hình; người dùng chọn đúng suất và lưu. Hậu tố `- EB` khác `- GS` ở link TP.HCM; không tạo alias tự động giữa hai đợt.
 
+Người dùng xác nhận 12:00 ngày 19/10/2026 UTC+7 làm mặc định có thể sửa. Mốc này thuộc preset, không suy từ giờ diễn hay trường CLOSE. Chọn/sắp ưu tiên và số vé được thực hiện trước giờ bán; form lấy giới hạn nhỏ nhất trong những giới hạn đã biết của suất và các hạng đã chọn. Khi arm, dữ liệu mới được đọc lại để chặn vượt giới hạn.
+
+### Đối chiếu UI cho bản 0.4.0
+
+Trang công khai hiện có hai CTA khóa; hero dùng `data-id="btn-by-ticket"`, bản sticky không có dấu này. Route booking ẩn danh chuyển về event. Public client kiểm tra trạng thái OPEN/CLOSE và canPurchase; chỉ đến giờ trên đồng hồ tool không làm CTA mở.
+
+Component SelectTicketModal công khai dùng `btn-sub`, `btn-add`, số lượng trong span, `btn-continue`; giá gốc có thể gạch ngang cạnh giá hiện tại. Reader mới dùng các dấu này cùng tên/giá khớp catalog, và hỗ trợ thẻ có tiêu đề p với một nút chọn/mua. Không đọc React internals hoặc token. Đã dựng fixture và E2E tương ứng; chưa có DOM booking từ tài khoản đăng nhập thật. Chi tiết bằng chứng và phép đo ở [sẵn sàng mở bán](SAN_SANG_MO_BAN.md).
+
 ## 4. Ticketbox: cùng model, parser riêng
 
 | GET đã quan sát | Dữ liệu dùng |
@@ -65,7 +73,7 @@ Client công khai của 1Zone có đường gọi `POST /ticketing/api/v3/order/
 3. Cách đọc lại kết quả sau timeout để không gửi lặp giữ vé; cách hủy/khôi phục theo quy tắc website.
 4. Một lần thử được kiểm soát tới checkout, đo thời gian và tạo fixture hồi quy từ schema đã lược bỏ dữ liệu cá nhân.
 
-Hiện chưa có các bằng chứng đó. Bản 0.3.0 gọi API trực tiếp cho **dữ liệu**; **đặt vé vẫn qua adapter trên giao diện website**, sử dụng phiên người dùng. Gặp CAPTCHA thì dừng để người dùng xử lý. Không thêm một nhánh POST chưa kiểm tra chỉ để ghi là “API booking”.
+Hiện chưa có các bằng chứng đó. Bản 0.4.0 gọi API trực tiếp cho **dữ liệu**; **đặt vé vẫn qua adapter trên giao diện website**, sử dụng phiên người dùng. Gặp CAPTCHA thì dừng để người dùng xử lý. Không thêm một nhánh POST chưa kiểm tra chỉ để ghi là “API booking”.
 
 ## 6. Tốc độ, nguồn tham khảo và cách kiểm tra lại
 
@@ -79,6 +87,8 @@ Nguồn tra cứu mạng chạy ngoài hàng đợi sửa cấu hình/chuyển b
 node scripts/research-platforms.mjs onezone-search ticketbox-search cticket-home
 node scripts/probe-catalog.mjs
 npm run smoke:catalog
+node scripts/research-target.mjs
+node scripts/smoke-target.mjs
 ```
 
 Hai script khảo sát lưu JSON/ảnh cục bộ dưới `artifacts/network-research`; không ghi header/cookie và không lưu bundle JavaScript. Smoke catalog mở extension production, dùng UI gọi API thật, không lưu cấu hình/khởi động camp. Kết quả dưới `artifacts/catalog-live.json`; output không đưa vào Git. Nếu schema đổi, cần cập nhật parser và fixtures, không chỉ sửa kiểu TypeScript.

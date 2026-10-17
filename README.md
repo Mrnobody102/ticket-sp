@@ -1,8 +1,8 @@
 # Camp vé · Ticket Assistant
 
-Chrome Extension MV3 chạy cục bộ, mặc định **1 vé**, ngân sách không giới hạn. Bản **0.3.0** thêm **tìm sự kiện → đọc suất/hạng/giá từ API → chọn ưu tiên → kiểm tra lại → camp tới checkout**. Luồng camp tự vào mua, chọn zone/ghế đọc được, đặt số lượng và bấm tiếp. Nhắc giờ và highlight là phần phụ.
+Chrome Extension MV3 chạy cục bộ, mặc định **1 vé**, ngân sách không giới hạn. Bản **0.4.0** thêm cấu hình nhanh suất Hà Nội, reader cho modal 1Zone và benchmark nhiều lượt. Luồng chính: **tìm sự kiện → lấy suất/hạng/giá → chọn ưu tiên → chuẩn bị trước giờ bán → tự chọn và đi tới checkout**. Nhắc giờ là phần phụ.
 
-**1Zone** có nguồn dữ liệu và adapter camp; **Ticketbox** đã tra cứu được sự kiện/suất/hạng/giá, chưa có adapter camp; **CTicket** chưa kết nối. Đã tìm được [Vương Bình Hà Nội — Mâm 2](https://ticket.1zone.vn/events/vuong-binh-tiec-thanh-than-mam-2?calendarId=8h0YGm) tại Cung Thiếu nhi Hà Nội. Giờ mở bán và luồng booking thật vẫn cần xác minh. Không lấy lịch biểu diễn làm giờ bán: [nghiên cứu API](docs/NGHIEN_CUU_API.md).
+**1Zone** có nguồn dữ liệu và adapter camp; **Ticketbox** chỉ tra cứu; **CTicket** chưa kết nối. Preset [Vương Bình Hà Nội](https://ticket.1zone.vn/events/vuong-binh-tiec-thanh-than-mam-2?calendarId=8h0YGm) đặt **12:00 ngày 19/10/2026 UTC+7**, theo thời gian người dùng xác nhận. Trang hiện chưa mở bán; booking thật chưa được xác minh. Xem [chuẩn bị và cách test](docs/SAN_SANG_MO_BAN.md).
 
 ## Cài đặt
 
@@ -18,7 +18,7 @@ npm run build
 3. Ghim icon **Camp vé**. Sau mỗi lần build/reload extension, tải lại tab website.
 4. **Diễn tập** → **Camp tự động tới checkout** → **Bắt đầu camp** trong panel để xem luồng chạy cục bộ.
 
-`npm run zip` tạo `.output/ticket-sp-0.3.0-chrome.zip`. Chuyển sang máy khác thì giải nén và Load unpacked thư mục chứa manifest. Git chỉ lưu source/lockfile, không lưu output hay dữ liệu test.
+`npm run zip` tạo `.output/ticket-sp-0.4.0-chrome.zip`. Chuyển sang máy khác thì giải nén và Load unpacked thư mục chứa manifest. Git chỉ lưu source/lockfile, không lưu output hay dữ liệu test.
 
 ## Sử dụng
 
@@ -28,13 +28,15 @@ npm run build
 4. Tool chờ giờ bán theo đồng hồ máy và nút mua khả dụng. Khi được vào chọn vé, tool tự thao tác trên điều khiển đọc được.
 5. Panel báo từng bước và kết quả. Khi tới checkout, bạn kiểm tra vé, phí và thanh toán.
 
+Với suất đã chốt, bấm **Dùng Vương Bình · Hà Nội** để tự điền link, giờ và 1 vé, tự tải hạng/giá. Bạn chọn và sắp thứ tự hạng trước, sửa số vé hoặc giờ bán nếu cần. Số vé bị giới hạn theo suất và các hạng đã chọn; khi chưa có giới hạn từ nguồn, tool không khẳng định giới hạn của website. Ngân sách/fallback nằm trong **Tùy chọn thêm**. Lưu rồi bật camp **trước 12h** để preflight hoàn tất trước mốc chạy. Preset không tự lưu, tự chọn hạng hoặc tự bật camp. Show khác dùng cùng luồng tìm/dán link và cấu hình, không phụ thuộc preset Hà Nội.
+
 Camp chỉ dùng **cấu hình đã lưu**; nút bắt đầu bị khóa khi form có thay đổi chưa lưu. Lưu lại cấu hình dừng phiên hiện tại. Một phiên sở hữu một tab; tab khác không thực thi. **Dừng camp** hủy phiên thao tác; **Dừng theo dõi** hủy cả camp và nhắc giờ. **Ẩn panel** chỉ ẩn UI, camp vẫn chạy; dừng bằng popup nếu cần.
 
 Phiên camp tồn tại trong `chrome.storage.session`, qua lần worker khởi động lại/điều hướng tab, nhưng không tự bật lại sau khi đóng/mở Chrome hoặc reload extension. Đóng tab chủ sẽ hủy phiên. Phiên hết hạn sau một giờ tính từ mốc muộn hơn giữa lúc bắt đầu và giờ bán.
 
 | Giao diện | Tự động hóa hiện tại |
 |---|---|
-| Chọn khu vực / website cấp ghế | Chọn ưu tiên còn khả dụng, xác nhận đã chọn, đặt số lượng qua input/select/stepper có nhãn, đi tiếp |
+| Chọn khu vực / website cấp ghế | Chọn ưu tiên còn khả dụng, xác nhận đã chọn, đặt số lượng qua input/select/stepper có nhãn hoặc modal 1Zone có dấu hiệu đã đối chiếu, đi tiếp |
 | Chọn ghế DOM có nhãn và giá | Chọn một ghế cho yêu cầu 1 vé, xác nhận đã chọn rồi đi tiếp |
 | Nhiều ghế / khu có cách chọn lẫn nhau | Chưa tự ghép nhóm ghế; dừng nếu không xác định được cách chọn |
 | Phòng chờ | Giữ tab, chờ website cho vào rồi tiếp tục khi đúng concert |
@@ -45,7 +47,9 @@ Phiên camp tồn tại trong `chrome.storage.session`, qua lần worker khởi 
 
 ## Tốc độ và xác nhận thao tác
 
-Khi camp chạy, mutation/input/change của website kích hoạt lượt đọc với độ trễ gom lịch mục tiêu **16 ms**, thay cho khoảng 600 ms ở chế độ theo dõi. Đây không phải cam kết mua được vé trong 16 ms.
+Khi camp chạy, mutation/input/change kích hoạt lượt đọc ở microtask tiếp theo, bỏ khoảng gom 16 ms cũ. Lịch camp ưu tiên hơn timer theo dõi khoảng 600 ms. Quyết định bắt đầu trước phần vẽ panel; vẫn ghi bước, kiểm tra lại DOM và xác nhận phản hồi.
+
+Preset cho tải lại **một lần** tại giờ bán nếu đúng trang vẫn NOT_READY; không tải lại queue/CAPTCHA/phiên đang chọn. Nếu CTA đã mở thì dùng ngay, không reload. Dấu reload được lưu qua điều hướng; không lặp refresh.
 
 Mỗi hành động được ghi trạng thái trước khi bấm, kiểm tra lại DOM sau bước ghi bất đồng bộ và chờ website xác nhận. Không tự bấm lại một lệnh chưa rõ kết quả. Nhịp thực tế còn phụ thuộc Chrome, DOM, phòng chờ, mạng và server. Panel hiển thị thời gian từ bắt đầu chọn vé tới lúc nhận diện checkout của phiên đó.
 
@@ -61,6 +65,8 @@ npm run zip
 ```
 
 `check` gồm typecheck, unit tests, build production. E2E chạy extension thật trên Chromium với website mô phỏng, không tạo đơn thật. `npm run dev` dùng `.output/chrome-mv3-dev`, không dùng bản này cho buổi bán.
+
+`npm run bench:camp` đo 24 mẫu với extension production và website/API mô phỏng. Báo cáo p50/p95 ở `artifacts/camp-benchmark.json`. **Diễn tập → 1Zone · Modal hạng vé** cho thử trực tiếp bằng UI. `node scripts/smoke-target.mjs` chỉ đo nhận diện trên trang Hà Nội công khai bằng profile tạm, không khởi động camp/giữ vé. Kết quả fixture không chứng minh nhanh nhất hoặc mua được vé thật.
 
 `npm run smoke:live -- https://ticket.1zone.vn/events/…`, `node scripts/inspect-public-cases.mjs` và `npm run smoke:catalog` chỉ đọc trang/API công khai. Smoke catalog chạy UI thật với profile tạm, không lưu cấu hình hay khởi động camp.
 

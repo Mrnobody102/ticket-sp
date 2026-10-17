@@ -1,4 +1,4 @@
-# Rà soát source và cơ chế tham khảo · 0.3.0
+# Rà soát source và cơ chế tham khảo · 0.4.0
 
 Bản 0.1.0 chỉ nhắc giờ và đánh dấu vé, chưa đủ cho yêu cầu camp theo tốc độ. Bản 0.2.0 thêm executor theo trạng thái, dùng chung core/runner cho các nền tảng. Chức năng trên sự kiện thật vẫn cần xác minh từ DOM/luồng của sự kiện đó.
 
@@ -32,6 +32,11 @@ Nguồn catalog 1Zone/Ticketbox là hai provider thật, dùng schema GET đã q
 - Catalog giữ event/performance/ticket ID và giá; chặn ID trùng, giá mơ hồ, link ngoài nguồn, sai suất/ngày/địa điểm, currency và giới hạn số lượng.
 - Khi bật camp đọc mới dữ liệu, không tin cache tra cứu. Các GET tìm kiếm chạy riêng, không chặn chuyển bước automation.
 - UI bỏ kết quả đến muộn, chặn chạy form chưa lưu; popup và workspace dùng cùng component. Trạng thái người dùng được viết bằng tiếng Việt; phase kỹ thuật giữ ở session/data attribute để chẩn đoán.
+- Đối chiếu CTA chính `btn-by-ticket` và modal public của 1Zone; reader riêng cho `btn-add/sub/continue`, số lượng span và giá gốc gạch ngang. Fixture mô phỏng theo component chưa thay thế DOM booking đăng nhập thật.
+- Quote bổ sung từng làm mất selected của thẻ ARIA trong một lượt test hồi quy: đã giữ bằng chứng từ semantic reader và thêm test để ngăn tái diễn.
+- Camp dùng microtask ưu tiên; reload một lần chỉ khi trang còn khóa tại giờ bán, dấu được giữ qua điều hướng. Có kiểm tra không reload queue/challenge/checkout.
+- Preset chỉ điền bản nháp; người dùng chuẩn bị thứ tự hạng, số vé và giờ từ trước. Giới hạn suất/hạng được lưu và kiểm tra lại trước khi arm.
+- Benchmark 24 mẫu qua extension production đo từ CTA mở đến click/checkout mô phỏng, kiểm tra không click sớm/lặp/final-payment. Smoke target thật chỉ đọc DOM; không dùng benchmark này để cam kết tốc độ sale.
 
 TypeScript bật strict, noUncheckedIndexedAccess, noUnusedLocals và noUnusedParameters. Xem [VALIDATION.md](VALIDATION.md) cho kết quả từng bộ test và giới hạn.
 

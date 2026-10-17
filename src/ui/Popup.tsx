@@ -9,6 +9,8 @@ import { autoActive, type AutoRun } from '../core/automation';
 import { platformForUrl } from '../core/platform-catalog';
 import { EventFinder, eventDate, type LoadedConcert } from './EventFinder';
 import { TicketPriorities } from './TicketPriorities';
+import { HANOI_PRESET } from '../core/task-presets';
+import { catalogQuantityLimit } from '../core/catalog-validation';
 
 export function Popup({ workspace = false }: { workspace?: boolean }) {
   const [config, setConfig] = useState<TaskConfig>(DEFAULT_CONFIG);
@@ -27,6 +29,8 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [autoRun, setAutoRun] = useState<AutoRun | null>(null);
+  const [requestedUrl, setRequestedUrl] = useState<{ url: string; requestId: number }>();
+  const [refreshAtSale, setRefreshAtSale] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -47,7 +51,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
       const p = c.preferences;
       if (p) {
         setUrl(p.eventUrl); setSaleTime(toVietnamLocal(p.saleStartAt)); setQuantity(String(p.quantity));
-        setBudget(p.maxTotalVnd ? String(p.maxTotalVnd) : ''); setLabels(p.preferredZoneLabels.join('\n')); setAlternatives(p.allowAlternatives); setRetainedCatalog(p.catalog);
+        setBudget(p.maxTotalVnd ? String(p.maxTotalVnd) : ''); setLabels(p.preferredZoneLabels.join('\n')); setAlternatives(p.allowAlternatives); setRetainedCatalog(p.catalog); setRefreshAtSale(p.refreshAtSale === true);
       }
       setReady(true);
     }).catch(() => { if (active) setError('Không đọc được cấu hình. Đóng và mở lại tiện ích.'); });
@@ -68,16 +72,16 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
         if (!selectedTickets.length) throw new Error('Thêm ít nhất một hạng vé ưu tiên.');
         const { detail, performance, catalog: source } = loaded;
         catalog = { eventId: detail.id, performanceId: performance.id, title: detail.title, venue: performance.venue, startsAt: performance.startsAt,
-          verifiedAt: source.fetchedAt, tickets: selectedTickets.map(id => {
+          verifiedAt: source.fetchedAt, maxQuantity: performance.maxQuantity, tickets: selectedTickets.map(id => {
             const ticket = source.tickets.find(t => t.id === id);
             if (!ticket) throw new Error('Hạng vé đã đổi. Tải lại danh sách.');
-            return { id: ticket.id, name: ticket.name, priceVnd: ticket.priceVnd };
+            return { id: ticket.id, name: ticket.name, priceVnd: ticket.priceVnd, seatMode: ticket.seatMode, maxQuantity: ticket.maxQuantity };
           }) };
       }
       const preferences = validatePreferences({
         platform: platformForUrl(url.trim())?.id, eventUrl: url.trim(), saleStartAt: fromVietnamLocal(saleTime), quantity: Number(quantity),
         maxTotalVnd: budget.trim() ? Number(budget) : undefined,
-        preferredZoneLabels: labels.split('\n').map(v => v.trim()).filter(Boolean), allowAlternatives: alternatives, catalog,
+        preferredZoneLabels: labels.split('\n').map(v => v.trim()).filter(Boolean), allowAlternatives: alternatives, catalog, refreshAtSale,
       });
       setConfig(await command({ type: 'SAVE', preferences })); setRetainedCatalog(catalog); setDirty(false);
       setNotice('Đã lưu cấu hình.'); setAutoRun(null);
@@ -98,26 +102,38 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
   }
   const running = autoActive(autoRun);
   const current = loaded?.detail.title ?? retainedCatalog?.title;
+  const quantityLimit = catalogQuantityLimit(loaded?.performance.maxQuantity ?? retainedCatalog?.maxQuantity,
+    loaded ? loaded.catalog.tickets.filter(t => selectedTickets.includes(t.id)) : retainedCatalog?.tickets ?? []);
+  function useTarget() {
+    setUrl(HANOI_PRESET.eventUrl); setSaleTime(toVietnamLocal(HANOI_PRESET.saleStartAt)); setQuantity(String(HANOI_PRESET.quantity));
+    setBudget(''); setAlternatives(false); setRefreshAtSale(true); setLabels(''); setLoaded(null); setRetainedCatalog(undefined); setSelectedTickets([]);
+    setDirty(true); setError(''); setNotice(''); setRequestedUrl({ url: HANOI_PRESET.eventUrl, requestId: Date.now() });
+  }
   return <main className={workspace ? 'popup workspace' : 'popup'}>
     <header className="app-header"><div><h1>Camp vé</h1><p>Sự kiện và cấu hình đặt vé</p></div><nav>
       {!workspace && <button type="button" onClick={() => void send({ type: 'OPEN_WORKSPACE' })}>Mở rộng ↗</button>}
       <button type="button" onClick={() => void send({ type: 'OPEN_DEMO' })}>Diễn tập</button>
     </nav></header>
     <div className="setup-grid" inert={busy || !ready}>
-      <EventFinder manualUrl={url} onLoad={loadConcert} onReset={() => { setLoaded(null); setRetainedCatalog(undefined); setSelectedTickets([]); setDirty(true); }} />
+      <EventFinder manualUrl={url} requestedUrl={requestedUrl} shortcut={{ label: `Dùng ${HANOI_PRESET.title}`, description: '12:00 · 19/10/2026 · 1 vé · tự tải hạng/giá', onChoose: useTarget }} onLoad={loadConcert} onReset={() => { setLoaded(null); setRetainedCatalog(undefined); setSelectedTickets([]); setDirty(true); }} />
       <form className="setup-form" onSubmit={e => void save(e)}>
         <div className="section-title"><h2>Cấu hình đặt vé</h2><span>{dirty ? 'Chưa lưu thay đổi' : config.preferences ? 'Đã lưu' : 'Chưa có cấu hình'}</span></div>
         {current && <div className="selected-event"><strong>{current}</strong><span>{loaded?.performance.venue ?? retainedCatalog?.venue}</span><small>{eventDate(loaded?.performance.startsAt ?? retainedCatalog?.startsAt)} · giờ diễn ra</small></div>}
         <label>Link concert<input type="url" required value={url} onChange={e => { setUrl(e.target.value); setLoaded(null); setRetainedCatalog(undefined); setDirty(true); }} placeholder="https://ticket.1zone.vn/events/…" /></label>
         <label>Giờ mở bán · giờ Việt Nam (UTC+7)<input type="datetime-local" required value={saleTime} onChange={e => { setSaleTime(e.target.value); setDirty(true); }} /><small>Nhập giờ bán theo thông báo ban tổ chức.</small></label>
         <div className="field-row">
-          <label>Số vé<input type="number" min="1" max={loaded?.performance.maxQuantity ?? 100} step="1" required value={quantity} onChange={e => { setQuantity(e.target.value); setDirty(true); }} /></label>
-          <label>Tổng ngân sách (VNĐ)<input type="number" min="1" step="1" value={budget} onChange={e => { setBudget(e.target.value); setDirty(true); }} placeholder="Không giới hạn" /></label>
+          <label>Số vé<input type="number" min="1" max={Math.min(100, quantityLimit ?? 100)} step="1" required value={quantity} onChange={e => { setQuantity(e.target.value); setDirty(true); }} /></label>
         </div>
+        {quantityLimit !== undefined && <small>Website cho tối đa {quantityLimit} vé theo suất và các hạng ưu tiên đã chọn. Các phương án thay thế phải đủ số vé này.</small>}
         {loaded ? <TicketPriorities key={loaded.performance.id} tickets={loaded.catalog.tickets} selected={selectedTickets} onChange={ids => { setSelectedTickets(ids); setDirty(true); }} /> :
           retainedCatalog ? <div className="saved-tickets"><b>Hạng vé đã lưu</b><ol>{retainedCatalog.tickets.map(t => <li key={t.id}>{t.name}<span>{money(t.priceVnd)}</span></li>)}</ol><small>Tải lại chi tiết từ link để thay đổi hạng/giá.</small></div> :
             <details className="manual-preferences" open><summary>Nhập hạng vé thủ công</summary><label>Hạng vé ưu tiên · mỗi dòng một hạng<textarea value={labels} onChange={e => { setLabels(e.target.value); setDirty(true); }} placeholder={'VIP\nKhu A'} /><small>Ưu tiên tìm sự kiện để chọn đúng hạng và giá từ nguồn.</small></label></details>}
-        <label className="checkbox-label"><input type="checkbox" checked={alternatives} onChange={e => { setAlternatives(e.target.checked); setDirty(true); }} />Cho phép chọn hạng khác trong ngân sách</label>
+        <details className="extra-settings"><summary>Tùy chọn thêm</summary>
+          <label>Tổng ngân sách (VNĐ)<input type="number" min="1" step="1" value={budget} onChange={e => { setBudget(e.target.value); setDirty(true); }} placeholder="Không giới hạn" /></label>
+          <label className="checkbox-label"><input type="checkbox" checked={alternatives} onChange={e => { setAlternatives(e.target.checked); setDirty(true); }} />Cho phép chọn hạng khác trong ngân sách</label>
+          <label className="checkbox-label"><input type="checkbox" checked={refreshAtSale} onChange={e => { setRefreshAtSale(e.target.checked); setDirty(true); }} />Tải lại một lần đúng giờ nếu trang vẫn chưa mở bán</label>
+          <small>Không tải lại phòng chờ, CAPTCHA hoặc phiên đang chọn vé.</small>
+        </details>
         {error && <p className="error" role="alert">{error}</p>}
         {notice && <p className="success" role="status">{notice}</p>}
         <button className="primary" type="submit" disabled={!ready || busy}>{busy ? 'Đang xử lý…' : 'Lưu & bật theo dõi'}</button>

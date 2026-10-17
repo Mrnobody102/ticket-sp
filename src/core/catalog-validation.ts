@@ -1,6 +1,12 @@
 import type { ConcertDetail, TicketCatalog } from './catalog';
 import type { EventPreferences } from './models';
 
+/** Every fallback must accommodate the whole requested quantity. Unknown is not a site limit. */
+export function catalogQuantityLimit(performanceMax: number | undefined, tickets: { maxQuantity?: number }[]): number | undefined {
+  const known = [performanceMax, ...tickets.map(t => t.maxQuantity)].filter((v): v is number => v !== undefined);
+  return known.length ? Math.min(...known) : undefined;
+}
+
 /** Preflight happens when arming, so catalog reads do not enter the selection hot path. */
 export function verifyCatalogSelection(p: EventPreferences, detail: ConcertDetail, tickets: TicketCatalog, now: number): void {
   const selected = p.catalog;
@@ -15,6 +21,7 @@ export function verifyCatalogSelection(p: EventPreferences, detail: ConcertDetai
   for (const preference of selected.tickets) {
     const ticket = tickets.tickets.find(t => t.id === preference.id);
     if (!ticket || ticket.name !== preference.name || ticket.priceVnd !== preference.priceVnd) throw new Error('Hạng vé hoặc giá đã đổi. Tải lại danh sách hạng vé rồi lưu lại.');
+    if (preference.seatMode && preference.seatMode !== ticket.seatMode) throw new Error('Cách chọn ghế đã đổi. Tải lại hạng vé rồi lưu lại.');
     if (ticket.maxQuantity !== undefined && p.quantity > ticket.maxQuantity) throw new Error(`Hạng ${ticket.name} chỉ cho phép tối đa ${ticket.maxQuantity} vé.`);
   }
 }

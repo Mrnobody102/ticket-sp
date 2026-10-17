@@ -37,6 +37,7 @@ export function mountAssistant(options: MountOptions) {
   let error: string | undefined;
   let stopped = false;
   let timeout: number | undefined;
+  let microtaskQueued = false;
   let frame: number | undefined;
   let highlighted: Element[] = [];
   let lastRun = 0;
@@ -45,7 +46,7 @@ export function mountAssistant(options: MountOptions) {
   };
   function inspect(): PlatformInspection {
     const run = runner?.run;
-    return inspectPlatform(document, new URL(options.getUrl()), config.preferences && run ? { preferences: config.preferences, progress: run.progress } : undefined);
+    return inspectPlatform(document, new URL(options.getUrl()), config.preferences ? { preferences: config.preferences, progress: run?.progress ?? { phase: 'READY', message: '' } } : undefined);
   }
   const runner = options.automation ? createAutomationRunner({
     ...options.automation, config: () => config, inspect,
@@ -77,6 +78,8 @@ export function mountAssistant(options: MountOptions) {
       ? inspect()
       : { snapshot: { ...lastSnapshot, url: options.getUrl() }, optionElements: [] };
     const raw = inspection.snapshot;
+    // Start the state transition before computing highlights and rendering the panel.
+    void runner?.tick(inspection);
     lastSnapshot = raw;
     const snapshot = effectiveSnapshot(raw, config);
     const recommendations = config.preferences && config.panelVisible ? recommend(snapshot, config.preferences) : [];
@@ -89,20 +92,27 @@ export function mountAssistant(options: MountOptions) {
       autoRun={runner?.run} onStartAuto={runner ? () => void runAction(() => runner.start()) : undefined}
       onStopAuto={runner ? () => void runAction(() => runner.stop()) : undefined}
       onStop={() => void runAction(options.onStop)} onHide={() => void runAction(options.onHide)} onOpen={() => void runAction(options.onOpen)} />);
-    void runner?.tick(inspection);
   }
-  // Trailing throttle: frequent mutations cannot starve recognition or exceed ~2 scans/s.
+  // Active automation runs at the next microtask; passive UI scans remain throttled.
   function schedule(urgent = false) {
     const active = autoActive(runner?.run ?? null);
-    if (timeout !== undefined || stopped || !config.enabled || (!config.panelVisible && !active)) return;
-    timeout = view.setTimeout(() => { timeout = undefined; scan(); }, active || urgent ? 16 : Math.max(100, 600 - (Date.now() - lastRun)));
+    if (stopped || !config.enabled || (!config.panelVisible && !active)) return;
+    if (active || urgent) {
+      view.clearTimeout(timeout); timeout = undefined;
+      if (!microtaskQueued) {
+        microtaskQueued = true;
+        view.queueMicrotask(() => { microtaskQueued = false; scan(); });
+      }
+    } else if (timeout === undefined && !microtaskQueued) {
+      timeout = view.setTimeout(() => { timeout = undefined; scan(); }, Math.max(100, 600 - (Date.now() - lastRun)));
+    }
   }
   const scheduleEvent = () => schedule();
   const observer = new MutationObserver(records => {
     if (records.some(r => r.target !== host && !host.contains(r.target))) schedule();
   });
   observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true,
-    attributeFilter: ['hidden', 'style', 'class', 'aria-hidden', 'aria-disabled', 'disabled', 'aria-label', 'aria-labelledby', 'inert', 'role', 'href', 'min', 'max', 'aria-valuemin', 'aria-valuemax', 'aria-selected', 'aria-checked', 'aria-pressed', 'aria-valuenow', 'checked', 'value', 'data-ticket-class-id', 'data-ticket-type-id'] });
+    attributeFilter: ['hidden', 'style', 'class', 'aria-hidden', 'aria-disabled', 'disabled', 'aria-label', 'aria-labelledby', 'inert', 'role', 'href', 'min', 'max', 'aria-valuemin', 'aria-valuemax', 'aria-selected', 'aria-checked', 'aria-pressed', 'aria-valuenow', 'checked', 'value', 'data-ticket-class-id', 'data-ticket-type-id', 'data-id'] });
   view.addEventListener('scroll', drawSoon, true);
   view.addEventListener('resize', scheduleEvent);
   view.addEventListener('popstate', scheduleEvent);

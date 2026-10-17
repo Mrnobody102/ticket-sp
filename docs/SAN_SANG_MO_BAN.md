@@ -1,0 +1,75 @@
+# Kiểm tra và chuẩn bị camp Vương Bình Hà Nội · 0.4.0
+
+Mục tiêu là vào chọn đúng hạng/số lượng rồi tới checkout sớm nhất trong phạm vi phiên hợp lệ. **Chưa có bằng chứng để cam kết nhanh nhất hoặc chắc chắn mua được.** Kiểm thử cục bộ đo được độ trễ của tool; quyền vào hàng chờ, CAPTCHA, mạng và phản hồi giữ vé của 1Zone vẫn do website quyết định.
+
+## Mốc chạy và thao tác cần thiết
+
+Người dùng đã cung cấp [đúng suất Hà Nội](https://ticket.1zone.vn/events/vuong-binh-tiec-thanh-than-mam-2?calendarId=8h0YGm) và xác nhận **12:00 ngày 19/10/2026, UTC+7** làm mặc định. Đây là mốc người dùng cung cấp, chưa phải thời điểm được xác minh độc lập từ API. Có thể sửa trực tiếp ô giờ trước khi lưu; không lấy giờ diễn 21/11 làm giờ bán.
+
+1. Reload extension 0.4.0 và tải lại tab vé. Đăng nhập trước bằng tài khoản dùng để mua.
+2. Trong tiện ích chọn **Dùng Vương Bình · Hà Nội**. Tool điền link, suất, 12h ngày 19/10, 1 vé, ngân sách trống và tự tải hạng/giá. **Chọn và sắp thứ tự hạng ưu tiên**, sửa số vé/giờ nếu cần; không gõ lại tên/giá. Tùy chọn ngân sách và fallback nằm trong mục mở rộng.
+3. Lưu rồi **Bắt đầu camp trước 12h**, để việc tải lại catalog/kiểm tra ban đầu hoàn tất trước giờ bán. Giữ tab và máy hoạt động, đồng hồ máy đúng giờ.
+4. Khi website cho mua, tool thao tác trên giao diện đã nhận diện. CAPTCHA/đăng nhập/lỗi không rõ cần xử lý trên website. Đến checkout thì kiểm tra đơn và thanh toán cuối.
+
+Preset chỉ điền bản nháp; không tự lưu/arm, không tự chọn hạng hoặc mở phiên giữ vé.
+
+Số vé tuân theo giới hạn suất và các hạng đã chọn. Ví dụ dữ liệu hiện có cho TƯ MẾN tối đa 4, HAI QUÝ tối đa 2: chọn riêng TƯ MẾN có thể cấu hình 4; thêm HAI QUÝ làm dự phòng thì tối đa 2 để mọi phương án đều đáp ứng. Giới hạn được lưu khi đóng/mở tiện ích, rồi kiểm tra lại bằng dữ liệu mới khi bật camp. Show khác dùng cùng form tìm/dán link, chọn suất/hạng, số vé và giờ bán; ngày 19/10 chỉ thuộc nút cấu hình nhanh này.
+
+## Cơ chế 1Zone đã đối chiếu
+
+Lần đọc ngày 18/10/2026 dùng profile tạm, không đăng nhập, không giữ vé:
+
+| Bằng chứng | Kết luận |
+|---|---|
+| Trang event trả HTTP 200, hiện “Sắp mở bán”, CTA disabled | Hiện chưa thể chứng nhận booking thật |
+| Vào route booking của đúng suất chuyển về event | Không thể coi link booking công khai là DOM sau đăng nhập |
+| Client dùng status OPEN/CLOSE và canPurchase để khóa CTA | Đồng hồ tool tới 12h không tự làm trạng thái website đổi |
+| Hero có `data-id="btn-by-ticket"`, cùng trang có CTA sticky | Adapter ưu tiên CTA chính đã biết; các nút mơ hồ vẫn bị chặn |
+| SelectTicketModal có tiêu đề “Chọn số lượng vé”, `btn-add`, `btn-sub`, số lượng trong span, `btn-continue` | Đã bổ sung reader/executor cho kiểu modal này, không chỉ input/select/ARIA |
+| Client gọi tạo giỏ với hạng/suất/số lượng và dữ liệu xác minh | Tool để website thực hiện request trong phiên; không tự giả token/queue |
+
+Các dấu hiệu modal lấy từ component công khai của website và được tái hiện bằng fixture tối thiểu. **Fixture này chưa phải bản chụp DOM từ tài khoản đã đăng nhập.** Thẻ có tiêu đề p được nhận khi có quote catalog khớp tên/giá và một nút chọn/mua rõ ràng. Map/renderer khác hoặc dữ liệu mơ hồ vẫn cần adapter tương ứng.
+
+## Những thay đổi ảnh hưởng tốc độ
+
+- Camp đang hoạt động dùng microtask để phản ứng với mutation, bỏ khoảng gom 16 ms. Lượt urgent cũng hủy timer theo dõi chậm đang chờ; tránh vô tình giữ nhịp 600 ms khi chuyển sang camp.
+- Bắt đầu quyết định/ghi bước trước phần tính highlight và render panel. Vẫn kiểm tra lại sau await và chờ website xác nhận để tránh click sai/lặp.
+- Tải catalog/preflight khi bật camp, trước giờ bán; không GET catalog ở từng lần chọn hạng.
+- Khi đúng giờ mà đúng trang vẫn NOT_READY, preset cho **reload một lần** trong cửa sổ 15 giây từ mốc bán. Dấu reload được lưu trước hành động và giữ qua điều hướng. Không refresh phòng chờ, CAPTCHA, lựa chọn đang thực hiện hoặc checkout. Không polling/refresh lặp.
+
+Reload một lần là phương án cập nhật trang còn giữ trạng thái cũ; nó có chi phí tải trang và không bảo đảm server mở đúng cùng mili giây. Nếu website cập nhật CTA sẵn, tool dùng nút đang mở ngay và không reload.
+
+## Cách tự thử
+
+**Có giao diện:** Diễn tập → **1Zone · Modal hạng vé** → Bắt đầu camp. Mẫu dùng đúng các dấu hiệu public nêu trên, tự chọn hạng, đặt số vé và tới thanh toán mô phỏng. Không kết nối phiên mua thật, không sửa cấu hình concert.
+
+**Đo nhiều lượt bằng extension production:**
+
+```powershell
+npm run build
+npm run bench:camp
+```
+
+Benchmark dùng Chromium và background/content script thật; website/API là fixture cục bộ, không gửi request tới 1Zone. Mỗi tình huống có một lượt làm nóng rồi 12 lượt đo:
+
+- CTA chỉ mở tại mốc đã đặt, với hai bản CTA trùng; kiểm tra chỉ click bản chính một lần.
+- Mô phỏng website phản hồi ngay, hoặc 100 ms ở mỗi bước mở danh sách và checkout.
+- Đo **CTA thật sự mở → click mua**, **CTA mở → DOM checkout**, cùng sai lệch timer của website mô phỏng.
+- Kiểm tra không bấm trước lúc CTA mở, không chọn hạng khác, không lặp Chọn/Tiếp tục và không bấm thanh toán cuối.
+
+Kết quả p50/p95 và từng mẫu nằm ở `artifacts/camp-benchmark.json`. Các con số phản ánh browser/máy tại lần chạy, **không đại diện tốc độ sale thật, tải server hoặc xác suất mua được**. Một lần “0,1 giây” trên fixture không chứng minh nhanh nhất thị trường.
+
+Lần chạy 18/10/2026, 24 mẫu đo đều tới checkout đúng luồng:
+
+| Phản hồi website mô phỏng | CTA mở → click mua, p50 / p95 | CTA mở → checkout, p50 / p95 |
+|---|---:|---:|
+| Ngay lập tức | 9,3 / 69 ms | 42 / 155,3 ms |
+| 100 ms ở mỗi bước mở danh sách và checkout | 25,6 / 37,3 ms | 309 / 329,2 ms |
+
+Smoke chỉ đọc trên trang Hà Nội thật đo 20 lượt nhận diện: p50 12,4 ms, p95 16,9 ms; lượt lạnh đầu tiên 214,4 ms. Trang có khoảng 792 phần tử, trạng thái NOT_READY. Đây là chi phí đọc DOM, **không phải thời gian đặt vé**. Script không bật camp hoặc bấm mua.
+
+## Phần vẫn chưa được bảo đảm
+
+Chưa có phiên trình duyệt đã đăng nhập của người dùng được kết nối để kiểm tra giữ vé/checkout thật. Trang hiện còn khóa, nên không gửi đơn thử. Chưa kiểm chứng tài khoản, điều kiện mua, queue token, CAPTCHA sau mở bán, renderer được bật lúc sale và phản hồi lỗi thực tế của suất này. Đã thêm test/đo để phát hiện lỗi của tool; các bước đó không thay thế một lượt kiểm tra hợp lệ trên website thật.
+
+Nguồn: [nghiên cứu API](NGHIEN_CUU_API.md), [cơ chế](CO_CHE_HOAT_DONG.md), [validation](VALIDATION.md). Script `node scripts/research-target.mjs` đọc lại event/booking công khai và lưu bằng chứng dưới `artifacts/target-research`; không click chọn/giữ vé.

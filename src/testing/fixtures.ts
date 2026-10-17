@@ -10,9 +10,11 @@ import unknown from '../../fixtures/unknown.html?raw';
 import event from '../../fixtures/event.html?raw';
 import mixed from '../../fixtures/mixed.html?raw';
 import booking from '../../fixtures/booking.html?raw';
+import onezoneModal from '../../fixtures/onezone-modal.html?raw';
 
 export const fixtures = {
   booking: { label: 'Camp tự động tới checkout', html: booking },
+  'onezone-modal': { label: '1Zone · Modal hạng vé', html: onezoneModal },
   zone: { label: 'Chọn khu vực', html: zone },
   assigned: { label: 'Ghế tự cấp', html: assigned },
   seats: { label: 'Chọn ghế', html: seats },

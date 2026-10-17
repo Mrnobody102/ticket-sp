@@ -1,9 +1,10 @@
-import type { PageSnapshot } from '../core/models';
+import type { EventPreferences, PageSnapshot } from '../core/models';
 import { platformForUrl } from '../core/platform-catalog';
 import { normalize } from '../core/preferences';
 import { createPageReader, type PageReader } from './onezone-dom';
 import { readOptionElements, type OptionElement } from './onezone-options';
 import { readSelectionMode } from './onezone-selection';
+import { readOnezoneModal } from './onezone-modal';
 
 export { readOptionElements } from './onezone-options';
 
@@ -16,7 +17,7 @@ export interface OnezoneInspection {
 const matches = (url: URL) => platformForUrl(url.href)?.id === 'onezone';
 
 /** Read a page once and return its snapshot together with the exact DOM bindings. */
-export function inspectOnezonePage(document: Document, url: URL): OnezoneInspection {
+export function inspectOnezonePage(document: Document, url: URL, p?: EventPreferences): OnezoneInspection {
   const reader = createPageReader(document);
   const base: PageSnapshot = {
     url: url.href, state: 'UNKNOWN', selectionMode: 'UNKNOWN', visibleOptions: [], supported: false,
@@ -44,13 +45,16 @@ export function inspectOnezonePage(document: Document, url: URL): OnezoneInspect
       (visibleForm || /thanh toan|xac nhan don hang/.test(controlText))) {
     return blocked('CHECKOUT', 'Kiểm tra vé, tổng tiền và hoàn tất thanh toán trên website.');
   }
-  const selectionMode = readSelectionMode(text);
+  const modal = p && readOnezoneModal(document, p, reader);
+  if (modal) return finish({ ...base, selectionMode: 'ZONE_ONLY', supported: true, state: 'SELECTING', visibleOptions: [modal.entry.option], reason: 'Đã đọc modal chọn hạng và số lượng của 1Zone.' }, [modal.entry]);
+  let selectionMode = readSelectionMode(text);
   const maxMatch = text.match(/(?:toi da|maximum|max\.)\s*0*(\d{1,3})\s*(?:ve|tickets)/);
   const maxQuantity = maxMatch ? Number(maxMatch[1]) : undefined;
   if (/chua (den gio |mo )?ban|sap mo ban|sale has not started/.test(headings + ' | ' + controlText)) {
     return finish({ ...base, selectionMode, maxQuantity, state: 'NOT_READY', supported: true, reason: 'Website hiển thị chưa mở bán.' });
   }
-  const entries = readOptionElements(document, selectionMode, reader);
+  const entries = readOptionElements(document, selectionMode, reader, p?.catalog?.tickets);
+  if (selectionMode === 'UNKNOWN' && entries.length && entries.every(e => p?.catalog?.tickets.some(q => normalize(q.name) === normalize(e.option.label) && q.seatMode === 'AUTO'))) selectionMode = 'ASSIGNED_SEAT';
   const details = { ...base, selectionMode, maxQuantity, visibleOptions: entries.map(e => e.option) };
   const unreadableMap = [...document.querySelectorAll('canvas, iframe')].some(isVisible);
   if (unreadableMap && (selectionMode === 'PICK_SEAT' || selectionMode === 'MIXED' || !entries.length)) {

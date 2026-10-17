@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createOnezoneCatalog, parseOnezoneDetail, parseOnezoneTickets } from '../../src/platforms/onezone-catalog';
 import { createTicketboxCatalog } from '../../src/platforms/ticketbox-catalog';
 import { validatePreferences } from '../../src/core/preferences';
-import { verifyCatalogSelection } from '../../src/core/catalog-validation';
+import { catalogQuantityLimit, verifyCatalogSelection } from '../../src/core/catalog-validation';
 import { recommend } from '../../src/core/workflow';
 import type { EventPreferences, PageSnapshot } from '../../src/core/models';
 import { calendar, catalogUrl, eventData, flightHtml, searchItem, ticketData, ticketReply, ticketboxData, ticketboxReply, ticketboxUrl } from '../fixtures/catalog';
@@ -75,6 +75,12 @@ describe('Ticketbox là nguồn tra cứu riêng', () => {
 });
 
 describe('cấu hình và preflight catalog', () => {
+  it('giới hạn số vé lấy từ suất và mọi hạng ưu tiên, giữ unknown khi chưa có dữ liệu', () => {
+    expect(catalogQuantityLimit(undefined, [])).toBeUndefined();
+    expect(catalogQuantityLimit(undefined, [{ maxQuantity: 4 }])).toBe(4);
+    expect(catalogQuantityLimit(10, [{ maxQuantity: 4 }, { maxQuantity: 2 }])).toBe(2);
+    expect(catalogQuantityLimit(1, [{ maxQuantity: 4 }])).toBe(1);
+  });
   it('chuẩn hóa nhãn từ ticket ID và vẫn đọc được cấu hình cũ', () => {
     expect(validatePreferences({ ...preferences(), preferredZoneLabels: ['Sai'] }).preferredZoneLabels).toEqual(['VIP']);
     expect(validatePreferences({ ...preferences(), catalog: undefined }).catalog).toBeUndefined();

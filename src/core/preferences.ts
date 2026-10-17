@@ -49,11 +49,15 @@ export function validatePreferences(value: unknown): EventPreferences {
     if (!c || typeof c !== 'object' || typeof c.eventId !== 'string' || !/^[\w-]{1,100}$/.test(c.eventId) || typeof c.performanceId !== 'string' || !/^[\w-]{1,100}$/.test(c.performanceId) ||
         platform.integration?.performanceId(cleanUrl) !== c.performanceId || typeof c.title !== 'string' || c.title.length > 300 ||
         typeof c.venue !== 'string' || c.venue.length > 500 || typeof c.startsAt !== 'string' || !Number.isFinite(Date.parse(c.startsAt)) || !Number.isFinite(c.verifiedAt) ||
+        (c.maxQuantity !== undefined && (!Number.isSafeInteger(c.maxQuantity) || c.maxQuantity < 0)) ||
         !Array.isArray(c.tickets) || !c.tickets.length || c.tickets.length > 20 || c.tickets.some(t => !t || typeof t.id !== 'string' || !/^[\w-]{1,100}$/.test(t.id) ||
-          typeof t.name !== 'string' || !t.name.trim() || t.name.length > 100 || !Number.isSafeInteger(t.priceVnd) || t.priceVnd < 0) ||
+          typeof t.name !== 'string' || !t.name.trim() || t.name.length > 100 || !Number.isSafeInteger(t.priceVnd) || t.priceVnd < 0 ||
+          (t.maxQuantity !== undefined && (!Number.isSafeInteger(t.maxQuantity) || t.maxQuantity < 0)) ||
+          (t.seatMode !== undefined && !['AUTO', 'PICK', 'UNKNOWN'].includes(t.seatMode))) ||
         new Set(c.tickets.map(t => t.id)).size !== c.tickets.length) throw new Error('Dữ liệu hạng vé/suất không hợp lệ. Tải lại chi tiết sự kiện.');
     catalog = { eventId: c.eventId, performanceId: c.performanceId, title: c.title, venue: c.venue, startsAt: c.startsAt, verifiedAt: c.verifiedAt,
-      tickets: c.tickets.map(t => ({ id: t.id, name: t.name.trim(), priceVnd: t.priceVnd })) };
+      ...(c.maxQuantity !== undefined ? { maxQuantity: c.maxQuantity } : {}),
+      tickets: c.tickets.map(t => ({ id: t.id, name: t.name.trim(), priceVnd: t.priceVnd, ...(t.seatMode ? { seatMode: t.seatMode } : {}), ...(t.maxQuantity !== undefined ? { maxQuantity: t.maxQuantity } : {}) })) };
   }
   return {
     platform: platform.id, eventUrl: cleanUrl.href, saleStartAt: new Date(p.saleStartAt).toISOString(),
@@ -61,6 +65,7 @@ export function validatePreferences(value: unknown): EventPreferences {
     preferredZoneLabels: catalog ? catalog.tickets.map(t => t.name) : [...new Set((p.preferredZoneLabels as string[]).map(v => v.trim()))],
     allowAlternatives: p.allowAlternatives === true,
     ...(catalog ? { catalog } : {}),
+    ...(p.refreshAtSale === true ? { refreshAtSale: true } : {}),
   };
 }
 
