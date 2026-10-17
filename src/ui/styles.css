@@ -31,6 +31,8 @@ p { line-height: 1.5; }
 .countdown-card .eyebrow { color: #4d6e5d; }
 .countdown { font-size: 28px; letter-spacing: -1px; font-variant-numeric: tabular-nums; font-weight: 650; }
 .panel-body { padding: 0 16px 12px; }
+.auto-status { border: 1px solid #a9d1b7; background: #eff8f1; border-radius: 10px; padding: 12px; margin-top: 12px; font-size: 12px; }
+.auto-status p { margin: 8px 0; }
 .event-match { color: #856e37; font-size: 11px; margin: 13px 0 8px; }
 .event-match.ok { color: #2b7654; }
 .reason { margin: 8px 0 13px; font-size: 12px; }

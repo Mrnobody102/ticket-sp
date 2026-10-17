@@ -5,6 +5,8 @@ import type { TaskConfig } from '../../core/models';
 import { DEFAULT_QUANTITY } from '../../core/models';
 import { mountAssistant } from '../../ui/mount-assistant';
 import '../../ui/styles.css';
+import { installBookingDemo } from '../../testing/booking-demo';
+import { preferencesKey, type AutoRun } from '../../core/automation';
 
 function Demo() {
   const [name, setName] = useState<FixtureName>('zone');
@@ -28,12 +30,23 @@ function Demo() {
     style.textContent = 'body{font:15px Segoe UI,sans-serif;background:#fff;color:#20312e;margin:26px} main{margin-left:360px;max-width:500px} article{border:1px solid #dce5df;border-radius:12px;padding:16px;margin:12px 0} h3{margin-top:0} button{padding:9px 16px;border:1px solid #cbd8d1;border-radius:8px;background:#f4f8f5;color:#20312e;cursor:pointer} canvas{border:1px dashed #999;background:#f1f4f2} @media(max-width:700px){main{margin:0 0 600px}}';
     doc.head.append(style);
     config.current = { ...config.current, enabled: true, panelVisible: true };
+    config.current.preferences = { ...config.current.preferences!, saleStartAt: new Date(Date.now() + (name === 'booking' ? -1000 : 180000)).toISOString() };
+    if (name === 'booking') installBookingDemo(doc);
+    let localRun: AutoRun | null = null;
     setVisible(true);
     mounted.current = mountAssistant({
       document: doc, getUrl: () => config.current.preferences!.eventUrl, initialConfig: config.current,
-      onStop: async () => { config.current = { ...config.current, enabled: false }; mounted.current?.update(config.current); },
+      onStop: async () => { localRun = null; mounted.current?.updateAuto(null); config.current = { ...config.current, enabled: false }; mounted.current?.update(config.current); },
       onHide: async () => { config.current = { ...config.current, panelVisible: false }; mounted.current?.update(config.current); setVisible(false); },
       onOpen: async () => { /* Demo stays local. */ },
+      automation: { transport: {
+        start: async () => localRun = { id: crypto.randomUUID(), tabId: 0, revision: 0, preferencesKey: preferencesKey(config.current.preferences!), startedAt: Date.now(), expiresAt: Date.now() + 3600000, progress: { phase: 'READY', message: 'Diễn tập camp tự động.' } },
+        stop: async () => localRun = null,
+        commit: async (run, progress) => {
+          if (!localRun || localRun.id !== run.id || localRun.revision !== run.revision) throw new Error('Phiên demo đã đổi.');
+          return localRun = { ...localRun, revision: localRun.revision + 1, progress };
+        },
+      } },
     });
   }
   return <main className="demo">

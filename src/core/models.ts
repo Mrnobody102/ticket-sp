@@ -3,7 +3,7 @@ export type SeatSelectionMode = 'ZONE_ONLY' | 'PICK_SEAT' | 'ASSIGNED_SEAT' | 'M
 export type WorkflowState = 'NOT_READY' | 'WAITING_ROOM' | 'EVENT_PAGE' | 'SELECTING' | 'CHECKOUT' | 'CHALLENGE' | 'UNKNOWN' | 'STOPPED';
 
 export interface EventPreferences {
-  platform: 'onezone';
+  platform: Platform;
   eventUrl: string;
   saleStartAt: string;
   quantity: number;
@@ -30,12 +30,6 @@ export interface PageSnapshot {
   supported: boolean;
   reason: string;
   maxQuantity?: number;
-}
-
-export interface PlatformAdapter {
-  readonly platform: Platform;
-  matches(url: URL): boolean;
-  inspectVisiblePage(document: Document, url: URL): PageSnapshot;
 }
 
 export interface TaskConfig {

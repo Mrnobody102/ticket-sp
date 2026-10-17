@@ -1,6 +1,7 @@
-import type { PageSnapshot, PlatformAdapter } from '../core/models';
+import type { PageSnapshot } from '../core/models';
+import { platformForUrl } from '../core/platform-catalog';
 import { normalize } from '../core/preferences';
-import { createPageReader } from './onezone-dom';
+import { createPageReader, type PageReader } from './onezone-dom';
 import { readOptionElements, type OptionElement } from './onezone-options';
 import { readSelectionMode } from './onezone-selection';
 
@@ -9,25 +10,26 @@ export { readOptionElements } from './onezone-options';
 export interface OnezoneInspection {
   snapshot: PageSnapshot;
   optionElements: OptionElement[];
+  reader: PageReader;
 }
 
-const matches = (url: URL) => url.protocol === 'https:' && url.hostname === 'ticket.1zone.vn' && !url.port;
+const matches = (url: URL) => platformForUrl(url.href)?.id === 'onezone';
 
 /** Read a page once and return its snapshot together with the exact DOM bindings. */
 export function inspectOnezonePage(document: Document, url: URL): OnezoneInspection {
+  const reader = createPageReader(document);
   const base: PageSnapshot = {
     url: url.href, state: 'UNKNOWN', selectionMode: 'UNKNOWN', visibleOptions: [], supported: false,
     reason: 'Chưa đủ dấu hiệu để nhận diện giao diện. Tiếp tục thao tác trên website.',
   };
-  const finish = (snapshot: PageSnapshot, optionElements: OptionElement[] = []): OnezoneInspection => ({ snapshot, optionElements });
+  const finish = (snapshot: PageSnapshot, optionElements: OptionElement[] = []): OnezoneInspection => ({ snapshot, optionElements, reader });
   if (!matches(url) || !document.body) return finish(base);
-  const reader = createPageReader(document);
   const { isVisible, text: visibleText } = reader;
   const text = normalize(visibleText(document.body));
   const headings = [...document.querySelectorAll('h1, h2, h3, [role="heading"], [role="alert"], [role="status"]')]
     .filter(isVisible).map(e => normalize(visibleText(e)))
     .filter(t => t.length < 200 && !/huong dan|quy dinh|dieu khoan|gioi thieu/.test(t)).join(' | ');
-  const controls = [...document.querySelectorAll('button, a[role="button"], input[type="submit"]')].filter(isVisible);
+  const controls = [...document.querySelectorAll('button, a[href], input[type="submit"]')].filter(isVisible);
   const controlText = controls.map(e => normalize(e.getAttribute('aria-label') ?? visibleText(e))).join(' | ');
   const blocked = (state: 'CHALLENGE' | 'WAITING_ROOM' | 'CHECKOUT', reason: string) => finish({ ...base, state, reason });
   const challengeFrame = [...document.querySelectorAll('iframe')].some(e => isVisible(e) && /captcha|challenge/i.test(e.title));
@@ -64,7 +66,7 @@ export function inspectOnezonePage(document: Document, url: URL): OnezoneInspect
   return finish(details);
 }
 
-export const onezoneAdapter: PlatformAdapter = {
+export const onezoneAdapter = {
   platform: 'onezone', matches,
-  inspectVisiblePage: (document, url) => inspectOnezonePage(document, url).snapshot,
+  inspectVisiblePage: (document: Document, url: URL) => inspectOnezonePage(document, url).snapshot,
 };

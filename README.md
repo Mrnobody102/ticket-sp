@@ -1,12 +1,12 @@
-# Camp vé · 1Zone Assistant
+# Camp vé · Ticket Assistant
 
-Chrome Extension MV3 chạy cục bộ: lưu concert, nhắc giờ, đọc trạng thái trang và đánh dấu hạng vé phù hợp. Mặc định **1 vé**, **không giới hạn ngân sách**, theo buổi thử ngày 18/10/2026. Bạn tự chọn vé, đăng nhập, xử lý phòng chờ/xác minh và thanh toán trên 1Zone. Nếu từng lưu số vé khác, nhập lại 1 rồi lưu; cập nhật extension không tự ghi đè lựa chọn đã lưu.
+Chrome Extension MV3 chạy cục bộ, mặc định **1 vé**, ngân sách không giới hạn. Bản **0.2.0** bổ sung camp tự động: **vào bước mua → chọn zone/ghế theo ưu tiên → đặt số lượng → bấm tiếp → dừng tại checkout**. Nhắc giờ và highlight vẫn có sẵn để theo dõi.
 
-**Mục tiêu là suất Hà Nội của Vương Bình; chưa có URL suất Hà Nội được xác nhận.** Link TP.HCM và sự kiện Lavender tại Cung Thiếu nhi chỉ dùng tham khảo, không được tự dùng làm mục tiêu mua vé. Xem [khảo sát các case thực tế](docs/KHAO_SAT_1ZONE.md). Chưa xác nhận khả năng đọc hạng vé của đợt Hà Nội.
+Hiện có adapter **1Zone**. Core, bộ điều phối và hợp đồng adapter dùng chung; Ticketbox/CTicket chưa được tích hợp. Mục tiêu là Vương Bình **Hà Nội**, URL/giờ mở bán chưa được xác nhận. Link TP.HCM và bản đồ sự kiện khác chỉ là tham khảo: [khảo sát](docs/KHAO_SAT_1ZONE.md).
 
-## Cài bản dùng thử
+## Cài đặt
 
-Sau khi clone repo, dùng Node.js 22.x và chạy tại thư mục project:
+Node.js 22.x, chạy tại thư mục project:
 
 ```powershell
 npm ci
@@ -14,50 +14,44 @@ npm run build
 ```
 
 1. Mở `chrome://extensions`, bật **Developer mode**.
-2. Chọn **Load unpacked** → thư mục `.output/chrome-mv3` trong project (chứa `manifest.json`).
-3. Ghim icon **Camp vé · 1Zone Assistant**.
-4. Click icon → **Mở bản diễn tập**. Chuyển thử Chọn khu vực / Ghế tự cấp / Chọn ghế / Phòng chờ / Xác minh / Canvas. Không cần tài khoản thật.
+2. **Load unpacked** → `.output/chrome-mv3` trong project.
+3. Ghim icon **Camp vé**. Sau mỗi lần build/reload extension, tải lại tab website.
+4. **Mở bản diễn tập** → **Camp tự động tới checkout** → **Bắt đầu camp** trong panel để xem luồng chạy cục bộ.
 
-Sau mỗi lần build: **Reload** tại `chrome://extensions`, rồi tải lại tab 1Zone để cập nhật content script.
+`npm run zip` tạo `.output/ticket-sp-0.2.0-chrome.zip`. Chuyển sang máy khác thì giải nén và Load unpacked thư mục chứa manifest. Git chỉ lưu source/lockfile, không lưu output hay dữ liệu test.
 
-Để chuyển bản build sang máy khác, chạy `npm run zip`, giải nén `.output/ticket-sp-0.1.0-chrome.zip` rồi Load unpacked thư mục đã giải nén. ZIP này là bản production; `.output/chrome-mv3-dev` dành cho phát triển. Git chỉ lưu source và lockfile; các bản build/ZIP được tạo lại bằng những lệnh trên.
+## Sử dụng
 
-## Khi có link fan meeting
+1. Đăng nhập 1Zone trước. Nhập đúng link concert/suất, giờ bán **UTC+7**, số vé và hạng vé ưu tiên, mỗi dòng một hạng.
+2. **Lưu & bật theo dõi** chỉ lưu cấu hình và bật bộ đọc/nhắc giờ.
+3. **Bắt đầu camp** trong popup mở/dùng lại một tab đúng concert. Hoặc bấm nút này ngay trên panel của tab concert.
+4. Tool chờ giờ bán theo đồng hồ máy và nút mua khả dụng. Khi được vào chọn vé, tool tự thao tác trên điều khiển đọc được.
+5. Panel báo từng bước và kết quả. Khi tới checkout, bạn kiểm tra vé, phí và thanh toán.
 
-1. Nhập link `/events/…` hoặc `/booking/…` trên `https://ticket.1zone.vn`; link booking được chuẩn hóa về trang event để lưu. Giữ đúng `calendarId` và kiểm tra suất Hà Nội.
-2. Nhập **ngày giờ mở bán theo Việt Nam UTC+7**. Không lấy giờ biểu diễn làm giờ bán.
-3. Chọn 1 hoặc 2 vé; để trống ngân sách. Hạng vé nhập đúng tên hiển thị, mỗi dòng một hạng, ưu tiên từ trên xuống. Để trống danh sách để xem tất cả.
-4. **Lưu & bật theo dõi** → **Mở concert đã lưu**. Tiện ích ưu tiên dùng lại tab đúng concert, không refresh tab đó.
-5. Panel góc trái hiển thị countdown, trạng thái và gợi ý. Khung xanh chỉ đánh dấu; bạn tự chọn trên website và kiểm tra phí/số vé còn lại.
-6. **Dừng** ngừng gợi ý và hủy nhắc giờ. **Ẩn panel** chỉ ẩn giao diện; hiện lại bằng checkbox trong popup. Click tên Camp vé trên panel để thu gọn.
+Camp chỉ dùng **cấu hình đã lưu**. Lưu lại cấu hình dừng phiên hiện tại. Một phiên sở hữu một tab; tab khác không thực thi. **Dừng camp** hủy phiên thao tác; **Dừng theo dõi** hủy cả camp và nhắc giờ. **Ẩn panel** chỉ ẩn UI, camp vẫn chạy; dừng bằng popup nếu cần.
 
-Ngân sách so với **giá hiển thị × số vé**, chưa cộng phí. Giá không rõ mà có ngân sách thì không gợi ý. Hạng vé mơ hồ/hết vé bị bỏ qua. Nút đang bật không chứng minh còn đủ số vé bạn muốn.
+Phiên camp tồn tại trong `chrome.storage.session`, qua lần worker khởi động lại/điều hướng tab, nhưng không tự bật lại sau khi đóng/mở Chrome hoặc reload extension. Đóng tab chủ sẽ hủy phiên. Phiên hết hạn sau một giờ tính từ mốc muộn hơn giữa lúc bắt đầu và giờ bán.
 
-| Cách chọn chỗ | Tool hỗ trợ |
+| Giao diện | Tự động hóa hiện tại |
 |---|---|
-| Chỉ chọn khu vực | Gợi ý khu/hạng phù hợp; bạn chọn số lượng trên website |
-| Website cấp ghế | Gợi ý hạng/khu; việc cấp ghế tuân theo quy định sự kiện, chưa khẳng định random hoặc liền nhau |
-| Chọn ghế cụ thể | Gợi ý từng ghế có nhãn đọc được cho yêu cầu 1 vé; không coi một ghế là nhóm nhiều vé |
-| Nhiều cách trong cùng event | Panel báo cần kiểm tra từng khu; không áp một cách chọn cho mọi khu |
+| Chọn khu vực / website cấp ghế | Chọn ưu tiên còn khả dụng, xác nhận đã chọn, đặt số lượng qua input/select/stepper có nhãn, đi tiếp |
+| Chọn ghế DOM có nhãn và giá | Chọn một ghế cho yêu cầu 1 vé, xác nhận đã chọn rồi đi tiếp |
+| Nhiều ghế / khu có cách chọn lẫn nhau | Chưa tự ghép nhóm ghế; dừng nếu không xác định được cách chọn |
+| Phòng chờ | Giữ tab, chờ website cho vào rồi tiếp tục khi đúng concert |
+| CAPTCHA / đăng nhập / lỗi giữ chỗ | Tạm dừng, hiển thị lý do; xử lý trên website rồi bắt đầu lại |
+| Canvas/iframe không có dữ liệu đọc được | Dừng; chưa có adapter thao tác map này |
 
-Chưa hỗ trợ chọn ghế trên canvas/iframe thiếu nhãn, tối ưu ghế liền nhau hoặc tự click. Xem [đánh giá source và cơ chế tham khảo](docs/REVIEW_VA_NGUON_THAM_KHAO.md).
+Ưu tiên khớp tên chính xác sau khi bỏ dấu/chuẩn hóa chữ. Hạng hết vé bị bỏ qua; hạng khác chỉ được chọn theo cấu hình fallback. Ngân sách xét **giá hiển thị × số vé**, chưa cộng phí. Tool không biết tồn kho server trước khi website phản hồi.
 
-## Ba việc trước giờ mở bán
+## Tốc độ và xác nhận thao tác
 
-1. Có link và giờ chính thức: nhập cấu hình, kiểm tra đúng suất, cách chọn vé, giới hạn số lượng và tên hạng vé trên trang thật.
-2. Diễn tập local và thử nhắc giờ gần trong tương lai; bật thông báo Chrome/Windows, đồng bộ đồng hồ máy, tắt sleep, giữ Chrome chạy.
-3. Đăng nhập 1Zone thủ công, chuẩn bị thanh toán; dùng một tab concert/session và theo hướng dẫn phòng chờ của website.
+Khi camp chạy, mutation/input/change của website kích hoạt lượt đọc với độ trễ gom lịch mục tiêu **16 ms**, thay cho khoảng 600 ms ở chế độ theo dõi. Đây không phải cam kết mua được vé trong 16 ms.
 
-## Phát triển và kiểm tra
+Mỗi hành động được ghi trạng thái trước khi bấm, kiểm tra lại DOM sau bước ghi bất đồng bộ và chờ website xác nhận. Không tự bấm lại một lệnh chưa rõ kết quả. Nhịp thực tế còn phụ thuộc Chrome, DOM, phòng chờ, mạng và server. Panel hiển thị thời gian từ bắt đầu chọn vé tới lúc nhận diện checkout của phiên đó.
 
-Node.js 22.x; phiên bản khóa trong `package-lock.json`.
+Bản diễn tập có tương tác dùng cùng core/runner/adapter. Kết quả fixture không chứng nhận tốc độ hoặc tương thích với sale thật. Chưa có DOM bước mua của suất Hà Nội; cần đối chiếu adapter khi có giao diện này.
 
-```powershell
-npm ci
-npm run dev
-```
-
-`dev` không tự mở trình duyệt; load `.output/chrome-mv3-dev`. Bản ngày bán dùng production:
+## Kiểm tra
 
 ```powershell
 npm run check
@@ -66,49 +60,33 @@ npm run test:e2e
 npm run zip
 ```
 
-`check` gồm typecheck, unit tests, build. Playwright dùng profile Chromium tạm, extension thật và URL fixture qua request interception; không tạo đơn hàng. `zip` tạo gói trong `.output`; Load unpacked vẫn chọn `.output/chrome-mv3`.
+`check` gồm typecheck, unit tests, build production. E2E chạy extension thật trên Chromium với website mô phỏng, không tạo đơn thật. `npm run dev` dùng `.output/chrome-mv3-dev`, không dùng bản này cho buổi bán.
 
-Xem [kết quả và giới hạn kiểm tra](docs/VALIDATION.md). Lệnh `npm run smoke:live -- https://ticket.1zone.vn/events/…` kiểm tra chỉ đọc trang công khai bằng profile tạm; không dùng tài khoản cá nhân. `node scripts/inspect-public-cases.mjs` khảo sát danh sách trang tham khảo đã cố định, không click website hay tạo đơn.
+`npm run smoke:live -- https://ticket.1zone.vn/events/…` và `node scripts/inspect-public-cases.mjs` vẫn chỉ đọc trang công khai, không khởi động camp hay đặt vé.
 
-## Source
+## Cấu trúc và mở rộng
 
 ```text
-src/
-  entrypoints/       # popup, content script, background, demo
-  core/              # model, validation, timezone, gợi ý thuần
-  platforms/         # 1Zone; Ticketbox/CTicket trả unsupported
-  infrastructure/    # Chrome storage, messages, alarms, notifications
-  ui/                # React, observer, highlight trong Shadow DOM
-  testing/           # danh mục fixture dùng trong demo
-fixtures/            # HTML mô phỏng ba dạng vé và trạng thái chặn/lỗi
-tests/unit/
-tests/e2e/
-docs/
+src/core/            # dữ liệu, URL policy, validation, ranking, máy trạng thái thuần
+src/application/     # runner, scheduling và hợp đồng transport
+src/platforms/       # BrowserPlatformAdapter, registry, bộ đọc/thao tác 1Zone
+src/infrastructure/  # Chrome storage, session/CAS, messages, tab, nhắc giờ
+src/entrypoints/     # khởi chạy background/content/popup/demo
+src/ui/              # cấu hình, panel, observer, overlay
+src/testing/         # fixtures và hành vi mô phỏng cục bộ
+tests/unit/          # quyết định, DOM, phiên, chống thao tác cũ
+tests/e2e/           # extension production và luồng tự tới checkout
 ```
 
-Core không import Chrome/React. Adapter chỉ đọc DOM; overlay không sửa/chọn điều khiển của 1Zone. Dữ liệu bền ở `chrome.storage.local`; ghi cấu hình tuần tự qua background worker. DOM observer được throttle; không polling mạng/tự refresh. Alarm được khôi phục khi worker khởi động; dấu đã nhắc lưu bền.
+Để thêm nền tảng: khai báo URL policy trong catalog, viết adapter theo contract, đăng ký vào registry và bổ sung fixtures/E2E. Manifest và content matches lấy cùng catalog. Core/runner không chứa selector hoặc thao tác đặc thù 1Zone. Chưa thêm domain/quyền của nền tảng chưa tích hợp.
 
-## Giới hạn
+Chi tiết: [cơ chế hoạt động](docs/CO_CHE_HOAT_DONG.md), [kết quả kiểm tra](docs/VALIDATION.md), [review và nguồn](docs/REVIEW_VA_NGUON_THAM_KHAO.md).
 
-- Chỉ quyền host `https://ticket.1zone.vn/*`; không đọc cookies, shop/vote/domain khác. Thanh toán chuyển host nằm ngoài phạm vi tiện ích.
-- Nhận diện theo nhãn/giá/điều khiển nhìn thấy. Chưa có selector xác minh cho fan meeting mục tiêu; DOM khác mẫu có thể trả `UNKNOWN`.
-- Canvas/iframe thiếu dữ liệu ghế rõ ràng trả `UNSUPPORTED_VARIANT`; thao tác trực tiếp. Không quy đổi tọa độ thành ghế.
-- Phòng chờ, CAPTCHA, checkout, sai concert hoặc vượt giới hạn số vé: không highlight.
-- Một cấu hình concert cho mọi tab phù hợp; không phối hợp giữ vé giữa các tab. Nên dùng một tab thao tác.
-- Countdown theo đồng hồ máy, không đồng bộ server và không xác nhận đã mở bán. Alarm có thể trễ khi browser/OS bận hoặc sleep. Nhắc bù tối đa 15 phút; mốc cũ hơn bị bỏ qua. Giữ Chrome mở.
-- Không tự click, điền số lượng, giữ vé, tạo đơn/thanh toán; không bảo đảm có vé. Chưa hỗ trợ Ticketbox, CTicket hay thương mại.
-- Không telemetry/backend/log DOM/tài khoản/thanh toán. Chỉ lưu URL bỏ tracking, giờ bán và sở thích mua vé trên máy.
+## Giới hạn thực tế
 
-## Xử lý sự cố
-
-- **Không thấy panel:** reload tab sau khi cài/cập nhật, kiểm tra host, quyền truy cập trang và checkbox hiển thị trong popup.
-- **Sai sự kiện:** kiểm tra slug và `calendarId`. Route checkout không giữ danh tính có thể báo chưa khớp; thao tác trực tiếp.
-- **Thiếu gợi ý:** kiểm tra tên hạng chính xác, ngân sách tổng và số lượng. Website có thể chưa mở bước chọn hoặc chỉ có canvas. Không suy luận hết vé từ thiếu gợi ý.
-- **Thiếu thông báo:** kiểm tra Windows/Chrome, thử mốc mới trong tương lai. Cùng URL + cùng giờ đã nhắc sẽ không lặp khi dừng/bật lại.
-- **Extension context invalidated:** tải lại tab sau khi reload extension.
-
-## Nguồn đối chiếu ngày 17/10/2026
-
-[1Zone](https://1zone.vn/), [chọn khu vực](https://ticket.1zone.vn/events/ngay-em-den), [chọn chỗ](https://ticket.1zone.vn/events/yeu-nguoi-co-uoc-mo-12882?calendarId=2InwCp), [ghế tự cấp](https://ticket.1zone.vn/events/tram-yeu-5). Event mẫu không phải bằng chứng có sale 18/10.
-
-[Điều khoản](https://doc.1zone.vn/vi/policy/terms-of-use/) có hạn chế đối với công cụ truy cập tự động và mục đích thương mại/bên thứ ba; đọc được trang không chứng minh quyền tích hợp. Xem thêm [giới hạn theo sự kiện](https://doc.1zone.vn/vi/policy/supply-conditions/) và [cung cấp dịch vụ](https://doc.1zone.vn/vi/policy/service-delivery/). Bản này hỗ trợ diễn tập và thao tác thủ công; chưa xác nhận quyền tích hợp/triển khai kinh doanh.
+- Chỉ thao tác qua DOM website; một số website không nhận synthetic click/input hoặc không khai báo trạng thái chọn, cần adapter tương ứng.
+- Chưa có bộ đọc đầy đủ đồng hồ giữ chỗ. Có dừng với một số thông báo hết hạn/lỗi rõ ràng, không bảo đảm phát hiện mọi trường hợp.
+- Chưa tự refresh/poll tồn kho, giải CAPTCHA, thay tài khoản hay vượt phòng chờ.
+- Không bấm nút thanh toán cuối; không đọc/lưu mật khẩu hoặc thông tin thẻ.
+- Giữ Chrome mở, máy thức và đồng hồ đúng. Trang thanh toán chuyển host ngoài quyền sẽ cần thao tác trực tiếp.
+- Điều khoản 1Zone và quyền tích hợp/thương mại vẫn cần được đối chiếu riêng; xem các nguồn trong tài liệu khảo sát.

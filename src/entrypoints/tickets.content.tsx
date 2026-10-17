@@ -2,9 +2,13 @@ import { defineContentScript } from 'wxt/utils/define-content-script';
 import { mountAssistant } from '../ui/mount-assistant';
 import { repository, watchConfig } from '../infrastructure/storage';
 import { command } from '../infrastructure/messages';
+import { contentMatches } from '../core/platform-catalog';
+import { autoCommand, watchAutoRun } from '../infrastructure/automation-messages';
+import { chromeAutomationTransport } from '../infrastructure/automation-transport';
+import type { AutoRun } from '../core/automation';
 
 export default defineContentScript({
-  matches: ['https://ticket.1zone.vn/*'],
+  matches: [...contentMatches],
   runAt: 'document_idle',
   async main(ctx) {
     let disposed = false;
@@ -14,13 +18,16 @@ export default defineContentScript({
     let mounted: ReturnType<typeof mountAssistant> | undefined;
     const unwatch = watchConfig(config => { latest = config; mounted?.update(config); });
     ctx.onInvalidated(unwatch);
-    const initial = await repository.load();
+    let latestRun: AutoRun | null | undefined;
+    ctx.onInvalidated(watchAutoRun(run => { latestRun = run; mounted?.updateAuto(run); }));
+    const [initial, initialRun] = await Promise.all([repository.load(), autoCommand({ type: 'AUTO_GET' })]);
     if (disposed) return;
     mounted = mountAssistant({
       document, getUrl: () => location.href, initialConfig: latest ?? initial,
       onStop: () => command({ type: 'ENABLE', enabled: false }),
       onHide: () => command({ type: 'PANEL', visible: false }),
       onOpen: () => command({ type: 'OPEN_EVENT' }),
+      automation: { initialRun: latestRun !== undefined ? latestRun : initialRun, transport: chromeAutomationTransport },
     });
     ctx.addEventListener(window, 'wxt:locationchange', () => mounted?.rescan());
     ctx.onInvalidated(() => mounted?.destroy());

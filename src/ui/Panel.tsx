@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { PageSnapshot, TaskConfig, WorkflowState } from '../core/models';
 import { countdown, isSameEvent, money } from '../core/preferences';
 import type { Recommendation } from '../core/workflow';
+import { autoActive, type AutoRun } from '../core/automation';
 
 const stateLabels: Record<WorkflowState, string> = {
   NOT_READY: 'Chưa sẵn sàng', WAITING_ROOM: 'Đang xếp hàng', EVENT_PAGE: 'Trang concert',
@@ -25,9 +26,12 @@ interface Props {
   onStop: () => void;
   onHide: () => void;
   onOpen: () => void;
+  autoRun?: AutoRun | null;
+  onStartAuto?: () => void;
+  onStopAuto?: () => void;
 }
 
-export function Panel({ config, snapshot, recommendations: options, error, onRescan, onStop, onHide, onOpen }: Props) {
+export function Panel({ config, snapshot, recommendations: options, error, onRescan, onStop, onHide, onOpen, autoRun, onStartAuto, onStopAuto }: Props) {
   const [now, setNow] = useState(Date.now());
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
@@ -48,6 +52,12 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
         <small>{new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }).format(new Date(p.saleStartAt))}</small>
       </div>}
       <div className="panel-body">
+        {onStartAuto && <div className="auto-status" role="status">
+          <b>{autoRun ? `Camp · ${autoRun.progress.phase}` : 'Camp tới thanh toán'}</b>
+          <p>{autoRun?.progress.message ?? 'Tự chọn vé theo ưu tiên, đặt số lượng và bấm tiếp tới checkout.'}</p>
+          {autoRun?.progress.checkoutReachedAt && autoRun.progress.selectionStartedAt && <p>Chọn vé → checkout: {((autoRun.progress.checkoutReachedAt - autoRun.progress.selectionStartedAt) / 1000).toFixed(2)} giây (phiên này).</p>}
+          <button className={autoActive(autoRun ?? null) ? 'danger-button' : 'primary'} disabled={!p} onClick={autoActive(autoRun ?? null) ? onStopAuto : onStartAuto}>{autoActive(autoRun ?? null) ? 'Dừng camp' : 'Bắt đầu camp'}</button>
+        </div>}
         <p className={`event-match ${sameEvent ? 'ok' : ''}`}>{sameEvent ? '✓ Đúng link concert / suất diễn đã lưu' : '○ Chưa khớp concert đã lưu'}</p>
         <p className="reason">{snapshot.reason}</p>
         {p && <>
@@ -63,7 +73,7 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
           {options.slice(0, 4).map(({ option, estimatedTotalVnd }, i) => <div className="recommendation" key={option.id}>
             <span className="rank">{i + 1}</span><div><b>{option.label}</b>{option.kind === 'SEAT' && <small>Ghế cụ thể{option.zoneLabel ? ` · ${option.zoneLabel}` : ''}</small>}<small>{estimatedTotalVnd === undefined ? 'Website chưa hiển thị giá rõ ràng' : `${money(estimatedTotalVnd)} / ${p?.quantity} vé · chưa tính phí`}</small></div>
           </div>)}
-          <p className="muted">Khung xanh đánh dấu gợi ý. Bạn tự chọn vé trên website; chưa xác nhận đủ số lượng còn lại.</p>
+          <p className="muted">{autoActive(autoRun ?? null) ? 'Camp đang tự chọn theo cấu hình đã lưu. Tool chờ website xác nhận sau mỗi thao tác.' : 'Khung xanh đánh dấu lựa chọn phù hợp. Bắt đầu camp để tự chọn và đi tới checkout.'}</p>
         </div> : snapshot.state === 'SELECTING' && <p className="muted">Chưa có lựa chọn khớp đủ điều kiện. Kiểm tra hạng vé, giá và số lượng trực tiếp.</p>}
         {error && <p role="alert" className="error">{error}</p>}
         <div className="panel-actions"><button onClick={onRescan}>Nhận diện lại</button><button onClick={onOpen}>Mở concert</button><button className="danger-button" disabled={!config.enabled} onClick={onStop}>Dừng</button></div>

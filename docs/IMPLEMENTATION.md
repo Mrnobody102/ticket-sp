@@ -1,34 +1,29 @@
-# Quyết định triển khai · 17/10/2026
+# Quyết định triển khai · 0.2.0
 
-Mục tiêu: extension cài được trước 18/10, thử hỗ trợ mua **1 vé mặc định** fan meeting Vương Bình **tại Hà Nội**, không giới hạn ngân sách. URL và giờ bán suất Hà Nội chưa xác nhận. Link TP.HCM và Lavender tại Cung Thiếu nhi chỉ là tham khảo; xem [khảo sát thực tế](KHAO_SAT_1ZONE.md). Tổng 100–200 vé là ước tính người dùng cung cấp, không phải tồn kho đã xác minh.
+Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp và đi tới checkout nhanh, trên phiên trình duyệt của người dùng. Hà Nội là suất mục tiêu; chưa có URL/DOM bước mua được xác nhận. TP.HCM và Lavender chỉ dùng tham khảo. Không dùng ước tính 100–200 vé làm tồn kho.
 
-## Điều chỉnh brief
+## Các quyết định
 
-1. Một project WXT ở root; ranh giới core / adapter / infrastructure / UI, chưa monorepo/backend.
-2. Chrome Alarms nhắc khi popup đóng; dựng lại khi worker khởi động. Dấu đã nhắc lưu bền, không mất khi lưu cấu hình. Promise trong worker chỉ xếp thứ tự ghi, không lưu task.
-3. Giờ nhập cố định UTC+7, lưu ISO UTC; không phụ thuộc timezone Windows, không đoán giờ bán.
-4. Chỉ gợi ý khi khớp concert/suất và đang SELECTING. Tôn trọng ưu tiên chính xác, ngân sách tổng, disabled, giới hạn số vé hiển thị. Không suy ra tồn kho đủ số lượng.
-5. Demo nội bộ extension không thêm quyền localhost/ghi cấu hình giả vào task thật.
-6. Shadow DOM và overlay không chặn pointer; MutationObserver throttle, theo dõi route SPA, cleanup listener. Không polling mạng/refresh.
-7. Unit tests cho quyết định và nhận diện; Playwright load extension production, chặn request để phục vụ fixtures.
-8. Nhận cùng slug/calendarId ở `/events/` và `/booking/`; hỗ trợ ký hiệu tiền trước/sau số. Loại nút xem thông tin khỏi điều khiển chọn vé để không coi thẻ giới thiệu là vé có thể mua.
-9. Rà soát source: tách visibility/text, option reader và phân loại cách chọn; một lần inspect trả snapshot cùng DOM bindings, không đọc lại option để highlight. Cache chỉ sống trong lần đọc. Tách ghế đơn/khu vực, không gợi ý một ghế cho nhiều vé; giữ trạng thái phòng chờ với cảnh báo chưa xác nhận event nếu route không có slug.
+1. Giữ một project WXT. Chia core / application / platforms / infrastructure / UI, không cần backend hay monorepo.
+2. Core biểu diễn máy trạng thái và quyết định thuần; không phụ thuộc DOM, React, Chrome.
+3. Runner thực thi qua contract và transport; ghi progress trước thao tác, kiểm tra lại sau await, chờ phản hồi thay vì bấm lặp.
+4. Background là nơi sở hữu một session camp, khóa tab và revision. Cấu hình bền ở local; phiên camp ở session.
+5. Adapter chịu trách nhiệm đọc DOM và thực thi ENTER/CHOOSE/QUANTITY/ADVANCE. Chỉ 1Zone đã có implementation; nền tảng khác chưa được bật.
+6. URL policy, tên nền tảng và phạm vi host khai báo trong catalog. Validation, manifest/content matches dùng chung khai báo này.
+7. Khi camp, gom DOM changes khoảng 16 ms; chế độ theo dõi khoảng 600 ms. Không polling mạng/refresh tab.
+8. Nhắc giờ là tính năng phụ. Đến checkout thì kết thúc automation; người dùng kiểm tra đơn và thanh toán cuối.
+9. Tách fixtures tĩnh nhận diện và demo booking có tương tác. Demo dùng transport bộ nhớ và cùng runner/core/adapter, không sửa cấu hình/phiên thật.
+10. Các lỗi chưa có contract rõ ràng trả PAUSED/UNKNOWN; log trạng thái trên UI, không âm thầm coi click là thành công.
 
-## Thứ tự bàn giao
+## Phạm vi bàn giao
 
-- P0: scaffold → core/config → adapter/panel → alarm → demo → tests/build → tài liệu.
-- P1 khi có link: đọc trang công khai, kiểm tra luồng/DOM/giới hạn thực tế, bổ sung fixture rồi chỉnh adapter khi cần.
-- Sau buổi thử: cân nhắc adapter khác, entitlement hoặc thương mại theo kết quả và quyền tích hợp.
-
-## Ma trận xác minh
-
-| Hạng mục | Bằng chứng hiện có | Còn thiếu |
+| Hạng mục | Có | Cần xác minh tiếp |
 |---|---|---|
-| ticket.1zone.vn | Link chính thức từ 1zone.vn | Host các bước của fan meeting |
-| Ba hình thức vé | Quy định trên ba event mẫu trong README | Quy trình event mục tiêu |
-| Nhận diện, giá, ưu tiên, trạng thái chặn | Fixtures tổng hợp + unit/E2E | DOM bước chọn vé thật |
-| Storage, panel, SPA, alarm | Extension production trong Chromium | Chrome cá nhân/notification Windows |
-| Mở bán 18/10 | Đầu vào người dùng | Link/giờ chính thức |
-| Quyền tích hợp/thương mại | Chưa xác nhận; điều khoản có hạn chế | Làm rõ riêng trước mở rộng |
+| Zone/ghế tự cấp | Tự chọn, đọc selected, đặt số lượng, đi tiếp trên fixture | DOM sự kiện thật và cách website xác nhận giữ vé |
+| Ghế cụ thể | Một ghế có nhãn/giá đọc được cho 1 vé | Map thật; chưa nhóm ghế liền nhau |
+| Phòng chờ | Chờ trạng thái, tiếp tục trên tab chủ khi được vào | Queue/host/session của sale mục tiêu |
+| Phiên và dừng | Khóa tab, CAS, hủy khi đổi cấu hình/dừng/đóng tab | Diễn tập trên Chrome cá nhân |
+| Nền tảng khác | Domain model + registry + contract dùng chung | Viết adapter, khai báo URL/host, fixtures và E2E riêng |
+| Tốc độ | Đo trong E2E fixture và hiển thị số đo phiên | Không suy rộng thành SLA trên mạng/server thật |
 
-Pass fixture không chứng nhận tương thích sự kiện thật. Kết quả thực thi ghi ở `docs/VALIDATION.md` khi hoàn tất.
+Xem [cơ chế kỹ thuật](CO_CHE_HOAT_DONG.md), [kết quả thực thi](VALIDATION.md) và [nguồn đối chiếu](REVIEW_VA_NGUON_THAM_KHAO.md).

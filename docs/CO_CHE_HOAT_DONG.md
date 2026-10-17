@@ -1,430 +1,190 @@
-# Cơ chế hoạt động của Camp vé · 1Zone Assistant
+# Cơ chế camp vé · bản 0.2.0
 
-> **Phạm vi:** giải thích bản MVP trong repository tại ngày 17/10/2026. Các tên hàm, cấu trúc dữ liệu và hành vi dưới đây được đối chiếu với source hiện tại.
->
-> **Cách đọc:** phần 1–3 giải thích thiết kế tổng thể; phần 4–10 đi vào cơ chế; phần 11–14 mô tả cách xây dựng, kiểm thử và giới hạn. Mỗi phần có liên kết tới code liên quan.
->
-> **Nguồn và rà soát chất lượng:** xem [đánh giá source, cơ chế chuẩn và giới hạn](REVIEW_VA_NGUON_THAM_KHAO.md).
+Bản hiện tại thêm luồng **tự chọn vé và đi tới checkout**. Bản 0.1.0 chỉ nhắc giờ/đánh dấu vé, chưa đáp ứng mục tiêu tốc độ đặt vé. Tài liệu này mô tả code 0.2.0 và phân biệt những gì đã kiểm thử cục bộ với phần cần xác minh trên sự kiện thật.
 
-## 1. Tool giải quyết phần nào của việc camp vé?
+## 1. Đầu vào và đầu ra
 
-Tool hỗ trợ bạn chuẩn bị trước giờ bán và nhận biết các lựa chọn phù hợp trên trang 1Zone đang mở. Bạn cấu hình một concert, giờ mở bán, số vé, ngân sách và thứ tự hạng vé mong muốn. Tool dùng các thông tin đó để hiển thị countdown, nhắc giờ và đánh dấu lựa chọn trên giao diện.
+Đầu vào gồm nền tảng, link concert/suất, giờ mở bán, số vé, ngân sách tổng và thứ tự zone/hạng vé. Mặc định **1 vé**, ngân sách trống. Cấu hình cũ được giữ đúng lựa chọn đã lưu.
 
-Popup và demo mặc định **1 vé**, ngân sách để trống. Mặc định lấy từ `DEFAULT_QUANTITY` trong model; cấu hình đã được người dùng lưu vẫn được khôi phục đúng số lượng đó. Link và giờ bán phải nhập khi có thông báo chính thức. Ước tính toàn sự kiện có 100–200 vé không được dùng làm dữ liệu tồn kho trong code.
+Khi bấm **Bắt đầu camp**, tool dùng cấu hình đã lưu để vào bước mua, chọn lựa chọn phù hợp, cập nhật số lượng rồi bấm tiếp. Đầu ra thành công của bộ thực thi là **nhận diện trang checkout**. Đây chưa phải xác nhận server đã giữ vé hoặc thanh toán thành công.
 
-| Công việc | Bên thực hiện |
-|---|---|
-| Nhập concert, giờ bán, số vé và ưu tiên | Bạn |
-| Lưu cấu hình, đếm ngược, nhắc giờ | Extension |
-| Đọc trạng thái và các lựa chọn thể hiện trên trang | Extension |
-| Lọc theo ưu tiên/ngân sách và vẽ khung gợi ý | Extension |
-| Đăng nhập, vào phòng chờ, xử lý xác minh | Bạn trên website |
-| Chọn vé, giữ chỗ, xác nhận đơn và thanh toán | Bạn trên website |
+Đăng nhập trước, hoàn thành xác minh khi website yêu cầu và thanh toán cuối vẫn là những bước người dùng thực hiện. Nhắc giờ là tính năng phụ.
 
-Đầu ra của tool là **thông tin hỗ trợ quyết định**. Khung xanh trên một hạng vé không tạo giỏ hàng, không giữ vé và không chứng minh còn đủ số lượng muốn mua.
-
-## 2. Vì sao triển khai dưới dạng Chrome Extension?
-
-Yêu cầu ban đầu cần một bản chạy trên máy cá nhân trước ngày thử, trong khi link concert chưa tồn tại. Extension cho phép đặt công cụ ngay cạnh giao diện 1Zone bạn đang dùng, tận dụng phiên trình duyệt hiện có mà không xây thêm hệ thống đăng nhập hay chạy browser trên server.
-
-| Thành phần công nghệ | Vai trò trong project |
-|---|---|
-| Chrome Extension Manifest V3 | Đóng gói popup, background và content script thành tiện ích cài cục bộ |
-| TypeScript | Định nghĩa dữ liệu và kiểm tra kiểu giữa các thành phần |
-| React | Dựng form cấu hình và panel trạng thái |
-| WXT + Vite | Nhận diện entrypoint, biên dịch, tạo manifest và bản build |
-| Chrome Storage / Alarms / Notifications | Lưu cấu hình, đặt lịch nhắc và phát thông báo |
-| Vitest / Playwright | Kiểm tra logic và luồng chạy trong trình duyệt |
-
-Source được đặt trong **một project** để giảm cấu hình cần vận hành. Ranh giới giữa logic, đọc website và UI vẫn được tách để dễ sửa khi giao diện 1Zone thay đổi.
-
-Code cấu hình: [wxt.config.ts](../wxt.config.ts), [package.json](../package.json).
-
-## 3. Kiến trúc: các phần chạy ở đâu?
+## 2. Kiến trúc
 
 ```mermaid
 flowchart LR
-    U[Người dùng] --> P[Popup cấu hình]
-    P -->|Chrome message| B[Background service worker]
-    B --> S[(Chrome Storage Local)]
-    B --> A[Chrome Alarms]
-    A -->|Đến giờ| B
-    B --> N[Thông báo]
-    S -->|Đọc và theo dõi thay đổi| C[Content script trong tab 1Zone]
-    D[DOM trang 1Zone] -->|Chỉ đọc| O[Adapter 1Zone]
-    C --> O
-    O --> Q[PageSnapshot]
-    Q --> W[Kiểm tra cấu hình và xếp hạng]
-    W --> V[Panel và khung highlight]
-    V -->|Lệnh dừng hoặc ẩn| B
+  UI[Popup / Panel] --> BG[Background: session + revision]
+  BG --> RUN[Runner trong tab chủ]
+  RUN --> READ[Platform adapter: đọc DOM]
+  READ --> CORE[Core: quyết định bước tiếp]
+  CORE --> BG
+  BG --> VERIFY[Đọc và kiểm tra lại]
+  VERIFY --> EXEC[Adapter: click / input]
+  EXEC --> SITE[Website phản hồi]
+  SITE --> READ
 ```
 
-**Popup** là cửa sổ mở từ icon extension. Nó nhận dữ liệu, kiểm tra form và gửi lệnh. Đóng popup không xóa cấu hình đã lưu.
-
-**Background service worker** xử lý lệnh thay đổi cấu hình, mở tab và đặt nhắc giờ. Nó không đọc DOM trang mua vé. Vì worker có thể bị dừng rồi chạy lại, code đọc trạng thái bền từ storage khi xử lý công việc.
-
-**Content script** chạy trong tab thuộc `https://ticket.1zone.vn/*`. Nó đọc cấu hình, gọi adapter đọc trang, theo dõi thay đổi và gắn UI hỗ trợ vào trang.
-
-**Core** chứa kiểu dữ liệu và các quy tắc kiểm tra/xếp hạng. Các hàm này không import React hoặc Chrome APIs nên có thể kiểm thử riêng bằng dữ liệu đầu vào.
-
-| Nhóm source | Trách nhiệm | File nên đọc |
+| Lớp | Trách nhiệm | Phụ thuộc |
 |---|---|---|
-| `core/` | Dữ liệu, validation, thời gian, quy tắc gợi ý | [models.ts](../src/core/models.ts), [preferences.ts](../src/core/preferences.ts), [workflow.ts](../src/core/workflow.ts) |
-| `platforms/` | Chuyển DOM website thành dữ liệu thống nhất | [onezone.ts](../src/platforms/onezone.ts) |
-| `infrastructure/` | Kết nối logic với Chrome APIs | [storage.ts](../src/infrastructure/storage.ts), [messages.ts](../src/infrastructure/messages.ts), [reminders.ts](../src/infrastructure/reminders.ts) |
-| `ui/` | Form, panel, observer và overlay | [Popup.tsx](../src/ui/Popup.tsx), [Panel.tsx](../src/ui/Panel.tsx), [mount-assistant.tsx](../src/ui/mount-assistant.tsx) |
-| `entrypoints/` | Điểm khởi chạy từng ngữ cảnh | [background.ts](../src/entrypoints/background.ts), [onezone.content.tsx](../src/entrypoints/onezone.content.tsx) |
+| Core | Model, URL policy, validate, xếp hạng, quyết định | TypeScript thuần |
+| Application | Chạy từng bước, hẹn giờ, chống lệnh cũ, kiểm tra lại trước thao tác | Core, contract, transport được truyền vào |
+| Platform | Hiểu DOM và điều khiển riêng của website | Core, Browser DOM |
+| Infrastructure | Chrome storage/session, messages, tab và alarm | Core, Chrome APIs |
+| UI / entrypoints | Form, trạng thái, observer, lắp các thành phần | Các lớp trên |
 
-## 4. Dữ liệu được tổ chức thế nào?
+Core không import React, Chrome hoặc DOM. Runner không import adapter 1Zone. Website khác dùng lại core và runner qua [contract](../src/platforms/contracts.ts) và [registry](../src/platforms/registry.ts).
 
-### 4.1. Cấu hình bền: `TaskConfig`
+## 3. Các kiểu dữ liệu
 
-Ví dụ minh họa sau **không phải link hoặc giờ bán thật**:
+[models.ts](../src/core/models.ts) chứa `EventPreferences`, `PageSnapshot`, `VisibleOption` và cấu hình. `platform` là kiểu nền tảng chung. Mỗi lựa chọn ghi `ZONE/SEAT`, nhãn, nhãn khu nếu có, giá, tình trạng khả dụng và dấu đã chọn.
 
-```json
-{
-  "schemaVersion": 1,
-  "enabled": true,
-  "panelVisible": true,
-  "preferences": {
-    "platform": "onezone",
-    "eventUrl": "https://ticket.1zone.vn/events/vi-du?calendarId=A",
-    "saleStartAt": "2026-10-18T05:00:00.000Z",
-    "quantity": 1,
-    "preferredZoneLabels": ["VIP", "Khu A"],
-    "allowAlternatives": false
-  }
-}
-```
+[automation.ts](../src/core/automation.ts) định nghĩa:
 
-| Trường | Ý nghĩa |
+| Kiểu | Ý nghĩa |
 |---|---|
-| `schemaVersion` | Phiên bản cấu trúc lưu trữ; hiện là `1` |
-| `enabled` | Bật hay dừng theo dõi và nhắc giờ |
-| `panelVisible` | Hiện/ẩn panel; độc lập với `enabled` |
-| `preferences` | Cấu hình concert; chưa nhập thì là `null` |
-| `maxTotalVnd` | Ngân sách tổng tùy chọn; không có trường này nghĩa là không đặt trần ngân sách |
+| AutoRun | ID phiên, tab chủ, revision, fingerprint cấu hình, thời gian bắt đầu/hết hạn, progress |
+| AutoProgress | Bước hiện tại, lựa chọn đã nhắm tới, mốc hành động, số lượng cần xác nhận |
+| AutoPage | Snapshot chuẩn hóa, số nút vào mua/đi tiếp, các lựa chọn có thể bấm, số lượng đọc được, lỗi |
+| AutoDecision | Chờ với mốc đánh thức, hoặc chuyển bước với một hành động |
+| AutoAction | ENTER, CHOOSE, QUANTITY, ADVANCE |
 
-`TaskConfig` được lưu tại khóa `ticket-assistant.config.v1` trong `chrome.storage.local`. Một khóa khác, `ticket-assistant.notified.v1`, giữ dấu của mốc nhắc gần nhất đã xử lý.
+ID option chỉ tồn tại trong một lần đọc. Qua các lần đọc, lựa chọn được đối chiếu bằng loại, nhãn, khu và giá. Nếu hai lựa chọn trùng các dấu hiệu này, core dừng thay vì suy đoán vị trí.
 
-### 4.2. Dữ liệu tạm: `PageSnapshot`
-
-Mỗi lần đọc trang, adapter trả về một bản mô tả:
-
-```ts
-{
-  url,               // URL đang mở
-  state,             // EVENT_PAGE, SELECTING, CHECKOUT, ...
-  selectionMode,     // ZONE_ONLY, PICK_SEAT, ASSIGNED_SEAT, MIXED, UNKNOWN
-  visibleOptions,    // Lựa chọn đọc được từ giao diện
-  supported,         // Cờ được dùng để chặn/cho phép quy tắc gợi ý
-  reason,            // Lý do hiển thị trên panel
-  maxQuantity        // Giới hạn số vé đọc được, nếu có
-}
-```
-
-Snapshot và tham chiếu đến các phần tử HTML nằm trong bộ nhớ của tab, không được lưu thành lịch sử tồn kho. Reload tab sẽ tạo snapshot mới từ trang hiện tại.
-
-Mỗi `VisibleOption` chứa tên, giá, trạng thái khả dụng và ID như `option-0`. Trường `kind` phân biệt `ZONE` với `SEAT`; `zoneLabel` ghi nhãn khu nếu nhóm ghế có khai báo truy cập rõ ràng; `selected` ghi dấu đã chọn nếu DOM thể hiện bằng ARIA/input. ID là chỉ số tạm của lần đọc, **không phải mã vé/zone nội bộ của 1Zone**.
-
-Code: [models.ts](../src/core/models.ts), [storage.ts](../src/infrastructure/storage.ts).
-
-## 5. Điều gì xảy ra khi bấm “Lưu & bật theo dõi”?
+## 4. Máy trạng thái
 
 ```mermaid
-sequenceDiagram
-    actor User as Người dùng
-    participant Popup
-    participant BG as Background
-    participant Store as Storage Local
-    participant Tab as Content script
-
-    User->>Popup: Nhập và lưu cấu hình
-    Popup->>Popup: Parse UTC+7, kiểm tra dữ liệu
-    Popup->>BG: SAVE + preferences
-    BG->>BG: Kiểm tra lại và xếp thứ tự xử lý
-    BG->>Store: Lưu cấu hình, enabled = true
-    Store-->>Tab: storage.onChanged
-    Tab->>Tab: Cập nhật cấu hình và đọc lại trang
-    BG->>BG: Đồng bộ lịch nhắc giờ
-    BG-->>Popup: Trả cấu hình hoặc thông báo lỗi
+stateDiagram-v2
+  [*] --> READY
+  READY --> OPENING: tới giờ và có một nút mua
+  OPENING --> READY: nhận diện bước chọn vé
+  READY --> CHOOSING: có lựa chọn hợp lệ
+  CHOOSING --> QUANTITY: website báo đã chọn
+  QUANTITY --> SETTING_QUANTITY: cần đổi số lượng
+  SETTING_QUANTITY --> QUANTITY: đọc được số lượng mới
+  QUANTITY --> ADVANCING: đúng lựa chọn và số lượng
+  ADVANCING --> CHECKOUT: thấy checkout
+  READY --> PAUSED: không thao tác được chắc chắn
+  CHOOSING --> PAUSED: hết thời gian xác nhận
+  ADVANCING --> PAUSED: hết thời gian xác nhận
+  CHECKOUT --> [*]
 ```
 
-Dữ liệu được kiểm tra cả ở popup và background. Popup giúp phản hồi lỗi sớm; background kiểm tra lại tại nơi nhận lệnh và ghi storage.
+Hàm `decideAutomation()` là hàm thuần: nhận phiên, trang chuẩn hóa, sở thích và thời gian; trả quyết định. Hàm không click và không ghi storage.
 
-Các quy tắc chính:
+Quy tắc ưu tiên:
 
-- URL phải là HTTPS, đúng host `ticket.1zone.vn`, đường dẫn `/events/<tên-sự-kiện>` hoặc `/booking/<tên-sự-kiện>`, không chứa tài khoản/mật khẩu hay cổng tùy chỉnh. Link booking được chuẩn hóa thành event khi lưu.
-- URL lưu lại giữ `calendarId` nếu có; bỏ fragment và các query khác như tracking.
-- Số vé phải là số nguyên 1–100. Đây là giới hạn nhập của phần mềm; giới hạn concert vẫn được xét riêng khi đọc được.
-- Ngân sách nếu nhập phải là số đồng nguyên dương.
-- Tối đa 20 tên hạng vé, mỗi tên tối đa 100 ký tự; danh sách được trim và loại tên trùng hoàn toàn.
-- Dữ liệu storage sai schema hoặc không hợp lệ được đưa về cấu hình mặc định, tắt theo dõi.
+1. Dừng nếu cấu hình đổi hoặc phiên hết hạn.
+2. Nhận diện checkout thì kết thúc, không bấm nút cuối.
+3. Đăng nhập, CAPTCHA, thông báo giữ chỗ thất bại/hết hạn rõ ràng thì PAUSED.
+4. Phòng chờ thì WAIT; không refresh, không gửi yêu cầu lấy chỗ khác.
+5. Kiểm tra đúng concert/suất, giờ bán và giới hạn số vé.
+6. READY chọn ưu tiên phù hợp. Hết vé hiển thị thì xét lựa chọn tiếp theo theo cấu hình.
+7. Sau click, phải thấy dấu đã chọn; sau đổi số lượng, phải đọc được giá trị mục tiêu.
+8. Chỉ ADVANCE khi đúng lựa chọn, đủ số lượng và có đúng một nút đi tiếp khả dụng.
 
-Background dùng một chuỗi Promise để xử lý các lệnh tuần tự, giảm nguy cơ hai thao tác cùng đọc cấu hình cũ rồi ghi đè nhau. Chuỗi Promise chỉ điều phối trong lần worker đang chạy; cấu hình bền vẫn nằm trong storage.
+Thời gian chờ xác nhận lựa chọn/số lượng khoảng 5 giây; điều hướng khoảng 15 giây. Quá thời gian sẽ dừng, không tự lặp click. Lúc khởi tạo cho phép tối đa 15 giây để giao diện chưa nhận diện được hoàn tất render; canvas/iframe không đọc được không được coi là đang tải.
 
-Popup cập nhật checkbox ẩn/hiện ngay khi click, sau đó chờ background lưu. Nếu lệnh lỗi, UI khôi phục trạng thái trước đó.
+## 5. Vì sao ghi trạng thái trước khi click?
 
-Code: [Popup.tsx](../src/ui/Popup.tsx), [preferences.ts](../src/core/preferences.ts), [background.ts](../src/entrypoints/background.ts).
+[automation-service.ts](../src/infrastructure/automation-service.ts) chạy trong hàng đợi tuần tự của background. Content gửi ID phiên, revision hiện tại và progress tiếp theo.
 
-## 6. Tool xác định đúng concert bằng cách nào?
-
-Hàm `isSameEvent()` so sánh origin, đường dẫn và suất diễn trong cấu hình.
-
-Giả sử URL đã lưu là `/events/vi-du?calendarId=A`:
-
-| Trang đang mở trên cùng origin | Kết quả |
-|---|---|
-| `/events/vi-du?calendarId=A` | Khớp |
-| `/events/vi-du/select?calendarId=A` | Khớp đường dẫn con và đúng suất |
-| `/booking/vi-du?calendarId=A` | Khớp cùng event và suất ở bước booking |
-| `/events/vi-du-khac?calendarId=A` | Không khớp |
-| `/events/vi-du?calendarId=B` | Không khớp suất |
-| `/events/vi-du` | Không khớp vì thiếu suất A đã lưu |
-
-Nếu cấu hình không có `calendarId`, hàm không áp thêm điều kiện suất diễn. Đây là đối chiếu **dựa trên URL**, chưa xác minh danh tính concert bằng dữ liệu server.
-
-Nút **Mở concert** tìm tab có URL phù hợp để đưa lên trước; nếu chưa có mới tạo tab. Nó không tự reload tab đang ở phòng chờ. Chưa có cơ chế khóa một tab duy nhất: các tab phù hợp cùng đọc một cấu hình chung.
-
-Code: [preferences.ts](../src/core/preferences.ts), [background.ts](../src/entrypoints/background.ts).
-
-## 7. Adapter đọc website và nhận diện trạng thái thế nào?
-
-### 7.1. Nguồn dữ liệu là DOM
-
-DOM là cây phần tử HTML mà trình duyệt dùng để dựng trang: tiêu đề, nút, nhãn, đoạn chữ, ô nhập liệu… Adapter đọc các phần tử và chữ đang được trình bày trên trang, không truy vấn API đặt vé hoặc đọc state nội bộ của ứng dụng 1Zone.
-
-Hàm kiểm tra hiển thị loại các phần tử có `hidden`, `aria-hidden`, `inert`, CSS ẩn hoặc không có vùng bố cục; bỏ script, style và UI của chính extension. Một phần tử nằm ngoài vùng màn hình đang nhìn vẫn có thể được đọc nếu nó đang có trong bố cục trang.
-
-Đây là **heuristic**, tức tập quy tắc suy luận theo dấu hiệu giao diện. Nó không phải mô hình AI nhận dạng ảnh. Khi cấu trúc hoặc câu chữ website đổi, có thể cần bổ sung quy tắc.
-
-### 7.2. Trạng thái được tính lại sau mỗi lần quét
-
-Code không ép website đi theo một chuỗi bước cố định. Mỗi lần quét, nó xét các dấu hiệu theo thứ tự ưu tiên:
-
-| Thứ tự | Dấu hiệu chính | Kết quả |
-|---|---|---|
-| 1 | Tiêu đề xác minh hoặc iframe hiển thị có title chứa captcha/challenge | `CHALLENGE` |
-| 2 | Tiêu đề thể hiện phòng chờ/hàng chờ | `WAITING_ROOM` |
-| 3 | Tiêu đề thanh toán/xác nhận, kèm form hoặc nút liên quan | `CHECKOUT` |
-| 4 | Tiêu đề/nút thể hiện chưa mở bán, kể cả khi nút chọn vé còn hiển thị | `NOT_READY`, không trả lựa chọn |
-| 5 | Canvas/iframe hiển thị khi chọn ghế, hoặc không đọc được lựa chọn | `UNKNOWN`, lý do `UNSUPPORTED_VARIANT` |
-| 6 | Có lựa chọn với nhãn, giá và điều khiển đọc được | `SELECTING` |
-| 7 | URL event và dấu hiệu giới thiệu/mua vé/hết vé | `EVENT_PAGE` |
-| 8 | Không đủ dấu hiệu | `UNKNOWN` |
-
-Các tiêu đề chứa “hướng dẫn”, “quy định”, “điều khoản”, “giới thiệu” được bỏ khỏi nhóm tiêu đề dùng để nhận diện trạng thái. Việc đó giảm nhầm lẫn giữa mục “Hướng dẫn thanh toán” trên trang giới thiệu và bước thanh toán đang diễn ra.
-
-Sau adapter, hàm `effectiveSnapshot()` áp thêm cấu hình:
-
-1. Chưa có concert → `NOT_READY`.
-2. Đã dừng → `STOPPED`.
-3. Sai URL concert/suất → không cho gợi ý. Với phòng chờ, xác minh hoặc checkout, giữ trạng thái đã đọc và thêm cảnh báo chưa xác nhận thuộc event đã lưu; các trạng thái khác chuyển thành `UNKNOWN`.
-4. Nếu qua các điều kiện trên → dùng kết quả adapter.
-
-`UNSUPPORTED_VARIANT` hiện là chuỗi trong trường `reason`, không phải một giá trị riêng của `WorkflowState`. Cờ `supported` cũng không chứng nhận toàn bộ website đã tương thích: các trạng thái đã nhận diện như phòng chờ/xác minh/checkout vẫn đặt cờ này thành `false` để ngăn gợi ý.
-
-### 7.3. Cách chọn chỗ là một thông tin riêng
-
-| `selectionMode` | Dấu hiệu suy luận | Cách hiểu |
-|---|---|---|
-| `ASSIGNED_SEAT` | Chữ về tự động cấp số ghế | Website cấp ghế theo quy trình của sự kiện |
-| `ZONE_ONLY` | Chữ “không chọn chỗ/ghế” | Mua theo khu vực |
-| `PICK_SEAT` | Chữ về chọn ghế/chọn chỗ | Có hình thức chọn ghế cụ thể |
-| `MIXED` | Cùng có dấu hiệu chọn ghế và khu không chọn ghế/tự cấp | Cần đối chiếu cách chọn của từng khu |
-| `UNKNOWN` | Thiếu dấu hiệu | Chưa xác định được |
-
-Thông tin này có thể đến từ mô tả sự kiện; nó không tự chứng minh giao diện chọn ghế hiện đã mở hoặc đọc được. Tool không suy ra ghế từ tọa độ canvas. Cấp ghế tự động có thể theo thứ tự, ngẫu nhiên hoặc quy tắc riêng; chưa thể khẳng định random nếu chưa có thông báo của đúng sự kiện.
-
-Code: [onezone.ts](../src/platforms/onezone.ts), [workflow.ts](../src/core/workflow.ts).
-
-## 8. Từ HTML đến danh sách gợi ý
-
-### 8.1. Đọc một lựa chọn
-
-Ví dụ HTML đơn giản mà adapter có thể hiểu:
-
-```html
-<article>
-  <h3>VIP</h3>
-  <p>1.200.000 ₫</p>
-  <button>Chọn</button>
-</article>
-```
-
-`readOptionElements()` tìm trong các phần tử có ngữ nghĩa như `button`, `article`, `label`, `li`, `section`, role `option`, `radio`, `group`.
-
-Một ứng viên phải có nội dung gọn, đúng một giá trị giá phân biệt và nhãn đọc được. Với thẻ bao bên ngoài như `article`, code còn yêu cầu một tiêu đề hiển thị cùng điều khiển liên quan. Giá chấp nhận ký hiệu `₫`, `đ`, `VNĐ`, `VND` trước hoặc sau số; ví dụ `đ2.850.000` và `2.850.000 ₫`. Dấu phân cách hàng nghìn được bỏ để chuyển sang số đồng. Nút chỉ xem thông tin như “Xem tất cả”, “Xem chi tiết” không được dùng làm bằng chứng có thể chọn vé.
-
-Các thẻ có nhiều giá khác nhau, nhãn quá dài hoặc nhãn giống thao tác thanh toán/xác nhận bị bỏ qua. Khi một điều khiển con có nhãn/giá hợp lệ, nó thay thế ứng viên container bao ngoài. Nhờ đó một nhóm ghế cùng giá có tiêu đề không bị gộp thành một zone. Sau khi loại trùng theo quan hệ bao lồng, giữ tối đa 100 lựa chọn theo thứ tự DOM rồi cấp ID tạm.
-
-### 8.2. “Khả dụng” được suy ra từ giao diện
-
-Nút bị `disabled`, `aria-disabled` hoặc chữ thể hiện hết vé làm lựa chọn thành `UNAVAILABLE`. Nếu có điều khiển phù hợp và không gặp dấu hiệu đó, lựa chọn được coi là `AVAILABLE` để xét gợi ý.
-
-Đây là tình trạng UI. Adapter không biết chính xác server còn bao nhiêu vé, vé đã được người khác giữ hay hai ghế có liền nhau không.
-
-Giới hạn giao dịch được đọc từ chữ dạng “tối đa 2 vé”. Nếu không tìm được, `maxQuantity` để trống; không tự mặc định mọi concert có cùng giới hạn.
-
-### 8.3. Lọc và xếp hạng
-
-Hàm `recommend()` thực hiện:
-
-1. Chỉ tiếp tục nếu snapshot cho phép gợi ý, trạng thái là `SELECTING` và số vé không vượt giới hạn đã đọc được.
-2. Bỏ lựa chọn không phải `AVAILABLE` hoặc đã được đánh dấu chọn. Nếu là một ghế cụ thể, chỉ xét khi yêu cầu đúng 1 vé; chưa hỗ trợ gợi ý nhóm ghế.
-3. Chuẩn hóa tên: bỏ dấu, chuyển chữ thường và gộp khoảng trắng; sau đó so sánh bằng nhau, không tìm gần đúng. Với ghế có `zoneLabel` từ nhóm có nhãn rõ ràng, tên khu đó cũng được xét với danh sách ưu tiên.
-4. Nếu có danh sách ưu tiên và tắt phương án thay thế, bỏ tên nằm ngoài danh sách.
-5. Tính `tổng tạm tính = giá hiển thị × số vé`. Có trần ngân sách thì loại lựa chọn vượt trần hoặc thiếu giá rõ ràng.
-6. Sắp theo vị trí trong danh sách ưu tiên; cùng mức ưu tiên thì sắp tổng tạm tính tăng dần.
-
-Ví dụ chọn **2 vé**, ưu tiên `VIP → Khu A`, ngân sách **1.700.000 đồng**:
-
-| Hạng | Giá/vé | Tổng 2 vé | Kết quả |
-|---|---:|---:|---|
-| VIP | 1.200.000 | 2.400.000 | Loại vì vượt ngân sách |
-| Khu A | 800.000 | 1.600.000 | Gợi ý |
-| Khu B | 500.000 | 1.000.000 | Loại nếu ngoài ưu tiên và không cho thay thế |
-
-Nếu bỏ ngân sách, VIP được xếp trước Khu A theo ưu tiên, dù đắt hơn. Tổng tiền này chưa cộng phí. Tên `VIP` không tự khớp `VVIP` hay `VIP 2`; ưu tiên `Khu A` cũng không tự chuyển thành ghế `A1`, `A2`.
-
-Panel và overlay lấy tối đa **4 gợi ý đầu tiên** từ cùng kết quả xếp hạng. Với khu vực/hạng, giá tạm tính nhân số lượng; một ghế cụ thể chỉ là phương án cho 1 vé. Chưa tối ưu tổ hợp nhiều hạng hoặc nhóm ghế liền nhau.
-
-Code: [onezone.ts](../src/platforms/onezone.ts), [workflow.ts](../src/core/workflow.ts).
-
-## 9. Theo dõi thay đổi và vẽ highlight
-
-### 9.1. Khi nào trang được đọc lại?
-
-Một lần quét ban đầu diễn ra khi content script gắn UI. Sau đó, tool phản ứng với thay đổi cấu hình, DOM, URL SPA, kích thước cửa sổ, trạng thái hiển thị tab hoặc nút **Nhận diện lại**.
-
-Một lần `inspectOnezonePage()` trả cả snapshot và liên kết tới chính phần tử đã đọc. Controller dùng các liên kết đó để highlight, không chạy bộ đọc option lần hai; panel cũng nhận sẵn danh sách gợi ý. Visibility và text được cache trong phạm vi lần inspect, sau đó bỏ để lần tiếp theo đọc DOM mới.
-
-**SPA** là website có thể đổi URL và nội dung mà không tải lại toàn bộ trang. Content script dùng sự kiện đổi URL của WXT, cùng các listener `popstate`/`hashchange`, để yêu cầu nhận diện lại.
-
-`MutationObserver` theo dõi thêm/xóa phần tử, đổi chữ và một số thuộc tính như `class`, `style`, `disabled`, `aria-label`. Các thay đổi liên tiếp được gom bằng bộ hẹn giờ: lịch quét tự động đặt theo khoảng cách mục tiêu khoảng **600 ms**, thời gian chờ tối thiểu **100 ms**. Vì vậy, hàng loạt mutation không tạo từng ấy lần quét. Nút quét thủ công và cập nhật cấu hình có thể gọi quét trực tiếp.
-
-Các thuộc tính `aria-selected`, `aria-checked`, `checked`, `value` cũng được quan sát để cập nhật khi người dùng thay đổi lựa chọn.
-
-Khi dừng hoặc ẩn panel, code bỏ qua đọc DOM của adapter và không lên lịch quét tự động mới. Nhắc giờ vẫn tiếp tục nếu chỉ ẩn panel. Bộ đếm giây trên panel là timer UI riêng, không gửi request kiểm tra vé.
-
-### 9.2. Khung xanh là lớp vẽ riêng
-
-Tool tạo một phần tử chứa UI riêng rồi gắn **Shadow DOM** để tách phần lớn CSS của extension khỏi CSS website.
-
-Với mỗi lựa chọn được gợi ý, code lấy vị trí/kích thước qua `getBoundingClientRect()`, sau đó vẽ một hình chữ nhật `position: fixed` tương ứng. Lớp khung dùng `pointer-events: none`, nên click tại vùng khung đi tới phần tử website bên dưới. Panel có vùng tương tác riêng; có thể thu gọn hoặc ẩn nếu vướng.
-
-Khi cuộn trang, `requestAnimationFrame()` gom việc cập nhật vị trí khung theo nhịp vẽ. Code không thay đổi trạng thái selected, giá trị ô số lượng hoặc thực hiện click lên điều khiển mua vé.
-
-Observer bỏ qua UI của extension; thay đổi bên trong Shadow DOM cũng không trở thành nội dung website mà adapter đọc. Khi content script bị hủy, code ngắt observer, xóa listener/timer liên quan và unmount UI.
-
-Code: [mount-assistant.tsx](../src/ui/mount-assistant.tsx), [onezone.content.tsx](../src/entrypoints/onezone.content.tsx), [Panel.tsx](../src/ui/Panel.tsx).
-
-## 10. Countdown và nhắc giờ hoạt động độc lập
-
-### 10.1. Chuẩn hóa giờ nhập
-
-Ô `datetime-local` không chứa múi giờ. Hàm `fromVietnamLocal()` diễn giải dữ liệu đó theo UTC+7 rồi lưu ISO UTC.
+Ví dụ:
 
 ```text
-Nhập:  18/10/2026 12:00 theo giờ Việt Nam
-Lưu:   2026-10-18T05:00:00.000Z
+Tab: READY, revision=0
+→ ghi CHOOSING với revision kỳ vọng 0
+Background: chấp nhận, lưu revision=1
+→ tab đọc lại DOM rồi click chọn
+→ website phản hồi selected=true
+→ ghi QUANTITY với revision kỳ vọng 1
 ```
 
-Panel hiển thị lại bằng múi giờ `Asia/Ho_Chi_Minh`. Countdown mỗi giây tính chênh lệch giữa mốc đã lưu và `Date.now()`; không đếm trừ bằng một biến rồi tin rằng mỗi tick luôn đúng một giây.
+Cùng lệnh revision=0 được gửi lại sẽ bị từ chối. Nếu tab điều hướng hoặc worker khởi động lại sau bước ghi, trạng thái vẫn là CHOOSING; tool chờ kết quả hoặc báo chưa xác nhận, không quay lại bấm chọn lần nữa.
 
-### 10.2. Alarm do background điều phối
+Cơ chế này ưu tiên tránh lặp hành động. Nó **không tạo giao dịch nguyên tử giữa storage và server 1Zone**: nếu tab đóng sau khi ghi nhưng trước khi click, bước có thể chưa xảy ra. Kiểm tra trực tiếp rồi bắt đầu lại.
 
-`reconcileReminder()` đọc cấu hình rồi quyết định:
+Sau bước ghi bất đồng bộ, [runner](../src/application/automation-runner.ts) đọc lại DOM và chạy lại quyết định từ trạng thái trước đó. Nếu nút, lựa chọn, URL hoặc giá đổi thì hủy hành động và PAUSED. Dừng phiên hoặc đổi cấu hình trong lúc chờ cũng làm lệnh cũ mất hiệu lực.
 
-| Điều kiện | Hành động |
+## 6. Một tab và vòng đời Chrome
+
+Background lưu cấu hình trong `chrome.storage.local`; phiên camp trong `chrome.storage.session`. Dữ liệu session mặc định chỉ cho ngữ cảnh extension tin cậy; content nhận phiên của chính tab mình qua messages.
+
+- Một phiên có một tab chủ; tab khác chỉ theo dõi.
+- Đóng tab chủ hủy phiên. Reload/điều hướng tab trong cùng Chrome có thể tiếp tục trạng thái đã lưu.
+- Worker dừng/chạy lại không làm mất session.
+- Đóng/mở Chrome, reload/cập nhật/disable extension làm mất session; phải bắt đầu camp lại.
+- Lưu lại cấu hình hoặc dừng theo dõi hủy phiên.
+- Ẩn panel vẫn chạy camp; popup còn nút dừng.
+- Phiên hết hạn sau 60 phút kể từ thời điểm muộn hơn giữa giờ bán và lúc bắt đầu.
+
+Không có quy trình tự mở nhiều tab/tài khoản hoặc phối hợp giành chỗ.
+
+## 7. Adapter 1Zone đọc và thao tác thế nào?
+
+Các module [onezone.ts](../src/platforms/onezone.ts), [DOM](../src/platforms/onezone-dom.ts), [options](../src/platforms/onezone-options.ts), [selection](../src/platforms/onezone-selection.ts), [automation](../src/platforms/onezone-automation.ts) tách riêng nhận diện và thực thi.
+
+Bộ đọc bỏ chữ ẩn, scripts, template và UI extension. Cache visibility/text chỉ sống trong một lần đọc. Snapshot và bindings trả cùng lượt để khớp đúng phần tử.
+
+Lựa chọn phải có nhãn và đúng một giá rõ ràng. Thẻ giới thiệu chỉ có nút xem thông tin không được coi là vé mua được. Các ghế cùng giá trong một container vẫn là từng ghế; không gộp thành zone. Dấu selected đọc từ ARIA/radio, gồm `aria-pressed`.
+
+Bộ thao tác chỉ bind điều khiển có ngữ nghĩa rõ ràng:
+
+| Thao tác | Cách thực hiện |
 |---|---|
-| Chưa cấu hình hoặc đã dừng | Xóa alarm |
-| Giờ bán còn ở tương lai | Tạo/cập nhật alarm tên `ticket-assistant.sale` |
-| Đã tới giờ, trễ dưới 15 phút, chưa có dấu nhắc tương ứng | Xét phát thông báo |
-| Trễ từ 15 phút hoặc mốc gần nhất đã xử lý | Bỏ qua nhắc |
+| ENTER | Một nút/link mua vé khả dụng; link booking phải đúng concert/calendarId |
+| CHOOSE | Nút/role chọn trực tiếp hoặc một điều khiển chọn duy nhất trong card |
+| QUANTITY | Native setter + input/change cho input/select; bấm từng bước cho ARIA stepper có nút tăng/giảm |
+| ADVANCE | Một điều khiển tiếp tục đã biết; loại nút trong thẻ vé, nút thanh toán/xác nhận cuối |
 
-Một tên alarm dùng chung giúp việc lưu lại không sinh nhiều lịch song song. Hàm đồng bộ được gọi khi xử lý lệnh, storage đổi, alarm kích hoạt, extension cài/khởi động hoặc worker được chạy lại.
+Giá/ngân sách, selected và số lượng được kiểm tra lại trước đi tiếp. Thay đổi thuộc tính DOM được quan sát; input/change cũng được lắng nghe vì gán property không nhất thiết tạo mutation.
 
-### 10.3. Chống nhắc lặp và khôi phục
+Synthetic click/input là cơ chế DOM; một số ứng dụng không nhận loại sự kiện này hoặc không công khai trạng thái cần đọc. Khi đó cần bổ sung adapter từ DOM thật, không tuyên bố tương thích bằng fixture.
 
-Dấu nhắc được tạo bằng `eventUrl + "|" + saleStartAt`. Code lưu dấu **trước** khi gọi Notifications API để lần worker sau không phát lại cùng mốc chỉ vì mất biến trong bộ nhớ. Đổi số vé hoặc ngân sách không đổi dấu nhắc.
+## 8. Zone, tự cấp ghế và chọn ghế
 
-Cách làm ưu tiên tránh phát lặp; nó không bảo đảm người dùng đã nhìn thấy thông báo. Nếu lời gọi Notifications API lỗi, code thử hiện badge `GIỜ`. Dấu lưu hiện chỉ giữ mốc gần nhất, không phải lịch sử đầy đủ của nhiều concert.
+- ZONE_ONLY / ASSIGNED_SEAT: tự chọn khu rồi đặt số vé. Tự cấp ghế không mặc định là random hay liền nhau.
+- PICK_SEAT: hiện tự chọn một ghế có nhãn/giá đọc được cho yêu cầu 1 vé.
+- Nhiều vé với ghế riêng: chưa ghép nhóm, chưa tối ưu liền nhau.
+- MIXED hoặc cần chọn ghế sau zone: dừng nếu chưa xác định được luồng khu tương ứng.
+- Canvas/iframe thiếu dữ liệu: chưa có bộ thao tác tọa độ/map.
 
-Chrome phải còn chạy; sleep và lịch xử lý của browser/OS có thể làm nhắc trễ. Tool dùng đồng hồ máy, chưa đồng bộ thời gian server. **Đến giờ đã nhập không đồng nghĩa 1Zone đã mở bán**, và nhận diện thấy vé cũng không tự làm tool phát thông báo tồn kho: bản hiện tại chỉ có nhắc theo giờ cấu hình.
+Nếu website không thể hiện selected hoặc số lượng đủ rõ, tool không đi tiếp chỉ vì nút đã được bấm.
 
-Code: [preferences.ts](../src/core/preferences.ts), [workflow.ts](../src/core/workflow.ts), [reminders.ts](../src/infrastructure/reminders.ts).
+## 9. Tốc độ được tối ưu ở đâu?
 
-## 11. Dữ liệu nào còn sau khi đóng tab hoặc khởi động lại?
+Ở chế độ theo dõi, nhiều mutation được gom theo khoảng 600 ms. Khi có phiên camp hoạt động, controller dùng khoảng gom **16 ms** để phản ứng với thay đổi trang. Runner xử lý tuần tự và phản ứng sau mỗi bước, không đợi countdown UI một giây.
 
-| Dữ liệu/trạng thái | Nơi giữ | Cơ chế khôi phục |
-|---|---|---|
-| Concert, số vé, ngân sách, ưu tiên | Storage Local | Popup/content script đọc lại |
-| Đang theo dõi hay đã dừng | Storage Local | Áp lại từ `enabled` |
-| Ẩn/hiện panel | Storage Local | Áp lại từ `panelVisible` |
-| Dấu nhắc gần nhất | Storage Local | Kiểm tra trước khi phát thông báo |
-| Alarm | Chrome Alarms | Background dựng lại từ cấu hình nếu cần |
-| Snapshot, tham chiếu HTML, vị trí khung | Bộ nhớ tab | Đọc và vẽ lại từ DOM |
-| Trạng thái thu gọn panel | React state trong tab | Trở về mặc định khi UI được tạo mới |
+Không có vòng polling mạng hoặc tự refresh. Các mốc giờ bán, timeout và hết phiên được đánh thức bằng timer; DOM/event đánh thức ngay khi cần đọc lại.
 
-Một cấu hình được chia sẻ giữa các tab phù hợp. Dừng từ panel một tab sẽ thay đổi cấu hình chung, hủy nhắc giờ và được các tab khác nhận qua `storage.onChanged`.
+Chi phí mỗi hành động gồm đọc DOM, quyết định, ghi session qua background, kiểm tra lại và click, sau đó chờ website phản hồi. Tiết kiệm thời gian ở phần người dùng tìm/chọn/bấm; không làm server mở bán sớm hơn.
 
-Content script đăng ký theo dõi storage trước khi chờ đọc cấu hình ban đầu, để hạn chế bỏ lỡ một lần lưu xảy ra đúng lúc khởi tạo.
+`selectionStartedAt` và `checkoutReachedAt` đo thời gian chọn → nhận diện checkout trong phiên. Đây gồm lịch browser và thời gian phản hồi trang, không đo được hàng đợi server nội bộ. Số đo mô phỏng trong [VALIDATION.md](VALIDATION.md) chỉ áp dụng cho fixture.
 
-## 12. Tôi đã xây dựng và kiểm tra tool theo cách nào?
+## 10. Mở rộng nền tảng khác
 
-| Bước | Công việc | Mục đích |
-|---|---|---|
-| 1 | Đọc brief, kiểm tra repo và trang 1Zone công khai | Chốt phạm vi; nhận ra event mục tiêu chưa có |
-| 2 | Tạo project WXT và các entrypoint | Có bản MV3 biên dịch/cài được |
-| 3 | Xây model, validation, quy tắc thời gian và gợi ý | Kiểm thử logic độc lập với website |
-| 4 | Nối popup, messages và storage qua background | Lưu/khôi phục cấu hình giữa các ngữ cảnh |
-| 5 | Viết adapter đọc DOM và UI panel/overlay | Biến giao diện nhìn thấy thành gợi ý |
-| 6 | Thêm alarm và dấu chống nhắc lặp | Duy trì nhắc giờ khi popup đóng/worker chạy lại |
-| 7 | Tạo fixtures và demo nội bộ | Diễn tập khi chưa có concert thật |
-| 8 | Chạy unit tests, E2E, kiểm tra trang công khai, build/zip | Xác minh hành vi và tạo bản bàn giao |
+[platform-catalog.ts](../src/core/platform-catalog.ts) là cấu hình miền thuần: ID, tên, origin, route alias và tham số suất. Validation suy ra nền tảng từ URL và đối chiếu trường platform. Manifest/content matches lấy cùng danh mục.
 
-**Fixture** là HTML mô phỏng một tình huống, chẳng hạn khu vực hết vé, phòng chờ hoặc sơ đồ canvas. Demo nạp fixtures vào iframe do extension tạo và dùng lại adapter/panel. Nó có cấu hình tạm riêng, không ghi đè concert bạn đã lưu.
+[BrowserPlatformAdapter](../src/platforms/contracts.ts) chuẩn hóa snapshot, bindings hiển thị, AutoPage và executor. Registry chọn adapter theo URL. UI/runner không rẽ nhánh theo tên website.
 
-Demo đọc được iframe của chính nó vì code truyền trực tiếp document đó vào bộ gắn UI; điều này không có nghĩa extension đã hỗ trợ đọc mọi iframe trên website 1Zone.
+Quy trình thêm nền tảng:
 
-Hai lớp kiểm thử chính:
+1. Khảo sát trang/luồng thực tế, xác định URL policy và host cần quyền.
+2. Viết adapter chuyển DOM của website sang model chung; tách hàm đọc và thực thi.
+3. Khai báo capabilities, đăng ký registry và cấu hình URL.
+4. Thêm fixtures gồm thành công, hết vé, phòng chờ, lỗi, checkout; chạy cùng test core và E2E adapter.
+5. Bổ sung kiểu hành động/core chỉ khi có nhu cầu nghiệp vụ thật chưa biểu diễn được.
 
-- **Unit tests:** kiểm tra đầu vào và quyết định cụ thể như phân biệt VIP/VVIP, tổng ngân sách, UTC+7, DOM ẩn, giá mơ hồ, các trạng thái chặn và chống nhắc lặp. Test DOM dùng jsdom, mô phỏng phần layout cần thiết.
-- **E2E bằng Playwright:** load extension production vào Chromium với profile test riêng. Request trang fixture được chặn để trả HTML local; popup, background, storage và content script vẫn chạy thật. Các ca gồm lưu/reload, DOM/SPA đổi, dừng/ẩn/hiện, dùng lại tab và khôi phục alarm sau đóng/mở browser.
+Ticketbox/CTicket hiện chỉ có tên/ID, chưa có origin được kích hoạt hay adapter giả. Kiến trúc chung không đồng nghĩa cả ba nền tảng đã chạy được.
 
-Kết quả kiểm thử được cập nhật ở [VALIDATION.md](./VALIDATION.md), gồm môi trường, kiểm tra trang công khai và phần chưa xác minh. Xem thêm [khảo sát các case 1Zone](./KHAO_SAT_1ZONE.md) để hiểu sự khác biệt giữa ảnh sơ đồ, hạng vé và điều khiển có thể chọn. Các kết quả được ghi theo lần chạy, không xác nhận trước mọi thay đổi source sau này.
+## 11. Nhắc giờ, dữ liệu và kiểm chứng
 
-## 13. Phạm vi quyền và giới hạn kỹ thuật
+Alarm là phần phụ, lưu dấu đã nhắc theo URL + giờ; khôi phục từ cấu hình khi worker chạy lại. Cấu hình, timer và session nằm trên máy; không đọc mật khẩu/thẻ và không có backend.
 
-Manifest production khai báo `storage`, `alarms`, `notifications` cùng host `https://ticket.1zone.vn/*`. Source không yêu cầu quyền cookies; phiên mua vé vẫn do website và trình duyệt của bạn quản lý. Project không có backend, telemetry hoặc cơ chế gửi dữ liệu DOM lên server.
+Unit tests kiểm tra quyết định, URL/UTC+7, DOM và Chrome session mock. Tests runner trì hoãn bước ghi để xác minh dừng/đổi DOM không gây click cũ. E2E chạy extension production với trang có tương tác và kiểm tra nút thanh toán cuối không bị bấm.
 
-Những giới hạn cần hiểu khi đánh giá kết quả:
+Demo [booking-demo.ts](../src/testing/booking-demo.ts) gắn hành vi vào fixture cục bộ, dùng cùng core/runner/adapter và transport bộ nhớ. Demo không sửa phiên hoặc cấu hình thật.
 
-| Giới hạn hiện tại | Hệ quả |
-|---|---|
-| Chưa có URL fan meeting mục tiêu tại lúc bàn giao | Chưa xác minh DOM/luồng chọn vé của sự kiện đó |
-| Adapter dùng quy tắc ngữ nghĩa tổng quát | Website có thể hiển thị vé nhưng tool không nhận được |
-| Canvas/iframe hoặc nhãn ghế thiếu dữ liệu | Có thể trả `UNKNOWN` và yêu cầu thao tác trực tiếp |
-| Không có API tồn kho hay lịch sử theo dõi tồn kho | Không xác nhận đủ vé, không tự thông báo khi có vé trở lại |
-| Không chọn vé/tạo đơn | Tốc độ giữ chỗ vẫn phụ thuộc thao tác và quy trình website |
-| Đối chiếu danh tính bằng URL | Route mới hoặc mất `calendarId` có thể bị coi là chưa khớp |
-| Chỉ một cấu hình chung | Chưa có quản lý nhiều task hoặc phối hợp nhiều tab |
+Chưa có URL/DOM bước mua suất Hà Nội, nên chưa xác nhận luồng tự đặt trên sự kiện mục tiêu. [Khảo sát](KHAO_SAT_1ZONE.md) là bằng chứng trang công khai; [kết quả kiểm tra](VALIDATION.md) ghi phạm vi đã chạy.
 
-Thiết kế có interface `PlatformAdapter` để thêm bộ đọc website khác. Tuy nhiên, content script và validation URL hiện vẫn gắn với 1Zone; `EventPreferences.platform` cũng đang giới hạn ở `'onezone'`. Muốn thêm nền tảng cần mở rộng những điểm đó cùng manifest và tests, không chỉ tạo thêm một class. Ticketbox/CTicket hiện trả `unsupported`.
-
-Code: [wxt.config.ts](../wxt.config.ts), [models.ts](../src/core/models.ts), [unsupported.ts](../src/platforms/unsupported.ts).
-
-## 14. Nên đọc source theo thứ tự nào?
-
-1. [models.ts](../src/core/models.ts): hiểu dữ liệu cấu hình, lựa chọn và snapshot.
-2. [preferences.ts](../src/core/preferences.ts): theo dõi validation URL, đúng event và chuyển đổi UTC+7.
-3. [workflow.ts](../src/core/workflow.ts): xem điều kiện gợi ý, thứ tự ưu tiên và điều kiện nhắc giờ.
-4. [onezone.ts](../src/platforms/onezone.ts): xem dữ liệu đó được rút ra từ HTML bằng cách nào.
-   Bộ đọc chi tiết được tách ở [onezone-dom.ts](../src/platforms/onezone-dom.ts), [onezone-options.ts](../src/platforms/onezone-options.ts) và [onezone-selection.ts](../src/platforms/onezone-selection.ts).
-5. [mount-assistant.tsx](../src/ui/mount-assistant.tsx): nối adapter → kiểm tra cấu hình → gợi ý → vẽ UI.
-6. [Popup.tsx](../src/ui/Popup.tsx) và [background.ts](../src/entrypoints/background.ts): theo một lần lưu từ form tới storage.
-7. [reminders.ts](../src/infrastructure/reminders.ts): hiểu lịch nhắc và khôi phục sau worker restart.
-8. [tests/unit](../tests/unit/) và [tests/e2e/extension.spec.ts](../tests/e2e/extension.spec.ts): đối chiếu từng hành vi với tình huống kiểm tra.
-
-Để tự quan sát cơ chế, mở **Bản diễn tập**, đổi từ Chọn khu vực sang Phòng chờ rồi Canvas; đối chiếu `state`, `supported`, `reason` trong adapter với nội dung panel và việc khung xanh xuất hiện hay biến mất.
+Tài liệu cơ chế chuẩn: [Chrome Storage](https://developer.chrome.com/docs/extensions/reference/api/storage), [HTMLElement.click](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/click), [MutationObserver](https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver). Quy tắc vé và máy trạng thái là code riêng của project, không phải SDK booking 1Zone.

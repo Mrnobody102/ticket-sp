@@ -1,6 +1,8 @@
 import type { SeatSelectionMode, VisibleOption } from '../core/models';
 import { normalize } from '../core/preferences';
 import { createPageReader, type PageReader } from './onezone-dom';
+import type { OptionElement } from './contracts';
+export type { OptionElement } from './contracts';
 
 function pricePattern(): RegExp {
   const amount = '(?:\\d{1,3}(?:[.,\\s]\\d{3})+|\\d+)';
@@ -12,8 +14,6 @@ function priceValues(text: string): number[] {
   return [...new Set([...text.matchAll(pricePattern())]
     .map(m => Number((m[1] ?? m[2])?.replace(/[.,\s]/g, ''))).filter(Number.isSafeInteger))];
 }
-
-export interface OptionElement { option: VisibleOption; element: Element }
 
 /** Read semantic HTML controls. This is not a reader for unlabeled graphical maps. */
 export function readOptionElements(document: Document, mode: SeatSelectionMode = 'UNKNOWN', reader: PageReader = createPageReader(document)): OptionElement[] {
@@ -43,8 +43,8 @@ export function readOptionElements(document: Document, mode: SeatSelectionMode =
       ((mode === 'PICK_SEAT' || mode === 'MIXED') && /^[a-z]{1,4}[- ]?\d+[a-z]?$/i.test(label)));
     const group = seat ? element.parentElement?.closest('[role="group"][aria-label], [role="radiogroup"][aria-label]') : undefined;
     const zoneLabel = group && isVisible(group) ? group.getAttribute('aria-label')?.trim() : undefined;
-    const selected = element.matches('[aria-selected="true"], [aria-checked="true"], input:checked') ||
-      controls.some(c => c.matches('[aria-selected="true"], [aria-checked="true"], input:checked'));
+    const selected = element.matches('[aria-selected="true"], [aria-checked="true"], [aria-pressed="true"], input:checked') ||
+      controls.some(c => c.matches('[aria-selected="true"], [aria-checked="true"], [aria-pressed="true"], input:checked'));
     const option: Omit<VisibleOption, 'id'> = {
       label, kind: seat ? 'SEAT' : 'ZONE',
       zoneLabel: zoneLabel && zoneLabel.length <= 100 ? zoneLabel : undefined, selected,

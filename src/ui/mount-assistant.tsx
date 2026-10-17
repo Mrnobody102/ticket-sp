@@ -1,6 +1,9 @@
 import { createRoot } from 'react-dom/client';
 import type { PageSnapshot, TaskConfig } from '../core/models';
-import { inspectOnezonePage } from '../platforms/onezone';
+import { inspectPlatform } from '../platforms/registry';
+import { createAutomationRunner, type AutomationTransport } from '../application/automation-runner';
+import { autoActive, type AutoRun } from '../core/automation';
+import type { PlatformInspection } from '../platforms/contracts';
 import { effectiveSnapshot, recommend } from '../core/workflow';
 import { Panel } from './Panel';
 import style from './styles.css?inline';
@@ -12,6 +15,7 @@ interface MountOptions {
   onStop: () => Promise<unknown>;
   onHide: () => Promise<unknown>;
   onOpen: () => Promise<unknown>;
+  automation?: { initialRun?: AutoRun | null; transport: AutomationTransport };
 }
 
 export function mountAssistant(options: MountOptions) {
@@ -39,6 +43,14 @@ export function mountAssistant(options: MountOptions) {
   let lastSnapshot: PageSnapshot = {
     url: options.getUrl(), state: 'UNKNOWN', selectionMode: 'UNKNOWN', visibleOptions: [], supported: false, reason: '',
   };
+  function inspect(): PlatformInspection {
+    const run = runner?.run;
+    return inspectPlatform(document, new URL(options.getUrl()), config.preferences && run ? { preferences: config.preferences, progress: run.progress } : undefined);
+  }
+  const runner = options.automation ? createAutomationRunner({
+    ...options.automation, config: () => config, inspect,
+    changed: () => { if (!stopped) schedule(true); },
+  }) : undefined;
 
   function drawHighlights() {
     overlay.replaceChildren();
@@ -61,11 +73,9 @@ export function mountAssistant(options: MountOptions) {
   function scan() {
     if (stopped) return;
     lastRun = Date.now();
-    const url = new URL(options.getUrl());
-    // Stopped/hidden tasks do no DOM inspection; config changes can resume immediately.
-    const inspection = config.enabled && config.panelVisible
-      ? inspectOnezonePage(document, url)
-      : { snapshot: { ...lastSnapshot, url: url.href }, optionElements: [] };
+    const inspection = config.enabled && (config.panelVisible || autoActive(runner?.run ?? null))
+      ? inspect()
+      : { snapshot: { ...lastSnapshot, url: options.getUrl() }, optionElements: [] };
     const raw = inspection.snapshot;
     lastSnapshot = raw;
     const snapshot = effectiveSnapshot(raw, config);
@@ -76,33 +86,44 @@ export function mountAssistant(options: MountOptions) {
     drawHighlights();
     host.style.display = config.panelVisible ? '' : 'none';
     root.render(<Panel config={config} snapshot={snapshot} recommendations={recommendations} error={error} onRescan={scan}
+      autoRun={runner?.run} onStartAuto={runner ? () => void runAction(() => runner.start()) : undefined}
+      onStopAuto={runner ? () => void runAction(() => runner.stop()) : undefined}
       onStop={() => void runAction(options.onStop)} onHide={() => void runAction(options.onHide)} onOpen={() => void runAction(options.onOpen)} />);
+    void runner?.tick(inspection);
   }
   // Trailing throttle: frequent mutations cannot starve recognition or exceed ~2 scans/s.
-  function schedule() {
-    if (timeout !== undefined || stopped || !config.enabled || !config.panelVisible) return;
-    timeout = view.setTimeout(() => { timeout = undefined; scan(); }, Math.max(100, 600 - (Date.now() - lastRun)));
+  function schedule(urgent = false) {
+    const active = autoActive(runner?.run ?? null);
+    if (timeout !== undefined || stopped || !config.enabled || (!config.panelVisible && !active)) return;
+    timeout = view.setTimeout(() => { timeout = undefined; scan(); }, active || urgent ? 16 : Math.max(100, 600 - (Date.now() - lastRun)));
   }
+  const scheduleEvent = () => schedule();
   const observer = new MutationObserver(records => {
     if (records.some(r => r.target !== host && !host.contains(r.target))) schedule();
   });
   observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true,
-    attributeFilter: ['hidden', 'style', 'class', 'aria-hidden', 'aria-disabled', 'disabled', 'aria-label', 'inert', 'aria-selected', 'aria-checked', 'checked', 'value'] });
+    attributeFilter: ['hidden', 'style', 'class', 'aria-hidden', 'aria-disabled', 'disabled', 'aria-label', 'aria-labelledby', 'inert', 'role', 'href', 'min', 'max', 'aria-valuemin', 'aria-valuemax', 'aria-selected', 'aria-checked', 'aria-pressed', 'aria-valuenow', 'checked', 'value'] });
   view.addEventListener('scroll', drawSoon, true);
-  view.addEventListener('resize', schedule);
-  view.addEventListener('popstate', schedule);
-  view.addEventListener('hashchange', schedule);
-  document.addEventListener('visibilitychange', schedule);
+  view.addEventListener('resize', scheduleEvent);
+  view.addEventListener('popstate', scheduleEvent);
+  view.addEventListener('hashchange', scheduleEvent);
+  document.addEventListener('visibilitychange', scheduleEvent);
+  document.addEventListener('input', scheduleEvent, true);
+  document.addEventListener('change', scheduleEvent, true);
   scan();
   return {
     update(next: TaskConfig) { config = next; scan(); },
-    rescan: schedule,
+    updateAuto(next: AutoRun | null) { runner?.update(next); scan(); },
+    rescan: scheduleEvent,
     destroy() {
       stopped = true; observer.disconnect(); view.clearTimeout(timeout);
+      runner?.destroy();
       if (frame !== undefined) view.cancelAnimationFrame(frame);
-      view.removeEventListener('scroll', drawSoon, true); view.removeEventListener('resize', schedule);
-      view.removeEventListener('popstate', schedule); view.removeEventListener('hashchange', schedule);
-      document.removeEventListener('visibilitychange', schedule); root.unmount(); host.remove();
+      view.removeEventListener('scroll', drawSoon, true); view.removeEventListener('resize', scheduleEvent);
+      view.removeEventListener('popstate', scheduleEvent); view.removeEventListener('hashchange', scheduleEvent);
+      document.removeEventListener('visibilitychange', scheduleEvent);
+      document.removeEventListener('input', scheduleEvent, true); document.removeEventListener('change', scheduleEvent, true);
+      root.unmount(); host.remove();
     },
   };
 }

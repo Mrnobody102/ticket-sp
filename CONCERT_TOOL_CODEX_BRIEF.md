@@ -1,5 +1,7 @@
 # Concert Ticket Assistant — Codex Implementation Brief
 
+> **Phạm vi 0.2.0 theo điều chỉnh người dùng:** tự vào mua vé, chọn zone/ghế theo ưu tiên, đặt số lượng và chuyển tới checkout; nhắc giờ là phần phụ. Core/runner và contract adapter dùng chung cho nền tảng khác. Phần brief phía dưới giữ lại làm ngữ cảnh ban đầu; hành vi hiện hành theo [cơ chế 0.2.0](docs/CO_CHE_HOAT_DONG.md) và [quyết định triển khai](docs/IMPLEMENTATION.md).
+
 > **Điều chỉnh 17/10/2026:** một project WXT ở root, tách `src/core`, `src/platforms`, `src/infrastructure`, `src/ui`; chưa cần monorepo/backend. Xem [kế hoạch cập nhật](docs/IMPLEMENTATION.md) và [hướng dẫn chạy](README.md).
 >
 > **Đã xác nhận:** thử fan meeting Vương Bình tại Hà Nội, dự kiến toàn sự kiện 100–200 vé, ngân sách không giới hạn. Theo điều chỉnh mới nhất, popup mặc định **1 vé**. Chưa có link/giờ bán suất Hà Nội đã xác nhận; link TP.HCM và map sự kiện khác chỉ là tham khảo.

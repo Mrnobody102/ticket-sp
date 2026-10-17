@@ -1,16 +1,16 @@
 import type { EventPreferences, TaskConfig } from './models';
 import { DEFAULT_CONFIG } from './models';
+import { platformForUrl } from './platform-catalog';
 
 export function eventUrl(value: string): URL {
   const url = new URL(value);
-  if (url.protocol !== 'https:' || url.hostname !== 'ticket.1zone.vn' || url.port ||
-      url.username || url.password || !/^\/(?:events|booking)\/[^/]+\/?$/.test(url.pathname)) {
-    throw new Error('Nhập link https://ticket.1zone.vn/events/… của concert.');
+  const integration = platformForUrl(value)?.integration;
+  if (!integration || url.username || url.password) {
+    throw new Error('Nhập link concert trên nền tảng đã được hỗ trợ.');
   }
-  // Keep calendarId (a specific performance); discard tracking / tokens / fragments.
-  const clean = new URL(url.origin + url.pathname.replace(/^\/booking\//, '/events/').replace(/\/$/, ''));
-  const calendar = url.searchParams.get('calendarId');
-  if (calendar) clean.searchParams.set('calendarId', calendar);
+  // Route shape, performance identity and tracking parameters belong to each policy.
+  const clean = integration.canonicalEventUrl(url);
+  if (!clean || clean.origin !== integration.origin) throw new Error('Link concert không hợp lệ.');
   return clean;
 }
 
@@ -18,22 +18,19 @@ export function isSameEvent(actual: string, target: string): boolean {
   try {
     const current = new URL(actual);
     const expected = eventUrl(target);
-    const path = expected.pathname;
-    const currentPath = current.pathname.replace(/^\/booking\//, '/events/');
-    return current.origin === expected.origin &&
-      (currentPath.replace(/\/$/, '') === path || currentPath.startsWith(path + '/')) &&
-      (!expected.searchParams.has('calendarId') ||
-        current.searchParams.get('calendarId') === expected.searchParams.get('calendarId'));
+    const integration = platformForUrl(expected.href)!.integration!;
+    return current.origin === expected.origin && integration.isSameEvent(current, expected);
   } catch { return false; }
 }
 
 export function validatePreferences(value: unknown): EventPreferences {
   if (!value || typeof value !== 'object') throw new Error('Cấu hình không hợp lệ.');
   const p = value as Record<string, unknown>;
-  if (p.platform !== 'onezone') throw new Error('MVP chỉ hỗ trợ 1Zone.');
   let cleanUrl: URL;
   try { cleanUrl = eventUrl(String(p.eventUrl ?? '')); }
-  catch { throw new Error('Nhập link https://ticket.1zone.vn/events/… của concert.'); }
+  catch { throw new Error('Nhập link concert trên nền tảng đã được hỗ trợ.'); }
+  const platform = platformForUrl(cleanUrl.href)!;
+  if (p.platform !== platform.id) throw new Error('Nền tảng không khớp link concert hoặc chưa có adapter.');
   if (typeof p.saleStartAt !== 'string' || !/(Z|[+-]\d{2}:\d{2})$/.test(p.saleStartAt) ||
       !Number.isFinite(Date.parse(p.saleStartAt))) throw new Error('Giờ mở bán phải có múi giờ rõ ràng.');
   if (typeof p.quantity !== 'number' || !Number.isInteger(p.quantity) || p.quantity < 1 || p.quantity > 100) {
@@ -46,7 +43,7 @@ export function validatePreferences(value: unknown): EventPreferences {
     throw new Error('Nhập tối đa 20 hạng vé, mỗi dòng một hạng (tối đa 100 ký tự).');
   }
   return {
-    platform: 'onezone', eventUrl: cleanUrl.href, saleStartAt: new Date(p.saleStartAt).toISOString(),
+    platform: platform.id, eventUrl: cleanUrl.href, saleStartAt: new Date(p.saleStartAt).toISOString(),
     quantity: p.quantity, maxTotalVnd: p.maxTotalVnd as number | undefined,
     preferredZoneLabels: [...new Set((p.preferredZoneLabels as string[]).map(v => v.trim()))],
     allowAlternatives: p.allowAlternatives === true,
