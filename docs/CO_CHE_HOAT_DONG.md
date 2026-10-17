@@ -1,10 +1,12 @@
-# Cơ chế camp vé · bản 0.4.1
+# Cơ chế camp vé · bản 0.4.2
 
 Bản hiện tại kết nối **tìm sự kiện → chọn đúng suất/hạng/giá → camp tới checkout**. Bản 0.2.0 có bộ thực thi tự chọn vé; 0.3.0 bổ sung catalog API, cấu hình theo ID/giá và kiểm tra trước khi chạy. Tài liệu phân biệt kiểm thử cục bộ, GET công khai đã chạy thật và booking chưa xác minh trên sự kiện mục tiêu.
 
 0.4.0 bổ sung preset Hà Nội, modal theo dấu hiệu public của 1Zone, lịch microtask, reload một lần tại mốc bán và benchmark lặp. Hướng dẫn thực tế: [sẵn sàng mở bán](SAN_SANG_MO_BAN.md).
 
 0.4.1 kiểm tra phiên bản giao diện/worker khi mở cấu hình, mở workspace/demo bằng link extension trực tiếp và chuyển nhập hạng thủ công vào tùy chọn chủ động. Luồng mặc định tải catalog rồi dùng select; lỗi tải không tự chuyển sang textarea.
+
+0.4.2 bắt lỗi đọc phiên lúc khởi tạo content bằng `Promise.allSettled`. Nếu không đọc được cấu hình hoặc phiên, panel hiển thị lỗi và không tạo runner. Lỗi quyền kiểu worker cũ chỉ được đổi thành hướng dẫn Reload với các lệnh AUTO hợp lệ; quyền SAVE từ content vẫn bị chặn. UI gom thông tin sự kiện, đặt hạng/số lượng/giờ trước, giữ Lưu/Bắt đầu ở footer. `public/huong-dan.html` là hướng dẫn tĩnh, dùng được trong extension và mở trực tiếp sau giải nén.
 
 ## 1. Đầu vào và đầu ra
 

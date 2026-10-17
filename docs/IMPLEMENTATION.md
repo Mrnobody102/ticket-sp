@@ -1,4 +1,4 @@
-# Quyết định triển khai · 0.4.1
+# Quyết định triển khai · 0.4.2
 
 Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp và đi tới checkout nhanh, trên phiên trình duyệt của người dùng. Đã tìm được metadata và hạng vé Vương Bình Hà Nội; người dùng xác nhận 12h ngày 19/10 làm mặc định có thể sửa. Chưa xác minh độc lập giờ bán từ API hoặc DOM booking đăng nhập. TP.HCM và Lavender chỉ dùng tham khảo. Không dùng ước tính 100–200 vé làm tồn kho.
 
@@ -22,6 +22,8 @@ Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp 
 16. Mốc người dùng cung cấp được đưa vào preset rõ ngày, chỉ điền bản nháp. Người dùng chọn/sắp ưu tiên và số vé trước; giới hạn theo suất và các hạng đã chọn được lưu, rồi đọc mới khi arm. Benchmark chạy extension production 24 mẫu; phân biệt độ trễ fixture với nhận diện trang thật và giao dịch thật chưa kiểm chứng.
 17. Giao diện/worker trao đổi phiên bản khi mở cấu hình; lỗi không tương thích hoặc timeout chỉ dẫn Reload. Đây là kiểm tra setup, không thêm request vào từng hành động camp. Link workspace/demo mở trực tiếp, không phụ thuộc command nền.
 18. Tên thẻ cấu hình nhanh là tên sự kiện; nhãn thao tác hiển thị riêng. Luồng mặc định tải catalog rồi dùng select; tải lỗi có thể thử lại, không tự đưa người dùng vào textarea. Chế độ thủ công cần bật rõ trong tùy chọn thêm.
+19. Khởi tạo content đọc cấu hình và phiên bằng allSettled. Có lỗi thì hiện panel thụ động và hướng dẫn khắc phục; không tạo runner từ trạng thái thiếu dữ liệu. Không bỏ kiểm tra quyền message để che lỗi worker cũ.
+20. Hạng/số vé/giờ đặt ở phần chính; thông tin sự kiện không lặp, Lưu/Bắt đầu luôn ở footer. Guide HTML tĩnh trong public mở được cả ngoài extension. Lệnh share tạo bản ZIP production tên dễ gửi, không thu thập cấu hình hoặc tài khoản.
 
 ## Phạm vi bàn giao
 

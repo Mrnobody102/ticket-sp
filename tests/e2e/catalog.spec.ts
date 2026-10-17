@@ -49,9 +49,8 @@ async function selectEvent(page: Awaited<ReturnType<typeof workspace>>) {
   await page.locator('.event-result').click();
   await expect(page.getByLabel('Thêm hạng vé ưu tiên')).toBeVisible();
   await page.getByLabel('Thêm hạng vé ưu tiên').selectOption('vip-test');
-  await page.getByRole('button', { name: 'Thêm ưu tiên', exact: true }).click();
   await page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)').fill('2020-01-01T00:00');
-  await page.getByRole('button', { name: 'Lưu & bật theo dõi' }).click();
+  await page.getByRole('button', { name: 'Lưu cấu hình' }).click();
   await expect(page.getByRole('status')).toContainText('Đã lưu');
 }
 
@@ -71,7 +70,7 @@ test('tìm → chọn đúng hạng/giá → lưu ID → camp tới checkout v�
   await page.getByLabel('Số vé', { exact: true }).fill('2');
   await expect(page.getByRole('button', { name: 'Bắt đầu camp', exact: true })).toBeDisabled();
   await page.getByLabel('Số vé', { exact: true }).fill('1');
-  await page.getByRole('button', { name: 'Lưu & bật theo dõi' }).click();
+  await page.getByRole('button', { name: 'Lưu cấu hình' }).click();
   await expect(page.getByRole('button', { name: 'Bắt đầu camp', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
   await expect.poll(() => worker.evaluate(async () => {
@@ -105,12 +104,11 @@ test('cấu hình nhanh Hà Nội tự điền link, 12h và 1 vé; chỉ chọn
   await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('2026-10-19T12:00');
   await expect(page.getByLabel('Số vé', { exact: true })).toHaveValue('1');
   await page.getByLabel('Thêm hạng vé ưu tiên').selectOption('vip-test');
-  await page.getByRole('button', { name: 'Thêm ưu tiên', exact: true }).click();
   await expect(page.getByLabel('Số vé', { exact: true })).toHaveAttribute('max', '2');
   await page.getByLabel('Số vé', { exact: true }).fill('3');
   expect(await page.getByLabel('Số vé', { exact: true }).evaluate((e: HTMLInputElement) => e.validity.rangeOverflow)).toBe(true);
   await page.getByLabel('Số vé', { exact: true }).fill('1');
-  await page.getByRole('button', { name: 'Lưu & bật theo dõi' }).click();
+  await page.getByRole('button', { name: 'Lưu cấu hình' }).click();
   await expect(page.getByRole('status')).toContainText('Đã lưu');
   const saved = await worker.evaluate(async () => (await chrome.storage.local.get('ticket-assistant.config.v1'))['ticket-assistant.config.v1']);
   expect(saved.preferences.refreshAtSale).toBe(true); expect(saved.preferences.maxTotalVnd).toBeUndefined();
@@ -129,7 +127,7 @@ test('thẻ tiêu đề p → modal 1Zone → số lượng span 2 vé → check
   await context.route('https://ticket.1zone.vn/**', route => route.fulfill({ contentType: 'text/html', body }));
   const page = await workspace(); await selectEvent(page);
   await page.getByLabel('Số vé', { exact: true }).fill('2');
-  await page.getByRole('button', { name: 'Lưu & bật theo dõi' }).click();
+  await page.getByRole('button', { name: 'Lưu cấu hình' }).click();
   const event = await context.newPage(); await event.goto(catalogUrl + '?calendarId=HN');
   await expect(event.locator('.status-line')).toContainText('Đang chọn vé');
   await event.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
@@ -145,7 +143,7 @@ test('tải catalog lỗi: báo lỗi và thử lại để có select, không �
   await page.getByRole('button', { name: 'Tải hạng vé', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('503');
   await expect(page.locator('textarea')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Lưu & bật theo dõi' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Lưu cấu hình' })).toBeDisabled();
   await expect(page.getByLabel('Thêm hạng vé ưu tiên')).toHaveCount(0);
   await mockCatalog();
   await page.getByRole('button', { name: 'Tải hạng vé', exact: true }).click();
@@ -164,6 +162,7 @@ test('nhiều suất yêu cầu chọn; link sai calendarId không tự chuyển
   await expect(page.getByLabel('Thêm hạng vé ưu tiên')).toHaveCount(0);
   await page.getByLabel('Suất diễn', { exact: true }).selectOption('HN');
   await expect(page.getByLabel('Thêm hạng vé ưu tiên')).toBeVisible();
+  await page.locator('.event-link > summary').click();
   await page.getByLabel('Link concert').fill(catalogUrl + '?calendarId=invalid');
   await page.getByRole('button', { name: 'Tải chi tiết từ link', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Suất trong link');
@@ -178,7 +177,7 @@ test('nguồn Ticketbox hiển thị giá thật từ schema, không gắn adapt
   await page.locator('.event-result').click();
   await expect(page.locator('.ticket-preview')).toContainText('2.000.000');
   await expect(page.locator('.ticket-preview li').first()).toBeInViewport();
-  await page.getByRole('button', { name: 'Xem lại kết quả' }).click();
+  await page.getByRole('button', { name: 'Đổi sự kiện' }).click();
   await expect(page.locator('.event-result')).toBeVisible();
   await page.locator('.event-result').click();
   await expect(page.locator('.ticket-preview')).toContainText('2.000.000');
@@ -202,4 +201,11 @@ test('kết quả chậm không ghi đè tìm kiếm mới; popup không tràn n
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(page.getByRole('button', { name: 'Bắt đầu camp', exact: true })).toBeInViewport();
   await page.screenshot({ path: 'artifacts/popup-search.png' });
+  await page.locator('.event-result').click();
+  await expect(page.getByLabel('Thêm hạng vé ưu tiên')).toBeInViewport();
+  await expect(page.getByLabel('Số vé', { exact: true })).toBeInViewport();
+  await expect(page.getByRole('button', { name: 'Lưu cấu hình' })).toBeInViewport();
+  await expect(page.getByRole('button', { name: 'Bắt đầu camp', exact: true })).toBeInViewport();
+  await expect(page.getByRole('heading', { name: eventData.name, exact: true })).toHaveCount(1);
+  await page.screenshot({ path: 'artifacts/popup-booking.png' });
 });

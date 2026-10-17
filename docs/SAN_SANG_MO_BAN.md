@@ -1,4 +1,4 @@
-# Kiểm tra và chuẩn bị camp Vương Bình Hà Nội · 0.4.1
+# Kiểm tra và chuẩn bị camp Vương Bình Hà Nội · 0.4.2
 
 Mục tiêu là vào chọn đúng hạng/số lượng rồi tới checkout sớm nhất trong phạm vi phiên hợp lệ. **Chưa có bằng chứng để cam kết nhanh nhất hoặc chắc chắn mua được.** Kiểm thử cục bộ đo được độ trễ của tool; quyền vào hàng chờ, CAPTCHA, mạng và phản hồi giữ vé của 1Zone vẫn do website quyết định.
 
@@ -6,12 +6,14 @@ Mục tiêu là vào chọn đúng hạng/số lượng rồi tới checkout s�
 
 Người dùng đã cung cấp [đúng suất Hà Nội](https://ticket.1zone.vn/events/vuong-binh-tiec-thanh-than-mam-2?calendarId=8h0YGm) và xác nhận **12:00 ngày 19/10/2026, UTC+7** làm mặc định. Đây là mốc người dùng cung cấp, chưa phải thời điểm được xác minh độc lập từ API. Có thể sửa trực tiếp ô giờ trước khi lưu; không lấy giờ diễn 21/11 làm giờ bán.
 
-1. Trong `chrome://extensions`, bấm Reload ở Camp vé, đóng/mở lại popup và kiểm tra **v0.4.1**. Tải lại tab vé. Đăng nhập trước bằng tài khoản dùng để mua. Nếu đang nạp `.output/chrome-mv3` của project thì không cần tải ZIP; file build đã nằm ở đó.
+1. Trong `chrome://extensions`, bấm Reload ở Camp vé, đóng/mở lại popup và kiểm tra **v0.4.2**. Tải lại tab vé. Đăng nhập trước bằng tài khoản dùng để mua. Nếu đang nạp `.output/chrome-mv3` của project thì không cần tải ZIP; file build đã nằm ở đó.
 2. Trong tiện ích chọn thẻ **TIỆC THÀNH-THÂN (MÂM 2): VƯƠNG BÌNH 💘 VOI CON** có nhãn **Chuẩn bị sự kiện →**. Tool điền link, suất, 12h ngày 19/10, 1 vé, ngân sách trống và tự tải hạng/giá. **Chọn và sắp thứ tự hạng bằng select**, sửa số vé/giờ nếu cần; không gõ lại tên/giá. Tải lỗi thì bấm thử lại; ô nhập thủ công chỉ có khi chủ động bật trong tùy chọn thêm.
 3. Lưu rồi **Bắt đầu camp trước 12h**, để việc tải lại catalog/kiểm tra ban đầu hoàn tất trước giờ bán. Giữ tab và máy hoạt động, đồng hồ máy đúng giờ.
 4. Khi website cho mua, tool thao tác trên giao diện đã nhận diện. CAPTCHA/đăng nhập/lỗi không rõ cần xử lý trên website. Đến checkout thì kiểm tra đơn và thanh toán cuối.
 
 Preset chỉ điền bản nháp; không tự lưu/arm, không tự chọn hạng hoặc mở phiên giữ vé.
+
+Gửi bạn bè: chạy `npm run share`, gửi `.output/Camp-ve-0.4.2.zip`. Người nhận giải nén và mở `huong-dan.html`; bản hướng dẫn ngắn cũng có trong menu Hướng dẫn. Không cần source hoặc Node.js.
 
 Nếu hiện **Cần tải lại tiện ích**, giao diện chưa xác nhận được worker cùng bản. Hãy làm lại bước 1. Bản cũ có thể trả “Lệnh không được hỗ trợ” dù popup đã đọc file mới. Nút Mở rộng ở 0.4.1 dùng link trực tiếp nên vẫn mở trang cấu hình trong trường hợp này; camp được khóa đến khi kiểm tra phiên bản thành công.
 

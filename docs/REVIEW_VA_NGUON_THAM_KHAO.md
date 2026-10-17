@@ -1,4 +1,4 @@
-# Rà soát source và cơ chế tham khảo · 0.4.1
+# Rà soát source và cơ chế tham khảo · 0.4.2
 
 Bản 0.1.0 chỉ nhắc giờ và đánh dấu vé, chưa đủ cho yêu cầu camp theo tốc độ. Bản 0.2.0 thêm executor theo trạng thái, dùng chung core/runner cho các nền tảng. Chức năng trên sự kiện thật vẫn cần xác minh từ DOM/luồng của sự kiện đó.
 
@@ -39,6 +39,8 @@ Nguồn catalog 1Zone/Ticketbox là hai provider thật, dùng schema GET đã q
 - Benchmark 24 mẫu qua extension production đo từ CTA mở đến click/checkout mô phỏng, kiểm tra không click sớm/lặp/final-payment. Smoke target thật chỉ đọc DOM; không dùng benchmark này để cam kết tốc độ sale.
 - 0.4.1 xử lý phản hồi lỗi thực tế: bỏ chữ “Dùng” khỏi tên sự kiện, chuyển thao tác sang nhãn riêng. Khi catalog chưa tải được, mặc định cho tải/thử lại thay vì hiện textarea. Smoke API thật chọn được HAI QUÝ qua select và đọc max=2, chỉ trong bản nháp.
 - Bộ test trước chỉ nạp extension đồng bộ và mở thẳng workspace, chưa thử nút Mở rộng hoặc UI mới đi cùng worker cũ. Đã thêm E2E cho hai trường hợp, cùng ca API lỗi rồi tải lại. Handshake build/protocol và lỗi mất kết nối dùng chung module; link mở trang không phụ thuộc worker.
+- 0.4.2 xử lý lỗi content `AUTO_GET` bị worker cũ từ chối. Khởi tạo lỗi vẫn hiện panel thụ động, không có Uncaught và không tự camp. Giữ nguyên chặn SAVE từ content; background bỏ qua loại message không thuộc hợp đồng.
+- UI chỉ hiện thông tin sự kiện một lần; chọn select tự thêm ưu tiên, Lưu/Bắt đầu cố định. Guide HTML tĩnh đi cùng ZIP và mở được trong tool; gói chia sẻ chỉ đổi tên bản ZIP production đã build, không lấy dữ liệu trình duyệt.
 
 TypeScript bật strict, noUncheckedIndexedAccess, noUnusedLocals và noUnusedParameters. Xem [VALIDATION.md](VALIDATION.md) cho kết quả từng bộ test và giới hạn.
 

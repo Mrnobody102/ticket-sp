@@ -44,4 +44,12 @@ describe('giao diện và tiến trình nền cùng phiên bản', () => {
     sendMessage.mockResolvedValue({ error: 'Hạng vé hoặc giá đã đổi.' });
     await expect(command({ type: 'OPEN_EVENT' })).rejects.toThrow('Hạng vé hoặc giá đã đổi.');
   });
+  it('worker cũ từ chối AUTO_GET từ content: hướng dẫn reload', async () => {
+    sendMessage.mockResolvedValue({ error: 'Lệnh chỉ dùng trong trang cấu hình tiện ích.' });
+    await expect(autoCommand({ type: 'AUTO_GET' })).rejects.toThrow(RELOAD_EXTENSION_MESSAGE);
+  });
+  it('không đổi lỗi quyền SAVE thành lỗi phiên bản', async () => {
+    sendMessage.mockResolvedValue({ error: 'Lệnh chỉ dùng trong trang cấu hình tiện ích.' });
+    await expect(command({ type: 'SAVE', preferences: {} as never })).rejects.toThrow('Lệnh chỉ dùng trong trang cấu hình tiện ích.');
+  });
 });

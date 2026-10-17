@@ -31,7 +31,7 @@ async function configure(page: Page) {
   await page.locator('.extra-settings > summary').click();
   await page.getByLabel('Nhập hạng vé thủ công', { exact: true }).check();
   await page.getByLabel('Hạng vé ưu tiên · mỗi dòng một hạng').fill('VIP\nKhu A');
-  await page.getByRole('button', { name: 'Lưu & bật theo dõi' }).click();
+  await page.getByRole('button', { name: 'Lưu cấu hình' }).click();
   await expect(page.getByRole('status')).toContainText('Đã lưu');
 }
 
@@ -57,6 +57,7 @@ test('popup → lưu → khôi phục → content panel → DOM/SPA → dừng �
   await expect(event.locator('.recommendation')).toHaveCount(2);
   await expect(event.locator('[data-ticket-assistant]')).toHaveCount(1);
   const tabCount = context.pages().length;
+  await popup.locator('.display-settings > summary').click();
   await popup.getByRole('button', { name: 'Mở concert đã lưu' }).click();
   await expect.poll(() => context.pages().length).toBe(tabCount);
 
@@ -125,7 +126,7 @@ test('một ghế tương ứng một vé; nhận thay đổi chọn ghế và g
   await event.evaluate(() => document.querySelector('main button')!.setAttribute('aria-checked', 'true'));
   await expect(event.locator('.recommendation')).toHaveCount(1);
   await popup.getByLabel('Số vé', { exact: true }).fill('2');
-  await popup.getByRole('button', { name: 'Lưu & bật theo dõi' }).click();
+  await popup.getByRole('button', { name: 'Lưu cấu hình' }).click();
   await expect(popup.getByRole('status')).toContainText('Đã lưu');
   await expect(event.locator('.recommendation')).toHaveCount(0);
   await expect(event.getByText('Bạn muốn nhiều vé;', { exact: false })).toBeVisible();
@@ -146,6 +147,7 @@ test('nhắc giờ lưu bền; chỉ một alarm, dừng sẽ hủy', async () =
     await chrome.storage.local.set({ [key]: config });
   });
   await expect.poll(() => worker.evaluate(async () => (await chrome.alarms.getAll()).filter(a => a.name === 'ticket-assistant.sale').length)).toBe(1);
+  await popup.locator('.display-settings > summary').click();
   await popup.getByRole('button', { name: 'Dừng theo dõi' }).click();
   await expect.poll(() => worker.evaluate(async () => (await chrome.alarms.getAll()).length)).toBe(0);
 });
@@ -188,7 +190,7 @@ async function prepareAuto(quantity = '1', state: 'booking' | 'waiting' | 'chall
   const popup = await context.newPage(); await configure(popup);
   await popup.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)').fill('2020-01-01T00:00');
   await popup.getByLabel('Số vé', { exact: true }).fill(quantity);
-  await popup.getByRole('button', { name: 'Lưu & bật theo dõi' }).click();
+  await popup.getByRole('button', { name: 'Lưu cấu hình' }).click();
   await expect(popup.getByRole('status')).toContainText('Đã lưu');
   const body = state === 'booking' ? fixture('booking') + `<script>(${installBookingDemo.toString()})(document)</script>` : fixture(state);
   await context.route('https://ticket.1zone.vn/booking/e2e-test', route => route.fulfill({ contentType: 'text/html', body }));
@@ -235,6 +237,7 @@ test('camp khóa một tab; phòng chờ tự đi tiếp khi được vào; ẩn
   const second = await context.newPage(); await second.goto(target.replace('/events/', '/booking/'));
   await second.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
   await expect(second.getByRole('alert')).toContainText('Đang camp trên một tab');
+  await popup.locator('.display-settings > summary').click();
   await popup.getByLabel('Hiển thị panel trên trang vé').uncheck();
   // Install controls and handlers in the same task, as a real framework commit does.
   const markup = fixture('booking').match(/<main[\s\S]*?<\/main>/)![0];

@@ -14,8 +14,8 @@ try {
   const picker = setup.getByLabel('Thêm hạng vé ưu tiên');
   const quote = await picker.locator('option').filter({ hasText: 'HAI QUÝ - EB' }).getAttribute('value');
   if (!quote) throw new Error('Expected target tier not present; inspect catalog instead of guessing.');
-  await picker.selectOption(quote); await setup.getByRole('button', { name: 'Thêm ưu tiên', exact: true }).click();
-  await setup.getByRole('button', { name: 'Lưu & bật theo dõi' }).click();
+  await picker.selectOption(quote);
+  await setup.getByRole('button', { name: 'Lưu cấu hình' }).click();
   const page = await context.newPage(); await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.locator('.status-line').waitFor({ timeout: 15000 });
   await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => undefined);

@@ -12,6 +12,7 @@ interface MountOptions {
   document: Document;
   getUrl: () => string;
   initialConfig: TaskConfig;
+  initialError?: string;
   onStop: () => Promise<unknown>;
   onHide: () => Promise<unknown>;
   onOpen: () => Promise<unknown>;
@@ -34,7 +35,7 @@ export function mountAssistant(options: MountOptions) {
   shadow.append(stylesheet, overlay, container); document.documentElement.append(host);
   const root = createRoot(container);
   let config = options.initialConfig;
-  let error: string | undefined;
+  let error = options.initialError;
   let stopped = false;
   let timeout: number | undefined;
   let microtaskQueued = false;

@@ -13,13 +13,6 @@ const phaseLabels: Record<AutoPhase, string> = {
   READY: 'Sẵn sàng', OPENING: 'Vào trang đặt vé', CHOOSING: 'Chọn vé', QUANTITY: 'Kiểm tra số lượng',
   SETTING_QUANTITY: 'Đặt số lượng', ADVANCING: 'Chuyển tới thanh toán', CHECKOUT: 'Đã tới thanh toán', PAUSED: 'Tạm dừng',
 };
-const modeGuidance = {
-  ZONE_ONLY: 'Chọn khu vực và số lượng trên website. Chưa xác định cách bố trí chỗ nếu mô tả không nói rõ.',
-  ASSIGNED_SEAT: 'Chọn hạng/khu vực và số lượng; website cấp ghế theo quy định sự kiện. Chưa khẳng định ghế ngẫu nhiên hay liền nhau.',
-  PICK_SEAT: 'Cần chọn ghế cụ thể trên website. Tool chỉ gợi ý ghế có nhãn đọc được; chưa hỗ trợ chọn nhóm ghế liền nhau.',
-  MIXED: 'Kiểm tra quy định từng khu: khu vực khác nhau có thể chọn ghế hoặc được cấp chỗ tự động.',
-  UNKNOWN: 'Chưa đủ dữ liệu để xác định cách chọn chỗ. Kiểm tra hướng dẫn của sự kiện.',
-};
 
 interface Props {
   config: TaskConfig;
@@ -58,17 +51,16 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
       <div className="panel-body">
         {onStartAuto && <div className="auto-status" role="status" data-auto-phase={autoRun?.progress.phase}>
           <b>{autoRun ? phaseLabels[autoRun.progress.phase] : 'Camp tới thanh toán'}</b>
-          <p>{autoRun?.progress.message ?? 'Tự chọn vé theo ưu tiên, đặt số lượng và chuyển tới thanh toán.'}</p>
+          {autoRun && <p>{autoRun.progress.message}</p>}
           {autoRun?.progress.checkoutReachedAt && autoRun.progress.selectionStartedAt && <p>Chọn vé → thanh toán: {((autoRun.progress.checkoutReachedAt - autoRun.progress.selectionStartedAt) / 1000).toFixed(2)} giây (phiên này).</p>}
           <button className={autoActive(autoRun ?? null) ? 'danger-button' : 'primary'} disabled={!p} onClick={autoActive(autoRun ?? null) ? onStopAuto : onStartAuto}>{autoActive(autoRun ?? null) ? 'Dừng camp' : 'Bắt đầu camp'}</button>
         </div>}
-        <p className={`event-match ${sameEvent ? 'ok' : ''}`}>{sameEvent ? '✓ Đúng link concert / suất diễn đã lưu' : '○ Chưa khớp concert đã lưu'}</p>
+        <p className={`event-match ${sameEvent ? 'ok' : ''}`}>{sameEvent ? 'Đúng link / suất đã lưu' : 'Chưa khớp sự kiện đã lưu'}</p>
         <p className="reason">{snapshot.reason}</p>
         {p && <>
-          <div className="metrics"><span><b>{p.quantity}</b> vé muốn mua</span><span>{p.maxTotalVnd ? money(p.maxTotalVnd) : 'Không giới hạn ngân sách'}</span></div>
-          <p className="muted">{modeLabels[snapshot.selectionMode]}</p>
-          {snapshot.state === 'SELECTING' && <p className="muted">{modeGuidance[snapshot.selectionMode]}</p>}
-          {p.quantity > 1 && snapshot.visibleOptions.some(o => o.kind === 'SEAT') && <p className="muted">Bạn muốn nhiều vé; tool chưa gợi ý nhóm ghế hoặc xác minh ghế liền nhau.</p>}
+          <div className="metrics"><span><b>{p.quantity}</b> vé</span><span>{p.maxTotalVnd ? money(p.maxTotalVnd) : 'Không giới hạn ngân sách'}</span></div>
+          {snapshot.selectionMode !== 'UNKNOWN' && <p className="muted">{modeLabels[snapshot.selectionMode]}</p>}
+          {p.quantity > 1 && snapshot.visibleOptions.some(o => o.kind === 'SEAT') && <p className="muted">Bạn muốn nhiều vé; chưa hỗ trợ ghép ghế.</p>}
           <p className="muted">Ưu tiên: {p.preferredZoneLabels.join(' → ') || 'Tất cả hạng vé'}</p>
           {snapshot.maxQuantity !== undefined && <p className={p.quantity > snapshot.maxQuantity ? 'error' : 'muted'}>Website ghi tối đa {snapshot.maxQuantity} vé/giao dịch.{p.quantity > snapshot.maxQuantity ? ' Giảm số vé trong cấu hình.' : ''}</p>}
         </>}
@@ -77,11 +69,10 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
           {options.slice(0, 4).map(({ option, estimatedTotalVnd }, i) => <div className="recommendation" key={option.id}>
             <span className="rank">{i + 1}</span><div><b>{option.label}</b>{option.kind === 'SEAT' && <small>Ghế cụ thể{option.zoneLabel ? ` · ${option.zoneLabel}` : ''}</small>}<small>{estimatedTotalVnd === undefined ? 'Website chưa hiển thị giá rõ ràng' : `${money(estimatedTotalVnd)} / ${p?.quantity} vé · chưa tính phí`}</small></div>
           </div>)}
-          <p className="muted">{autoActive(autoRun ?? null) ? 'Camp đang tự chọn theo cấu hình đã lưu. Tool chờ website xác nhận sau mỗi thao tác.' : 'Khung xanh đánh dấu lựa chọn phù hợp. Bắt đầu camp để tự chọn và đi tới checkout.'}</p>
         </div> : snapshot.state === 'SELECTING' && <p className="muted">Chưa có lựa chọn khớp đủ điều kiện. Kiểm tra hạng vé, giá và số lượng trực tiếp.</p>}
         {error && <p role="alert" className="error">{error}</p>}
         <div className="panel-actions"><button onClick={onRescan}>Nhận diện lại</button><button onClick={onOpen}>Mở concert</button><button className="danger-button" disabled={!config.enabled} onClick={onStop}>Dừng</button></div>
-        <p className="footnote">Nhắc theo đồng hồ máy. Giờ đã đặt không xác nhận website đã mở bán. Giữ Chrome mở và máy thức.</p>
+        <p className="footnote">Giữ Chrome mở và máy thức.</p>
       </div>
     </>}
   </aside>;

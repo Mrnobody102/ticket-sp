@@ -23,7 +23,7 @@ summary { cursor: pointer; font-size: 12px; color: #505e70; }
 .subtle-button { background: transparent; border: none; color: #315d9b; padding: 8px 0; text-align: left; font-weight: 500; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .popup { width: 460px; height: 600px; background: #fff; display: flex; flex-direction: column; font-size: 13px; }
-.app-header { padding: 17px 20px; border-bottom: 1px solid #e1e5eb; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; gap: 12px; }
+.app-header { padding: 14px 16px; border-bottom: 1px solid #e1e5eb; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; gap: 10px; }
 .app-header h1 { font-size: 19px; margin: 0; letter-spacing: -.4px; font-weight: 650; }
 .app-header p { font-size: 11px; margin: 4px 0 0; color: #697486; }
 .app-header nav { display: flex; gap: 6px; }
@@ -34,8 +34,12 @@ summary { cursor: pointer; font-size: 12px; color: #505e70; }
 .runtime-notice p { margin: 5px 0 0; }
 .catalog-needed { padding: 12px; background: #f5f7fa; border: 1px solid #e1e5eb; border-radius: 5px; font-size: 12px; }
 .catalog-needed p { color: #626d7c; margin: 6px 0 10px; }
-.setup-grid { flex: 1; min-height: 0; overflow-y: auto; padding: 20px; display: grid; gap: 24px; align-content: start; }
-.setup-form { display: grid; gap: 15px; align-content: start; min-width: 0; }
+.setup-grid { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: grid; gap: 18px; align-content: start; }
+.setup-form { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.booking-fields { display: grid; grid-template-columns: 76px minmax(0,1fr); gap: 12px; }
+.booking-fields label { align-content: start; }
+.booking-fields input { font-size: 12px; padding-inline: 7px; }
+.event-link > label { margin-top: 8px; }
 .section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .section-title h2 { margin: 0; }
 .section-title span { font-size: 10px; color: #7a8492; }
@@ -45,10 +49,16 @@ summary { cursor: pointer; font-size: 12px; color: #505e70; }
 .button-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
 .button-row > button { flex: 1; }
 .manual-preferences label { margin-top: 10px; }
-.run-bar { display: flex; justify-content: space-between; align-items: center; gap: 15px; background: #fff; border-top: 1px solid #dbe1e8; padding: 14px 20px; flex-shrink: 0; }
+.run-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; background: #fff; border-top: 1px solid #dbe1e8; padding: 12px 16px; flex-shrink: 0; }
 .run-bar b { font-size: 12px; }
 .run-bar p { color: #697486; font-size: 11px; margin: 4px 0 0; max-width: 270px; }
 .run-bar > button { white-space: nowrap; padding: 10px 14px; }
+.run-summary { min-width: 0; }
+.run-summary p { max-height: 3em; overflow-y: auto; }
+.run-controls { display: flex; gap: 7px; flex-shrink: 0; }
+.run-controls button { min-height: 36px; white-space: nowrap; }
+.section-title > .subtle-button { padding: 0; font-size: 11px; }
+.catalog-needed { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .event-finder > select { margin-bottom: 9px; }
 .target-shortcut { width: 100%; text-align: left; display: grid; gap: 5px; padding: 12px; margin: 0 0 14px; border-color: #9bb2d4; background: #f5f8fd; }
 .target-shortcut small { font-size: 10px; }
@@ -71,6 +81,9 @@ summary { cursor: pointer; font-size: 12px; color: #505e70; }
 .event-detail h3 { font-size: 14px; line-height: 1.5; margin: 0 0 6px; }
 .event-detail p { font-size: 12px; color: #5c6879; margin: 0 0 10px; }
 .event-detail > small { display: block; margin-top: 7px; }
+.event-detail.selected-event { border: none; margin: 0; padding: 0; gap: 7px; }
+.event-detail.selected-event h3 { margin: 0; font-size: 13px; }
+.event-detail.selected-event > span { font-size: 11px; }
 .source-note { padding: 10px; background: #f5f7fa; border-left: 2px solid #8d9caf; margin-top: 10px !important; }
 .external-link { color: #2458ae; font-size: 12px; }
 .ticket-preview { padding: 0; list-style: none; font-size: 11px; }
@@ -79,8 +92,8 @@ summary { cursor: pointer; font-size: 12px; color: #505e70; }
 .selected-event strong { font-size: 13px; line-height: 1.5; }
 .selected-event span { font-size: 12px; color: #5b697b; }
 .ticket-priorities > button { margin-top: 8px; }
-.ticket-priorities ol { margin: 12px 0 0; padding-left: 23px; }
-.ticket-priorities li { border-bottom: 1px solid #e2e7ed; padding: 9px 0 9px 2px; font-size: 12px; }
+.ticket-priorities ol { margin: 8px 0 0; padding-left: 23px; }
+.ticket-priorities li { border-bottom: 1px solid #e2e7ed; padding: 7px 0 7px 2px; font-size: 12px; }
 .ticket-priorities li > div:first-child { display: inline-grid; gap: 4px; max-width: 250px; }
 .priority-actions { display: inline-flex; gap: 4px; float: right; }
 .priority-actions button { padding: 3px 7px; }

@@ -1,21 +1,21 @@
-# Kết quả kiểm tra · 0.4.1 · 18/10/2026
+# Kết quả kiểm tra · 0.4.2 · 18/10/2026
 
 Môi trường Windows, Node.js 22.11.0, npm 10.9.0; WXT 0.21.4, Vite 6.4.4, Vitest 4.1.12; Chromium 156 qua Playwright. Browser tests dùng profile tạm và fixtures, không dùng tài khoản hoặc tạo đơn thật.
 
 | Kiểm tra | Kết quả |
 |---|---|
-| `npm run check` | PASS 0.4.1: TypeScript strict/noUnused + 136 unit tests / 12 files + production build |
-| `npm run test:e2e` | PASS 0.4.1: 22 ca, gồm 8 catalog, 12 extension/hồi quy và 2 runtime; 59,4 giây |
+| `npm run check` | PASS 0.4.2: TypeScript strict/noUnused + 142 unit tests / 13 files + production build |
+| `npm run test:e2e` | PASS 0.4.2: 24 ca, gồm 8 catalog, 12 extension/hồi quy và 4 runtime; 4 runtime được chạy lại trên bản chốt khởi tạo |
 | `npm run bench:camp` | PASS trên 0.4.0: 24 mẫu đo sau 2 lượt làm nóng, extension production với website/API mô phỏng; chưa đo lại trên 0.4.1 |
 | `node scripts/smoke-target.mjs` | PASS trên 0.4.0: trang Hà Nội công khai, 20 mẫu đọc DOM; không tạo phiên camp hoặc bấm mua |
-| `npm run smoke:catalog` | PASS 0.4.1: 1Zone Hà Nội 4 hạng, chọn HAI QUÝ bằng select trong bản nháp, max=2; Ticketbox 11 hạng; không lưu cấu hình/bật camp/page error |
+| `npm run smoke:catalog` | PASS 0.4.2 trên popup 460×600: 1Zone Hà Nội 4 hạng, chọn HAI QUÝ bằng select trong bản nháp, max=2; Ticketbox 11 hạng; không lưu cấu hình/bật camp/page error |
 | `npm audit --audit-level=low` | Lượt 0.3.0: 0 vulnerabilities; các bản 0.4.x không đổi dependencies |
-| `npm run zip` | PASS: `.output/ticket-sp-0.4.1-chrome.zip`, 201.057 byte; SHA-256 cả 13 file khớp output production |
-| Output | Khoảng 634 kB unpacked; 13 file production; manifest MV3/version 0.4.1 |
+| `npm run share` | PASS: `.output/Camp-ve-0.4.2.zip`, 202.431 byte; 14 file đều có SHA-256 khớp output, guide tĩnh không có script; gói share khớp gói WXT |
+| Output | Khoảng 635 kB unpacked; 14 file production gồm HTML hướng dẫn tĩnh; manifest MV3/version 0.4.2 |
 | Quyền host | 1Zone public/API và Ticketbox API; content entrypoint `tickets` chỉ chạy trên `ticket.1zone.vn` |
 | Tài liệu | Đã kiểm tra liên kết file cục bộ; không có lỗi whitespace qua git diff check |
 
-SHA-256 gói 0.4.1: `04A1EE19C7E8A0840FC02C1FD9BBECB9C2FE22F181E3B48839FD5EDD0DAF042D`. Báo cáo đối chiếu output cục bộ ở `artifacts/output-verification.json`.
+SHA-256 gói chia sẻ: `D401FF4BA1FDF373F56D49505C5A83641F2AC01572D47E4636DBD2DAFAAC490D`. Báo cáo đối chiếu output cục bộ ở `artifacts/output-verification.json`.
 
 ## Kiểm thử luồng camp
 
@@ -31,6 +31,8 @@ Tám ca catalog chạy qua message/GET transport thật của background, với 
 8. API lỗi 503 thì hiện lỗi và nút tải lại; không có textarea mặc định, chưa có hạng thì không lưu. Thử lại thành công hiện select đúng tên/giá.
 
 Hai ca runtime riêng kiểm tra nút Mở rộng mở tab workspace thực sự và fixture UI mới + worker trả lỗi lệnh cũ. Trường hợp lệch bản phải hiển thị hướng dẫn Reload, khóa Lưu/Bắt đầu, nhưng link Mở rộng vẫn mở được. Unit kiểm tra thiếu/khác build/protocol, worker không trả lời quá 4 giây, mất context và giữ nguyên lỗi nghiệp vụ. Handshake không chạy trong runner đặt vé.
+
+0.4.2 thêm hai ca runtime: worker trả đúng lỗi “Lệnh chỉ dùng trong trang cấu hình tiện ích” cho content thì panel vẫn xuất hiện với thông báo Reload, không có page error hoặc nút tự camp; hướng dẫn mở được từ menu và có các bước Load unpacked. Unit kiểm tra đọc cấu hình/phiên thất bại không tạo runner, kể cả rejection không phải Error. SAVE từ content vẫn giữ lỗi quyền. Popup còn được kiểm tra select, số vé, Lưu/Bắt đầu nằm trong viewport và tên sự kiện không lặp.
 
 Các ca E2E bổ sung thực thi bằng content script/background của bản extension production:
 

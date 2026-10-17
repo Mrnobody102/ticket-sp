@@ -36,6 +36,7 @@ export default defineBackground(() => {
       void enqueue(() => handleAutoCommand(message as AutoCommand, sender)).then(run => respond({ run }), error => respond({ error: error instanceof Error ? error.message : 'Không thực hiện được camp.' }));
       return true;
     }
+    if (!['SAVE', 'ENABLE', 'PANEL', 'OPEN_EVENT', 'OPEN_DEMO', 'OPEN_WORKSPACE'].includes(message.type)) return;
     const command = message as Command;
     const extensionPage = sender.url?.startsWith(chrome.runtime.getURL('/'));
     if (!extensionPage && !['ENABLE', 'PANEL', 'OPEN_EVENT'].includes(message.type)) {

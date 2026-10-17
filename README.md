@@ -1,6 +1,6 @@
 # Camp vé · Ticket Assistant
 
-Chrome Extension MV3 chạy cục bộ, mặc định **1 vé**, ngân sách không giới hạn. Bản **0.4.1** sửa nhãn sự kiện, kiểm tra giao diện/worker cùng phiên bản, mở trang cấu hình trực tiếp và dùng danh sách hạng từ API làm luồng mặc định. Luồng chính: **tìm sự kiện → lấy suất/hạng/giá → chọn ưu tiên → chuẩn bị trước giờ bán → tự chọn và đi tới checkout**. Nhắc giờ là phần phụ.
+Chrome Extension MV3 chạy cục bộ, mặc định **1 vé**, ngân sách không giới hạn. Bản **0.4.2** xử lý lỗi khởi tạo panel, gọn màn chọn vé và thêm hướng dẫn cài/dùng ngay trong tool. Luồng chính: **tìm sự kiện → chọn suất/hạng → đặt số vé/giờ → lưu → bắt đầu camp**. Nhắc giờ là phần phụ.
 
 **1Zone** có nguồn dữ liệu và adapter camp; **Ticketbox** chỉ tra cứu; **CTicket** chưa kết nối. Preset [Vương Bình Hà Nội](https://ticket.1zone.vn/events/vuong-binh-tiec-thanh-than-mam-2?calendarId=8h0YGm) đặt **12:00 ngày 19/10/2026 UTC+7**, theo thời gian người dùng xác nhận. Trang hiện chưa mở bán; booking thật chưa được xác minh. Xem [chuẩn bị và cách test](docs/SAN_SANG_MO_BAN.md).
 
@@ -18,7 +18,15 @@ npm run build
 3. Ghim icon **Camp vé**. Sau mỗi lần build/reload extension, tải lại tab website.
 4. **Diễn tập** → **Camp tự động tới checkout** → **Bắt đầu camp** trong panel để xem luồng chạy cục bộ.
 
-`npm run zip` tạo `.output/ticket-sp-0.4.1-chrome.zip`. Chuyển sang máy khác thì giải nén và Load unpacked thư mục chứa manifest. Git chỉ lưu source/lockfile, không lưu output hay dữ liệu test.
+`npm run zip` tạo `.output/ticket-sp-0.4.2-chrome.zip`. Git chỉ lưu source/lockfile, không lưu output hay dữ liệu test.
+
+### Gửi cho bạn bè
+
+```powershell
+npm run share
+```
+
+Gửi **`.output/Camp-ve-0.4.2.zip`**. Người nhận giải nén toàn bộ, mở **`huong-dan.html`**, rồi Load unpacked thư mục có `manifest.json`. Không cần Node.js, npm hay source. Hướng dẫn này cũng mở được bằng nút **Hướng dẫn** trong tool. Mỗi người tự đăng nhập 1Zone trên Chrome của mình; cấu hình/phiên mua không được đóng vào ZIP.
 
 ### Cập nhật khi đang nạp `.output/chrome-mv3`
 
@@ -26,7 +34,7 @@ Build mới chỉ thay file trên đĩa; Chrome có thể vẫn chạy tiến tr
 
 1. Đóng popup và tab cấu hình cũ. Mở `chrome://extensions`.
 2. Ở **Camp vé · 1Zone Assistant**, bấm biểu tượng **Tải lại / Reload**.
-3. Mở lại tiện ích, kiểm tra nhãn **v0.4.1**, rồi tải lại tab 1Zone.
+3. Mở lại tiện ích, kiểm tra nhãn **v0.4.2**, rồi tải lại tab 1Zone.
 
 Không cần tải ZIP nếu Chrome đang nạp trực tiếp `.output/chrome-mv3` của project này. Nếu nạp thư mục giải nén ZIP ở nơi khác, cập nhật đầy đủ các file trong chính thư mục đó rồi Reload.
 
@@ -34,9 +42,9 @@ Thông báo **Cần tải lại tiện ích** cho biết kiểm tra giao diện/
 
 ## Sử dụng
 
-1. Đăng nhập 1Zone trước. Mở tiện ích; **Mở rộng ↗** mở cửa sổ cấu hình rộng hơn. Tìm tên sự kiện hoặc nhập link và bấm **Tải chi tiết từ link**.
-2. Chọn đúng ngày/địa điểm, thêm hạng vé theo thứ tự ưu tiên bằng select. Giá lấy từ nguồn. Nhập giờ bán **UTC+7** theo ban tổ chức; mặc định 1 vé. Nếu tải lỗi, thử lại bằng **Tải hạng vé**. Nhập thủ công chỉ xuất hiện khi chủ động bật trong **Tùy chọn thêm**.
-3. **Lưu & bật theo dõi**, rồi **Bắt đầu camp**. Tool đọc mới catalog để đối chiếu suất/hạng/giá trước khi mở/dùng lại tab concert. Cũng có thể bắt đầu trên panel.
+1. Đăng nhập 1Zone trước. Mở tiện ích; **Mở rộng ↗** mở cửa sổ cấu hình rộng hơn. Tìm tên sự kiện hoặc dán link bán vé ngay vào ô tìm.
+2. Chọn đúng suất, chọn hạng bằng select; mỗi lần chọn tự thêm vào danh sách ưu tiên. Dùng ↑ ↓ để sắp thứ tự. Đặt số vé và giờ bán **UTC+7**; mặc định 1 vé. Nếu tải lỗi, thử lại bằng **Tải hạng vé**. Nhập thủ công chỉ xuất hiện khi chủ động bật trong **Tùy chọn thêm**.
+3. **Lưu cấu hình**, rồi **Bắt đầu camp** ở thanh cuối cửa sổ. Tool đọc mới catalog để đối chiếu suất/hạng/giá trước khi mở/dùng lại tab concert. Cũng có thể bắt đầu trên panel.
 4. Tool chờ giờ bán theo đồng hồ máy và nút mua khả dụng. Khi được vào chọn vé, tool tự thao tác trên điều khiển đọc được.
 5. Panel báo từng bước và kết quả. Khi tới checkout, bạn kiểm tra vé, phí và thanh toán.
 

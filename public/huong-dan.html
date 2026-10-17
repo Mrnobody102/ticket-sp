@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Camp vé · Hướng dẫn</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f4f5f7;color:#20252c;font:15px/1.65 "Segoe UI",system-ui,sans-serif}main{max-width:740px;margin:32px auto;padding:28px 32px;background:white;border:1px solid #dbe1e8;border-radius:8px}h1{font-size:24px;margin:0 0 6px}h2{font-size:17px;margin:24px 0 8px}p{margin:6px 0}ol,ul{margin:8px 0;padding-left:24px}li{padding:3px 0}code{font-size:13px;background:#f1f3f6;padding:2px 5px;border-radius:3px}.note{color:#5e6978;font-size:13px}.rule{border-top:1px solid #e1e5eb;margin-top:24px;padding-top:14px}@media(max-width:760px){main{margin:0;border:0;border-radius:0;padding:22px}}
+  </style>
+</head>
+<body><main>
+  <h1>Camp vé</h1>
+  <p>Chọn hạng trước, bật camp trước giờ bán. Tool dừng ở bước thanh toán.</p>
+
+  <h2>Cài một lần</h2>
+  <ol>
+    <li>Giải nén toàn bộ file ZIP vào một thư mục cố định.</li>
+    <li>Mở Chrome, nhập <code>chrome://extensions</code>.</li>
+    <li>Bật <b>Chế độ dành cho nhà phát triển / Developer mode</b>.</li>
+    <li>Bấm <b>Tải tiện ích đã giải nén / Load unpacked</b>. Chọn thư mục vừa giải nén, nơi có <code>manifest.json</code>.</li>
+    <li>Ghim icon <b>Camp vé</b>. Không cần cài Node.js hay chạy source.</li>
+  </ol>
+
+  <h2>Chuẩn bị đặt vé</h2>
+  <ol>
+    <li>Đăng nhập 1Zone trước. Mở Camp vé, tìm tên sự kiện hoặc dán link bán vé vào ô tìm.</li>
+    <li>Chọn đúng suất diễn. Chọn hạng trong danh sách; dùng ↑ ↓ để xếp ưu tiên.</li>
+    <li>Chọn số vé và nhập <b>giờ mở bán theo giờ Việt Nam</b>, rồi bấm <b>Lưu cấu hình</b>.</li>
+    <li>Bấm <b>Bắt đầu camp trước giờ bán</b>. Giữ Chrome mở, máy thức và đồng hồ máy đúng giờ.</li>
+    <li>Nếu có CAPTCHA/đăng nhập, xử lý trên website. Khi tới thanh toán, kiểm tra đơn và tự thanh toán.</li>
+  </ol>
+  <p class="note">Suất Hà Nội có sẵn ở thẻ cấu hình nhanh: mặc định 1 vé, 12:00 ngày 19/10/2026. Các giá trị đều sửa được. Ticketbox hiện chỉ tra cứu.</p>
+
+  <h2>Thử trước khi dùng thật</h2>
+  <p>Bấm <b>Diễn tập</b> trong Camp vé → <b>1Zone · Modal hạng vé</b> → <b>Bắt đầu camp</b>. Đây là vé mô phỏng, không tạo đơn thật.</p>
+
+  <h2>Cập nhật hoặc gặp lỗi</h2>
+  <ul>
+    <li>Sau khi thay bộ file: vào <code>chrome://extensions</code>, bấm <b>Reload / Tải lại</b>, rồi tải lại tab 1Zone.</li>
+    <li>Chưa có hạng vé: kiểm tra đúng link/suất, rồi bấm tải lại. Giá và số vé tối đa do website cung cấp.</li>
+    <li>Bấm <b>Dừng camp</b> để hủy thao tác. Đóng/mở Chrome không tự chạy lại phiên cũ.</li>
+  </ul>
+  <p class="note rule">Không bảo đảm mua được vé. Phòng chờ, CAPTCHA, tồn kho và phản hồi giữ vé do website quyết định. Không đổi tên hoặc xóa thư mục tiện ích khi còn dùng.</p>
+</main></body>
+</html>

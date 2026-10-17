@@ -1,7 +1,7 @@
 {
   "name": "ticket-sp",
   "description": "Local 1Zone concert ticket assistant",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "private": true,
   "type": "module",
   "engines": { "node": ">=22.0.0" },
@@ -9,6 +9,7 @@
     "dev": "wxt --level info",
     "build": "wxt build --level info",
     "zip": "wxt zip --level info",
+    "share": "npm run zip && node scripts/package-share.mjs",
     "postinstall": "wxt prepare --level info",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

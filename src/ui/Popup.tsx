@@ -7,7 +7,7 @@ import { command, type Command } from '../infrastructure/messages';
 import { autoCommand } from '../infrastructure/automation-messages';
 import { autoActive, type AutoRun } from '../core/automation';
 import { platformForUrl } from '../core/platform-catalog';
-import { EventFinder, eventDate, type LoadedConcert } from './EventFinder';
+import { EventFinder, type LoadedConcert } from './EventFinder';
 import { TicketPriorities } from './TicketPriorities';
 import { HANOI_PRESET } from '../core/task-presets';
 import { catalogQuantityLimit } from '../core/catalog-validation';
@@ -121,37 +121,34 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
   function reloadTickets() { setRequestedUrl({ url, requestId: Date.now() }); }
   const hasSelection = loaded ? selectedTickets.length > 0 : !!retainedCatalog || (manualMode && !!labels.trim());
   return <main className={workspace ? 'popup workspace' : 'popup'}>
-    <header className="app-header"><div><div className="app-title"><h1>Camp vé</h1><span className="app-version">v{EXTENSION_VERSION}</span></div><p>Sự kiện và cấu hình đặt vé</p></div><nav>
+    <header className="app-header"><div className="app-title"><h1>Camp vé</h1><span className="app-version">v{EXTENSION_VERSION}</span></div><nav>
       {!workspace && <a className="button-link" href={chrome.runtime.getURL('/workspace.html')} target="_blank" rel="noreferrer">Mở rộng ↗</a>}
       <a className="button-link" href={chrome.runtime.getURL('/demo.html')} target="_blank" rel="noreferrer">Diễn tập</a>
+      <a className="button-link" href={chrome.runtime.getURL('/huong-dan.html')} target="_blank" rel="noreferrer">Hướng dẫn</a>
     </nav></header>
     {runtimeError && <aside className="runtime-notice error" role="alert"><b>Cần tải lại tiện ích</b><p>{runtimeError}</p></aside>}
     <div className="setup-grid" inert={busy || !ready || !runtimeReady}>
-      <EventFinder manualUrl={url} requestedUrl={requestedUrl} shortcut={{ title: HANOI_PRESET.title, description: 'Hà Nội · 12:00 · 19/10/2026 · tự tải hạng/giá', onChoose: useTarget }} onLoad={loadConcert} onReset={() => { setLoaded(null); setRetainedCatalog(undefined); setSelectedTickets([]); setManualMode(false); setDirty(true); }} />
-      <form className="setup-form" onSubmit={e => void save(e)}>
-        <div className="section-title"><h2>Cấu hình đặt vé</h2><span>{dirty ? 'Chưa lưu thay đổi' : config.preferences ? 'Đã lưu' : 'Chưa có cấu hình'}</span></div>
-        {current && <div className="selected-event"><strong>{current}</strong><span>{loaded?.performance.venue ?? retainedCatalog?.venue}</span><small>{eventDate(loaded?.performance.startsAt ?? retainedCatalog?.startsAt)} · giờ diễn ra</small></div>}
-        <label>Link concert<input type="url" required value={url} onChange={e => { setUrl(e.target.value); setLoaded(null); setRetainedCatalog(undefined); setManualMode(false); setDirty(true); }} placeholder="https://ticket.1zone.vn/events/…" /></label>
-        <label>Giờ mở bán · giờ Việt Nam (UTC+7)<input type="datetime-local" required value={saleTime} onChange={e => { setSaleTime(e.target.value); setDirty(true); }} /><small>Nhập giờ bán theo thông báo ban tổ chức.</small></label>
-        <div className="field-row">
-          <label>Số vé<input type="number" min="1" max={Math.min(100, quantityLimit ?? 100)} step="1" required value={quantity} onChange={e => { setQuantity(e.target.value); setDirty(true); }} /></label>
-        </div>
-        {quantityLimit !== undefined && <small>Website cho tối đa {quantityLimit} vé theo suất và các hạng ưu tiên đã chọn. Các phương án thay thế phải đủ số vé này.</small>}
+      <EventFinder requestedUrl={requestedUrl} saved={retainedCatalog} shortcut={{ title: HANOI_PRESET.title, description: 'Hà Nội · 12:00 · 19/10/2026 · tự tải hạng/giá', onChoose: useTarget }} onLoad={loadConcert} onReset={() => { setLoaded(null); setRetainedCatalog(undefined); setSelectedTickets([]); setManualMode(false); setDirty(true); }} />
+      <form id="camp-setup-form" className="setup-form" onSubmit={e => void save(e)}>
+        <div className="section-title"><h2>Vé và giờ bán</h2><span>{dirty ? 'Chưa lưu' : config.preferences ? 'Đã lưu' : ''}</span></div>
         {loaded ? <TicketPriorities key={loaded.performance.id} tickets={loaded.catalog.tickets} selected={selectedTickets} onChange={ids => { setSelectedTickets(ids); setDirty(true); }} /> :
           retainedCatalog ? <div className="saved-tickets"><b>Hạng vé đã lưu</b><ol>{retainedCatalog.tickets.map(t => <li key={t.id}>{t.name}<span>{money(t.priceVnd)}</span></li>)}</ol><button className="subtle-button" type="button" onClick={reloadTickets}>Tải hạng vé để thay đổi lựa chọn</button></div> :
-            <section className="catalog-needed" aria-label="Danh sách hạng vé"><b>Chưa tải danh sách hạng vé</b><p>Chọn sự kiện hoặc tải từ link để chọn đúng hạng và giá.</p><button type="button" disabled={!url.trim()} onClick={reloadTickets}>Tải hạng vé</button></section>}
+            <section className="catalog-needed" aria-label="Danh sách hạng vé"><span>Chọn sự kiện để tải hạng vé.</span>{url.trim() && <button type="button" onClick={reloadTickets}>Tải hạng vé</button>}</section>}
+        <div className="booking-fields">
+          <label>Số vé<input aria-label="Số vé" type="number" min="1" max={Math.min(100, quantityLimit ?? 100)} step="1" required value={quantity} onChange={e => { setQuantity(e.target.value); setDirty(true); }} />{quantityLimit !== undefined && <small>Tối đa {quantityLimit}</small>}</label>
+          <label>Giờ mở bán · UTC+7<input aria-label="Giờ mở bán · giờ Việt Nam (UTC+7)" type="datetime-local" required value={saleTime} onChange={e => { setSaleTime(e.target.value); setDirty(true); }} /></label>
+        </div>
+        <details className="event-link" open={!current}><summary>Link sự kiện</summary><label><span className="sr-only">Link concert</span><input type="url" required value={url} onChange={e => { setUrl(e.target.value); setLoaded(null); setRetainedCatalog(undefined); setManualMode(false); setDirty(true); }} placeholder="https://ticket.1zone.vn/events/…" /></label><button type="button" className="subtle-button" disabled={!url.trim()} onClick={reloadTickets}>Tải chi tiết từ link</button></details>
         <details className="extra-settings"><summary>Tùy chọn thêm</summary>
           <label>Tổng ngân sách (VNĐ)<input type="number" min="1" step="1" value={budget} onChange={e => { setBudget(e.target.value); setDirty(true); }} placeholder="Không giới hạn" /></label>
-          <label className="checkbox-label"><input type="checkbox" checked={alternatives} onChange={e => { setAlternatives(e.target.checked); setDirty(true); }} />Cho phép chọn hạng khác trong ngân sách</label>
-          <label className="checkbox-label"><input type="checkbox" checked={refreshAtSale} onChange={e => { setRefreshAtSale(e.target.checked); setDirty(true); }} />Tải lại một lần đúng giờ nếu trang vẫn chưa mở bán</label>
-          <small>Không tải lại phòng chờ, CAPTCHA hoặc phiên đang chọn vé.</small>
+          <label className="checkbox-label"><input type="checkbox" checked={alternatives} onChange={e => { setAlternatives(e.target.checked); setDirty(true); }} />Cho phép hạng khác trong ngân sách</label>
+          <label className="checkbox-label"><input type="checkbox" checked={refreshAtSale} onChange={e => { setRefreshAtSale(e.target.checked); setDirty(true); }} />Tải lại một lần lúc mở bán nếu trang còn khóa</label>
           {!loaded && !retainedCatalog && <><label className="checkbox-label"><input type="checkbox" checked={manualMode} onChange={e => { setManualMode(e.target.checked); setDirty(true); }} />Nhập hạng vé thủ công</label>
             {manualMode && <label>Hạng vé ưu tiên · mỗi dòng một hạng<textarea value={labels} onChange={e => { setLabels(e.target.value); setDirty(true); }} placeholder={'VIP\nKhu A'} /><small>Chỉ dùng khi nguồn không cung cấp danh sách. Tên phải khớp hạng hiển thị trên website.</small></label>}</>}
         </details>
         {error && <p className="error" role="alert">{error}</p>}
         {notice && <p className="success" role="status">{notice}</p>}
-        <button className="primary" type="submit" disabled={!ready || !runtimeReady || busy || !hasSelection}>{busy ? 'Đang xử lý…' : 'Lưu & bật theo dõi'}</button>
-        <details className="display-settings" open><summary>Trang vé và hiển thị</summary><div className="button-row">
+        <details className="display-settings"><summary>Trang vé và hiển thị</summary><div className="button-row">
           <button type="button" disabled={busy || !config.preferences} onClick={() => void send({ type: 'OPEN_EVENT' })}>Mở concert đã lưu</button>
           <button type="button" disabled={busy || !config.preferences} onClick={() => void send({ type: 'ENABLE', enabled: !config.enabled })}>{config.enabled ? 'Dừng theo dõi' : 'Tiếp tục theo dõi'}</button>
         </div><label className="checkbox-label"><input type="checkbox" checked={config.panelVisible} disabled={!ready || busy} onChange={e => {
@@ -159,8 +156,9 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
         }} />Hiển thị panel trên trang vé</label></details>
       </form>
     </div>
-    <footer className="run-bar"><div><b>{running ? 'Camp đang chạy' : autoRun?.progress.phase === 'CHECKOUT' ? 'Đã tới thanh toán' : 'Camp tới thanh toán'}</b><p>{dirty ? 'Lưu cấu hình mới trước khi bắt đầu.' : autoRun?.progress.message ?? (config.preferences ? 'Tự chọn vé theo cấu hình đã lưu.' : 'Chọn sự kiện và lưu cấu hình trước.')}</p></div>
-      <button type="button" className={running ? 'danger-button' : 'primary'} disabled={!ready || busy || (!running && (!runtimeReady || !config.preferences || dirty))} onClick={() => void startOrStopAuto()}>{running ? 'Dừng camp' : 'Bắt đầu camp'}</button>
+    <footer className="run-bar"><div className="run-summary"><b>{running ? 'Đang camp' : autoRun?.progress.phase === 'CHECKOUT' ? 'Đã tới thanh toán' : dirty ? 'Chưa lưu' : config.preferences ? 'Đã lưu' : 'Chọn sự kiện'}</b>{autoRun && <p>{autoRun.progress.message}</p>}</div>
+      <div className="run-controls"><button type="submit" form="camp-setup-form" disabled={!ready || !runtimeReady || busy || !hasSelection}>{busy ? 'Đang xử lý…' : 'Lưu cấu hình'}</button>
+        <button type="button" className={running ? 'danger-button' : 'primary'} disabled={!ready || busy || (!running && (!runtimeReady || !config.preferences || dirty))} onClick={() => void startOrStopAuto()}>{running ? 'Dừng camp' : 'Bắt đầu camp'}</button></div>
     </footer>
   </main>;
 }

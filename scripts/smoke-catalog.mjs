@@ -18,7 +18,8 @@ try {
   });
   const page = await context.newPage(); const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.goto(`chrome-extension://${new URL(worker.url()).host}/workspace.html`);
+  await page.setViewportSize({ width: 460, height: 600 });
+  await page.goto(`chrome-extension://${new URL(worker.url()).host}/popup.html`);
   await page.getByLabel('Tìm concert', { exact: true }).fill('Vương Bình');
   await page.getByRole('button', { name: 'Tìm', exact: true }).click();
   await page.locator('.event-result').filter({ hasText: /MÂM 2/i }).click({ timeout: 20000 });
@@ -34,11 +35,11 @@ try {
   const targetTier = onezone.tickets.find(ticket => ticket.label?.includes('HAI QUÝ - EB'));
   if (!targetTier) throw new Error('Expected Hanoi tier missing; inspect the catalog before using the preset.');
   await page.getByLabel('Thêm hạng vé ưu tiên').selectOption(targetTier.id);
-  await page.getByRole('button', { name: 'Thêm ưu tiên', exact: true }).click();
   onezone.draftPriority = await page.locator('.ticket-priorities li').first().innerText();
   onezone.quantityMax = await page.getByLabel('Số vé', { exact: true }).getAttribute('max');
   mkdirSync('artifacts', { recursive: true });
   await page.screenshot({ path: 'artifacts/catalog-live-onezone.png', fullPage: true });
+  await page.getByRole('button', { name: 'Đổi sự kiện' }).click();
   await page.getByLabel('Nguồn sự kiện').selectOption('ticketbox');
   await page.getByLabel('Tìm concert', { exact: true }).fill('Mắt Nhắm Mắt Mở');
   await page.getByRole('button', { name: 'Tìm', exact: true }).click();

@@ -8,8 +8,10 @@ export const RELOAD_EXTENSION_MESSAGE = 'Tiện ích chưa đồng bộ sau cậ
 export async function sendToBackground<T>(message: object): Promise<T | undefined> {
   try {
     const reply: unknown = await chrome.runtime.sendMessage(message);
-    if (reply && typeof reply === 'object' && 'error' in reply && reply.error === 'Lệnh không được hỗ trợ.') {
-      throw new Error(RELOAD_EXTENSION_MESSAGE);
+    if (reply && typeof reply === 'object' && 'error' in reply) {
+      const legacyAutoDenied = reply.error === 'Lệnh chỉ dùng trong trang cấu hình tiện ích.' &&
+        'type' in message && typeof message.type === 'string' && /^AUTO_(GET|START|STOP|STEP)$/.test(message.type);
+      if (reply.error === 'Lệnh không được hỗ trợ.' || legacyAutoDenied) throw new Error(RELOAD_EXTENSION_MESSAGE);
     }
     return reply as T | undefined;
   } catch (error) {

@@ -6,6 +6,7 @@ import { contentMatches } from '../core/platform-catalog';
 import { autoCommand, watchAutoRun } from '../infrastructure/automation-messages';
 import { chromeAutomationTransport } from '../infrastructure/automation-transport';
 import type { AutoRun } from '../core/automation';
+import { loadAssistantState } from '../application/assistant-bootstrap';
 
 export default defineContentScript({
   matches: [...contentMatches],
@@ -20,14 +21,14 @@ export default defineContentScript({
     ctx.onInvalidated(unwatch);
     let latestRun: AutoRun | null | undefined;
     ctx.onInvalidated(watchAutoRun(run => { latestRun = run; mounted?.updateAuto(run); }));
-    const [initial, initialRun] = await Promise.all([repository.load(), autoCommand({ type: 'AUTO_GET' })]);
+    const initial = await loadAssistantState(() => repository.load(), () => autoCommand({ type: 'AUTO_GET' }));
     if (disposed) return;
     mounted = mountAssistant({
-      document, getUrl: () => location.href, initialConfig: latest ?? initial,
+      document, getUrl: () => location.href, initialConfig: latest ?? initial.config, initialError: initial.error,
       onStop: () => command({ type: 'ENABLE', enabled: false }),
       onHide: () => command({ type: 'PANEL', visible: false }),
       onOpen: () => command({ type: 'OPEN_EVENT' }),
-      automation: { initialRun: latestRun !== undefined ? latestRun : initialRun, transport: chromeAutomationTransport },
+      automation: initial.error ? undefined : { initialRun: latestRun !== undefined ? latestRun : initial.run, transport: chromeAutomationTransport },
     });
     ctx.addEventListener(window, 'wxt:locationchange', () => mounted?.rescan());
     ctx.onInvalidated(() => mounted?.destroy());
