@@ -52,12 +52,13 @@ export function validatePreferences(value: unknown): EventPreferences {
         (c.maxQuantity !== undefined && (!Number.isSafeInteger(c.maxQuantity) || c.maxQuantity < 0)) ||
         !Array.isArray(c.tickets) || !c.tickets.length || c.tickets.length > 20 || c.tickets.some(t => !t || typeof t.id !== 'string' || !/^[\w-]{1,100}$/.test(t.id) ||
           typeof t.name !== 'string' || !t.name.trim() || t.name.length > 100 || !Number.isSafeInteger(t.priceVnd) || t.priceVnd < 0 ||
+          (t.zoneName !== undefined && (typeof t.zoneName !== 'string' || !t.zoneName.trim() || t.zoneName.length > 100)) ||
           (t.maxQuantity !== undefined && (!Number.isSafeInteger(t.maxQuantity) || t.maxQuantity < 0)) ||
           (t.seatMode !== undefined && !['AUTO', 'PICK', 'UNKNOWN'].includes(t.seatMode))) ||
         new Set(c.tickets.map(t => t.id)).size !== c.tickets.length) throw new Error('Dữ liệu hạng vé/suất không hợp lệ. Tải lại chi tiết sự kiện.');
     catalog = { eventId: c.eventId, performanceId: c.performanceId, title: c.title, venue: c.venue, startsAt: c.startsAt, verifiedAt: c.verifiedAt,
       ...(c.maxQuantity !== undefined ? { maxQuantity: c.maxQuantity } : {}),
-      tickets: c.tickets.map(t => ({ id: t.id, name: t.name.trim(), priceVnd: t.priceVnd, ...(t.seatMode ? { seatMode: t.seatMode } : {}), ...(t.maxQuantity !== undefined ? { maxQuantity: t.maxQuantity } : {}) })) };
+      tickets: c.tickets.map(t => ({ id: t.id, name: t.name.trim(), priceVnd: t.priceVnd, ...(t.zoneName ? { zoneName: t.zoneName.trim() } : {}), ...(t.seatMode ? { seatMode: t.seatMode } : {}), ...(t.maxQuantity !== undefined ? { maxQuantity: t.maxQuantity } : {}) })) };
   }
   return {
     platform: platform.id, eventUrl: cleanUrl.href, saleStartAt: new Date(p.saleStartAt).toISOString(),

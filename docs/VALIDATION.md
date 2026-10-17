@@ -1,84 +1,61 @@
-# Kết quả kiểm tra · 0.4.2 · 18/10/2026
+# Kiểm thử · 0.5.0 · 18/10/2026
 
-Môi trường Windows, Node.js 22.11.0, npm 10.9.0; WXT 0.21.4, Vite 6.4.4, Vitest 4.1.12; Chromium 156 qua Playwright. Browser tests dùng profile tạm và fixtures, không dùng tài khoản hoặc tạo đơn thật.
+Windows, Node.js 22.11.0, npm 10.9.0; WXT 0.21.4, Vite 6.4.4, Vitest 4.1.12; Chromium 156 qua Playwright. Các bài mua vé dùng dữ liệu tổng hợp và profile tạm, không dùng tài khoản hoặc tạo đơn thật.
 
-| Kiểm tra | Kết quả |
+## Bộ kiểm tra
+
+| Lệnh | Kết quả |
 |---|---|
-| `npm run check` | PASS 0.4.2: TypeScript strict/noUnused + 142 unit tests / 13 files + production build |
-| `npm run test:e2e` | PASS 0.4.2: 24 ca, gồm 8 catalog, 12 extension/hồi quy và 4 runtime; 4 runtime được chạy lại trên bản chốt khởi tạo |
-| `npm run bench:camp` | PASS trên 0.4.0: 24 mẫu đo sau 2 lượt làm nóng, extension production với website/API mô phỏng; chưa đo lại trên 0.4.1 |
-| `node scripts/smoke-target.mjs` | PASS trên 0.4.0: trang Hà Nội công khai, 20 mẫu đọc DOM; không tạo phiên camp hoặc bấm mua |
-| `npm run smoke:catalog` | PASS 0.4.2 trên popup 460×600: 1Zone Hà Nội 4 hạng, chọn HAI QUÝ bằng select trong bản nháp, max=2; Ticketbox 11 hạng; không lưu cấu hình/bật camp/page error |
-| `npm audit --audit-level=low` | Lượt 0.3.0: 0 vulnerabilities; các bản 0.4.x không đổi dependencies |
-| `npm run share` | PASS: `.output/Camp-ve-0.4.2.zip`, 202.431 byte; 14 file đều có SHA-256 khớp output, guide tĩnh không có script; gói share khớp gói WXT |
-| Output | Khoảng 635 kB unpacked; 14 file production gồm HTML hướng dẫn tĩnh; manifest MV3/version 0.4.2 |
-| Quyền host | 1Zone public/API và Ticketbox API; content entrypoint `tickets` chỉ chạy trên `ticket.1zone.vn` |
-| Tài liệu | Đã kiểm tra liên kết file cục bộ; không có lỗi whitespace qua git diff check |
+| `npm run check` | PASS: TypeScript strict/noUnused, 157 unit tests / 14 files, build production |
+| `npm run test:e2e` | PASS 27 ca: 8 catalog, 14 extension/diễn tập, 5 runtime |
+| `npm install` | Audit 246 packages, 0 vulnerabilities; khai báo trực tiếp zero-zip 1.0.1 đã được WXT sử dụng |
+| `npm run release` | PASS: ZIP bạn bè 209.985 byte, ZIP Store 205.916 byte; 15 file production trong mỗi gói khớp SHA-256 output |
+| `node scripts/prepare-store.mjs --extension=artifacts/share-install-0.5.0-60b4e1b3/tien-ich` | PASS từ ZIP cuối giải nén vào thư mục mới, diễn tập 2 vé tới checkout; 0 pageerror, 0 HTTP request; 2 ảnh 1280×800 |
+| Runtime lỗi cũ | PASS cả lúc khởi tạo và lúc bấm camp: thông báo khắc phục trên panel, không Uncaught, không click vé |
+| `npm run bench:camp` | PASS 24 mẫu, 2 tình huống; 0 pageerror, đúng một click mỗi bước |
+| `npm run smoke:catalog` | PASS: API thật 1Zone Hà Nội 4 hạng, select HAI QUÝ/HAI QUÝ 2 và max=2; Ticketbox 11 hạng; không lưu cấu hình, không bật camp, không pageerror |
 
-SHA-256 gói chia sẻ: `D401FF4BA1FDF373F56D49505C5A83641F2AC01572D47E4636DBD2DAFAAC490D`. Báo cáo đối chiếu output cục bộ ở `artifacts/output-verification.json`.
+SHA-256 ZIP bạn bè: `60b4e1b3143de50a22b5f44e3288452b24137e8616a1f44d21794e46543c1700`. Báo cáo từng file ở `.output/release.json`. Typecheck và ba E2E diễn tập được chạy lại sau khi cấu hình diễn tập đi qua cùng validator production.
 
-## Kiểm thử luồng camp
+Workflow GitHub đã chuẩn bị để chạy cùng các bước kiểm tra và tạo artifact. Chưa kích hoạt workflow trên GitHub hoặc đăng Web Store; kiểm tra cục bộ không phải kết quả CI Linux.
 
-Tám ca catalog chạy qua message/GET transport thật của background, với response tổng hợp theo schema đã quan sát:
+## Ma trận hành vi
 
-1. Tìm sự kiện, chọn hạng/giá, lưu đúng event/performance/ticket ID; mặc định 1 vé; sửa chưa lưu khóa nút bắt đầu; bật camp đọc mới dữ liệu rồi chọn và tới checkout trên fixture.
-2. Giá đổi giữa lúc chọn và bật camp: không mở tab/phiên giữ vé, trả lỗi để tải lại cấu hình.
-3. Nhiều suất cần chọn rõ; calendarId không thuộc event không được tự thay bằng suất duy nhất/đầu tiên.
-4. Ticketbox hiển thị đúng giá, mở/xem lại kết quả; không tạo cấu hình/adapter camp Ticketbox.
-5. Response tìm cũ trả chậm không ghi đè response mới. Popup 460×600 không tràn ngang; nút camp vẫn ở trong viewport.
-6. Preset Hà Nội điền đúng link, 12h ngày 19/10 và 1 vé; chọn hạng, giới hạn số vé theo API, lưu/mở lại giữ cấu hình; không tự arm.
-7. Thẻ tiêu đề p, giá gốc gạch ngang, modal `btn-add/sub/continue`, số lượng span: tự chọn hạng, đặt 2 vé và tới checkout mô phỏng.
-8. API lỗi 503 thì hiện lỗi và nút tải lại; không có textarea mặc định, chưa có hạng thì không lưu. Thử lại thành công hiện select đúng tên/giá.
+| Tình huống | Kỳ vọng đã kiểm tra |
+|---|---|
+| Catalog 1Zone/Ticketbox | Đúng schema riêng; event/performance/ticket ID, currency, giá, ngày, venue và giới hạn; từ chối sai/thiếu dữ liệu |
+| Trước lúc bật camp | Đọc mới detail + tickets; giá, cách chọn chỗ, zone hoặc giới hạn đổi thì chặn trước khi mở phiên |
+| name khác zoneName | Cùng bản ghi/giá được canonical hóa, giữ ID qua card → modal; alias trùng nhiều ID hoặc ID trên nút sai bị loại |
+| Ảnh, SVG, ARIA | Đọc alt/aria-label/aria-labelledby/title kèm giá; một ghế SVG đi tới checkout trong Chromium |
+| Ảnh/pixel thiếu nhãn hoặc giá | Không suy ra tọa độ, tên/giá; không tạo lựa chọn có thể bấm |
+| Ẩn, disabled, hết vé, trùng ID/nhãn | Không chọn nhầm điều khiển; không gộp nhóm ghế thành một zone |
+| Quantity input/select/stepper/modal span | Đặt đúng số lượng và chờ website xác nhận; giá gạch ngang không thay giá hiện tại |
+| Đổi suất | Bỏ giờ bán/số lượng/budget/fallback của suất cũ trước khi GET mới; giờ diễn không được dùng làm giờ bán |
+| DOM/SPA đổi trong lúc await | Đọc lại và quyết định trước click; STOP, đổi config, stale revision hoặc tab khác không thực thi hành động cũ |
+| Phòng chờ | Giữ tab, tiếp tục khi website chuyển tới đúng trang chọn vé |
+| CAPTCHA/đăng nhập/hết hạn giữ chỗ | Tạm dừng; không vượt xác minh hoặc gửi lại lệnh giữ vé chưa rõ kết quả |
+| Chưa mở bán | Chờ giờ/nút khả dụng; reload một lần nếu đã bật tùy chọn, không refresh queue/CAPTCHA/checkout |
+| Checkout | Dừng tự động hóa; nút thanh toán cuối chưa được bấm |
+| Browser restart, đóng tab, ẩn panel | Cấu hình bền, phiên không tự khởi động sau browser restart; tab chủ đóng thì hủy; ẩn UI vẫn chạy |
+| Runtime/worker cũ hoặc mất kết nối | Khóa bắt đầu khi setup lỗi, hiện hướng dẫn; SAVE từ content vẫn bị chặn |
+| Diễn tập | Luồng mặc định 1–2 vé tới checkout, Làm lại xóa bài trước; không ghi config/session thật hoặc gọi mạng |
+| UI | Select thật từ catalog, lỗi GET có thể thử lại; popup 460×600 không tràn ngang, Lưu/Bắt đầu trong viewport |
 
-Hai ca runtime riêng kiểm tra nút Mở rộng mở tab workspace thực sự và fixture UI mới + worker trả lỗi lệnh cũ. Trường hợp lệch bản phải hiển thị hướng dẫn Reload, khóa Lưu/Bắt đầu, nhưng link Mở rộng vẫn mở được. Unit kiểm tra thiếu/khác build/protocol, worker không trả lời quá 4 giây, mất context và giữ nguyên lỗi nghiệp vụ. Handshake không chạy trong runner đặt vé.
+## Tốc độ
 
-0.4.2 thêm hai ca runtime: worker trả đúng lỗi “Lệnh chỉ dùng trong trang cấu hình tiện ích” cho content thì panel vẫn xuất hiện với thông báo Reload, không có page error hoặc nút tự camp; hướng dẫn mở được từ menu và có các bước Load unpacked. Unit kiểm tra đọc cấu hình/phiên thất bại không tạo runner, kể cả rejection không phải Error. SAVE từ content vẫn giữ lỗi quyền. Popup còn được kiểm tra select, số vé, Lưu/Bắt đầu nằm trong viewport và tên sự kiện không lặp.
+`npm run bench:camp` dùng extension production với hai phản hồi website mô phỏng: ngay lập tức hoặc 100 ms tại mỗi bước mở vé và checkout. Mỗi tình huống làm nóng một lượt, đo 12 lượt. Đo từ lúc CTA thực sự mở, kiểm tra không bấm sớm, không click lặp, đúng CTA chính và không bấm thanh toán cuối. Báo cáo cục bộ: `artifacts/camp-benchmark.json`.
 
-Các ca E2E bổ sung thực thi bằng content script/background của bản extension production:
-
-1. Tự chọn VIP, cập nhật 2 vé, bấm tiếp và nhận diện checkout. Kiểm tra đúng hai click của website: Chọn, Tiếp tục; nút xác nhận đơn hàng chưa bị bấm.
-2. Một tab sở hữu phiên. Tab thứ hai bị từ chối khởi động; phòng chờ chuyển sang chọn vé thì tự tiếp tục. Ẩn panel vẫn thực thi.
-3. CAPTCHA làm PAUSED. Dừng camp xóa session; sau đó đưa tab vào bước chọn vé vẫn không tự chọn.
-4. Demo booking có tương tác chạy cùng core/runner/adapter với transport bộ nhớ, không ghi cấu hình/phiên thật.
-5. Khởi động từ popup: chờ mốc bán ở tương lai, tự bấm link mua, điều hướng event → booking và tiếp tục cùng phiên tới checkout.
-6. Tự chọn một ghế DOM có nhãn/khu/giá, xác nhận selected rồi tới checkout.
-7. Trang còn khóa tại giờ bán: chỉ reload một lần, dấu được giữ qua điều hướng; sau đó tiếp tục cùng phiên tới checkout.
-
-Năm ca hồi quy trước đó vẫn chạy: lưu/khôi phục cấu hình, mặc định 1 vé, SPA/event identity, DOM/highlight, dừng/ẩn panel, demo trạng thái, số lượng nhiều vé không biến thành một ghế, alarm và khôi phục cấu hình sau browser restart.
-
-## Benchmark lặp và số đo đọc trang thật
-
-`npm run bench:camp` chạy 2 tình huống, mỗi tình huống làm nóng 1 lần rồi đo 12 lần. Đây là extension production, website/API cục bộ. CTA chỉ được mở tại mốc hẹn, hai CTA trùng phải chọn đúng nút chính, chỉ một click mỗi bước và không bấm thanh toán cuối. Không gửi request ra 1Zone. File cấu hình: [playwright.bench.config.ts](../playwright.bench.config.ts); kịch bản: [camp.spec.ts](../tests/benchmark/camp.spec.ts).
-
-| Phản hồi website mô phỏng | CTA mở → click mua, p50 / p95 | CTA mở → DOM checkout, p50 / p95 |
+| Độ trễ website mô phỏng mỗi bước | CTA mở → click mua, p50 / p95 | CTA mở → checkout, p50 / p95 |
 |---|---:|---:|
-| 0 ms | 9,3 / 69 ms | 42 / 155,3 ms |
-| 100 ms tại mở danh sách và checkout | 25,6 / 37,3 ms | 309 / 329,2 ms |
+| 0 ms | 8,2 / 21,7 ms | 34,8 / 52,8 ms |
+| 100 ms | 9,5 / 63,6 ms | 269,3 / 332,9 ms |
 
-Đây là độ trễ đo trên máy kiểm tra; 24 mẫu không phải benchmark website thật hoặc bằng chứng nhanh nhất thị trường. Ngưỡng hồi quy first-click dưới 1 giây chỉ phát hiện chậm nghiêm trọng. Báo cáo `artifacts/camp-benchmark.json` giữ từng mẫu, sai lệch timer và kết quả kiểm tra hành động. Không suy ra tốc độ khi có queue, CAPTCHA, mạng hoặc tải server.
+Catalog/preflight và handshake nằm trước lúc chạy; không thêm GET vào từng bước chọn vé. Tốc độ ngoài fixture còn phụ thuộc browser, website, mạng, queue và tồn kho. Không dùng số đo cục bộ để cam kết nhanh nhất hoặc mua được vé.
 
-Smoke chỉ đọc trang Hà Nội thật: 792 phần tử, NOT_READY; 20 lượt rescan có p50 12,4 ms, p95 16,9 ms, lượt lạnh đầu tiên 214,4 ms. Phép đo này chỉ đo thao tác đọc/đánh giá DOM, không phải giữ vé hoặc checkout. Báo cáo `artifacts/target-readiness.json` ghi `campStarted=false`.
+## Kiểm chứng website thật và giới hạn
 
-Ảnh `auto-checkout.png`, `workspace-catalog.png`, `hanoi-preset.png`, `popup-search.png`, `target-readiness.png` và ảnh smoke catalog được dùng kiểm tra UI. Artifacts là output cục bộ, không đưa vào Git. Popup tests mở trang extension dạng tab; icon/popup thật và thông báo Windows vẫn cần diễn tập trên máy dùng.
+Đã đọc lại public HTML, summary API và thành phần public của đúng suất Hà Nội. Snapshot hiện CLOSE, saleConfig rỗng; API trả name/zoneName khác nhau và seatType auto, ticketType seatmap_zone, yêu cầu CAPTCHA. [Nghiên cứu API](NGHIEN_CUU_API.md) ghi nguồn và phạm vi.
 
-## Unit tests và ranh giới kiến trúc
+**Chưa có kiểm thử booking với tài khoản đăng nhập hoặc giao dịch giữ vé thật của suất này.** Chưa xác minh hợp đồng POST tạo giỏ, timeout/idempotence, mọi renderer canvas/iframe hoặc nhóm nhiều ghế. Không đưa các phần đó vào phạm vi đã hỗ trợ. Ticketbox chỉ tra cứu. Backend cấp quyền thương mại chưa triển khai.
 
-- Core: đúng event/calendarId, route event/booking, giờ UTC+7, validation và storage hỏng, ưu tiên/ngân sách, số lượng, máy trạng thái và các điều kiện chặn.
-- Reader: zone/assigned/seat/mixed, DOM ẩn, giá trước/sau tiền, thẻ giới thiệu, nhóm ghế, selected qua ARIA; hàm inspect không sửa DOM.
-- Modal: dấu hiệu public 1Zone, số lượng span, giá gốc gạch ngang; quote sai giá/tên hoặc nhiều control mơ hồ bị từ chối. Quote bổ sung không làm mất selected đã đọc từ ARIA.
-- Executor: input/select/stepper; phân biệt tiếp tục với thanh toán cuối; bỏ link khác suất/điều khiển ẩn; từ chối target đã bị gỡ.
-- Service: tab owner, revision/CAS, hủy phiên, từ chối iframe, cấu hình đổi, progress hỏng và chuyển bước không hợp lệ.
-- Runner: trì hoãn persist rồi STOP hoặc đổi DOM; không thực thi click cũ.
-- Catalog: JSON flight với dấu ngoặc/escape; schema/envelope khác nhau của Ticketbox search/detail; sai event/suất, trùng ID, giá mơ hồ, ID lớn, địa điểm/ngày/giá đổi, giới hạn số lượng.
-- GET service: gộp request/cache, preflight tải mới, không cookie/token/header auth, lỗi 429 không tự retry, từ chối URL/ID/query/nền tảng ngoài hợp đồng trước network.
-- Kiểm tra dependency bằng tìm kiếm source: core không import Chrome/DOM/React; runner và controller không gọi module 1Zone trực tiếp.
-
-Platform catalog chứa origin tra cứu và URL policy booking riêng. Validator/runner không giả định mọi website có route /events hay calendarId. Nguồn dữ liệu và booking là hai contract độc lập. Ticketbox chỉ có quyền GET API; chưa có content script/booking adapter. CTicket chưa kết nối.
-
-## Khảo sát trang công khai và giới hạn
-
-Khảo sát sáu URL thuộc năm event và smoke trên Ngày em đến ở bản 0.1.0 là các lần **chỉ đọc**, không phải bằng chứng tự mua thành công. Bản 0.3.0 bổ sung GET/search/detail và smoke catalog production; bản 0.4.0 đọc đúng target/CTA và dấu hiệu modal trong component public. `artifacts/catalog-live.json` ghi 5 GET công khai, `configSaved=false`, `campStarted=false`, `errors=[]`. Smoke target 0.4.0 lưu cấu hình riêng trong profile tạm để nhận diện, không tạo phiên tự động. Xem [khảo sát DOM](KHAO_SAT_1ZONE.md) và [nghiên cứu API](NGHIEN_CUU_API.md).
-
-Đã đọc đúng URL/suất/hạng/giá Vương Bình Hà Nội. Người dùng xác nhận mặc định 12h ngày 19/10; API chưa xác nhận độc lập thời điểm này. DOM booking sau đăng nhập chưa được xác minh. TP.HCM không được dùng thay Hà Nội. Chưa kiểm tra giữ vé/checkout thật hoặc gửi POST tạo giỏ/đơn. Modal fixture dựa vào component public, chưa phải DOM của tài khoản đã vào mua. Một số UI không công khai selected/số lượng hoặc không nhận synthetic events sẽ cần adapter cụ thể hơn. Chưa chọn canvas/iframe, ghép ghế liền nhau, đọc đầy đủ timer giữ chỗ hoặc mọi dạng lỗi hết hạn. Không bấm thanh toán cuối.
-
-Hướng dẫn: [README](../README.md), [cơ chế](CO_CHE_HOAT_DONG.md), [review/nguồn](REVIEW_VA_NGUON_THAM_KHAO.md).
+Build không sửa được một content script đã nạp trong tab cũ: cần Reload extension rồi tải lại tab. Chrome có thể còn lưu lỗi lịch sử; xóa danh sách lỗi để quan sát lỗi mới. E2E dùng profile tạm đã kiểm tra không có pageerror ở cả lỗi khởi tạo và lỗi khi bấm camp.

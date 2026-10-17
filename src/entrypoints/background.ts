@@ -23,7 +23,9 @@ export default defineBackground(() => {
     const message = raw as Command | AutoCommand | CatalogCommand | { type: 'RUNTIME_INFO' };
     if (typeof message.type !== 'string') return;
     if (message.type === 'RUNTIME_INFO') {
-      if (sender.url?.startsWith(chrome.runtime.getURL('/'))) respond({ info: RUNTIME_INFO });
+      // Build metadata is readable by our own content scripts too. It conveys no
+      // configuration or session data and lets stale tabs fail before arming.
+      respond({ info: RUNTIME_INFO });
       return;
     }
     if (message.type.startsWith('CATALOG_')) {
@@ -40,7 +42,7 @@ export default defineBackground(() => {
     const command = message as Command;
     const extensionPage = sender.url?.startsWith(chrome.runtime.getURL('/'));
     if (!extensionPage && !['ENABLE', 'PANEL', 'OPEN_EVENT'].includes(message.type)) {
-      respond({ error: 'Lệnh chỉ dùng trong trang cấu hình tiện ích.' }); return;
+      respond({ error: 'Mở cửa sổ Camp vé để đổi cấu hình.', code: 'EXTENSION_PAGE_REQUIRED' }); return;
     }
     void enqueue(async () => {
       let config = await repository.load();

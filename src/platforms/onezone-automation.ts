@@ -13,9 +13,9 @@ interface QuantityBinding {
   decrease?: HTMLElement;
 }
 export interface AutoBindings {
-  enter: HTMLElement[];
-  advance: HTMLElement[];
-  choices: Map<string, HTMLElement>;
+  enter: Element[];
+  advance: Element[];
+  choices: Map<string, Element>;
   quantity?: QuantityBinding;
   reader: PageReader;
   reload(): void;
@@ -32,7 +32,7 @@ const enabled = (e: Element, reader: PageReader) => reader.isVisible(e) &&
 
 function label(element: Element, reader: PageReader): string {
   return normalize(element.getAttribute('aria-label') ??
-    (element.tagName === 'INPUT' ? (element as HTMLInputElement).value : reader.text(element)));
+    (element.tagName === 'INPUT' ? (element as HTMLInputElement).value : reader.name(element)));
 }
 function safeLink(element: Element, p: EventPreferences, enter: boolean): boolean {
   if (!element.matches('a[href]')) return true;
@@ -85,10 +85,10 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
   const officialEnter = candidates.filter(e => e.matches('button[data-id="btn-by-ticket"]'));
   const enter = officialEnter.length === 1 && isSameEvent(snapshot.url, p.eventUrl) ? officialEnter : candidates;
   const advance = controls.filter(e => nextLabel.test(label(e, reader)) && safeLink(e, p, false) && !optionElements.some(entry => entry.element.contains(e)));
-  const choices = new Map<string, HTMLElement>();
+  const choices = new Map<string, Element>();
   for (const { element, option } of optionElements) {
-    if (element.matches('button, [role="option"], [role="radio"]') && enabled(element, reader)) {
-      choices.set(option.id, element as HTMLElement); continue;
+    if (element.matches('button, [role="button"], [role="option"], [role="radio"]') && enabled(element, reader)) {
+      choices.set(option.id, element); continue;
     }
     const related = [...element.querySelectorAll<HTMLElement>('button, input[type="radio"], [role="option"], [role="radio"]')]
       .filter(e => enabled(e, reader) && (e.matches('input[type="radio"], [role="radio"], [role="option"]') || selectLabel.test(label(e, reader)) || buyLabel.test(label(e, reader))));
@@ -116,7 +116,12 @@ export function executeAutoAction(action: AutoAction, bindings: AutoBindings): v
     action.kind === 'CHOOSE' ? bindings.choices.get(action.optionId) : undefined;
   if (action.kind !== 'QUANTITY') {
     if (!target?.isConnected || !enabled(target, bindings.reader)) throw new Error('Điều khiển đã thay đổi trước khi bấm.');
-    target.click(); return;
+    // SVGElement has no .click(). Dispatch the same bubbling click to a semantic
+    // SVG control; never infer coordinates or invent a target from an image.
+    const view = target.ownerDocument.defaultView!;
+    if (target instanceof view.HTMLElement) target.click();
+    else target.dispatchEvent(new view.MouseEvent('click', { bubbles: true, cancelable: true, composed: true }));
+    return;
   }
   const quantity = bindings.quantity;
   if (!quantity?.element.isConnected || !enabled(quantity.element, bindings.reader)) throw new Error('Điều khiển số lượng không còn khả dụng.');

@@ -1,5 +1,6 @@
 import type { EventPreferences, PageSnapshot, TaskConfig, VisibleOption } from './models';
 import { isSameEvent, normalize } from './preferences';
+import { ticketMatchesOption } from './ticket-identity';
 
 export interface Recommendation { option: VisibleOption; rank: number; estimatedTotalVnd?: number }
 
@@ -14,7 +15,9 @@ export function recommend(snapshot: PageSnapshot, p: EventPreferences): Recommen
     const zone = option.zoneLabel ? normalize(option.zoneLabel) : undefined;
     // Exact normalized labels prevent VIP from silently matching VVIP / VIP 2.
     const preferred = p.catalog?.tickets;
-    const priority = preferred?.length ? preferred.findIndex(t => option.ticketTypeId ? t.id === option.ticketTypeId : normalize(t.name) === label || normalize(t.name) === zone)
+    const matches = preferred?.filter(t => ticketMatchesOption(t, option));
+    if (matches && matches.length > 1) return [];
+    const priority = preferred?.length ? preferred.findIndex(t => ticketMatchesOption(t, option))
       : p.preferredZoneLabels.findIndex(v => normalize(v) === label || (zone !== undefined && normalize(v) === zone));
     if (priority !== -1 && preferred?.[priority] && option.displayedPriceVnd !== preferred[priority]!.priceVnd) return [];
     if (priority === -1 && !p.allowAlternatives && p.preferredZoneLabels.length > 0) return [];

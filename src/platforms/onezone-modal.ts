@@ -4,6 +4,7 @@ import type { OptionElement } from './contracts';
 import type { PageReader } from './onezone-dom';
 import { normalize } from '../core/preferences';
 import { currentPriceValues } from './onezone-options';
+import { ticketHasLabel } from '../core/ticket-identity';
 
 export interface OnezoneModal {
   entry: OptionElement;
@@ -27,7 +28,7 @@ export function readOnezoneModal(document: Document, p: EventPreferences, reader
     const minus = [...root.querySelectorAll<HTMLElement>('button[data-id="btn-sub"]')].filter(reader.isVisible);
     if (plus.length !== 1 || minus.length !== 1 || plus[0]!.parentElement !== minus[0]!.parentElement) continue;
     if (![...root.querySelectorAll('h2')].some(e => reader.isVisible(e) && /chon ve|chon so luong/.test(normalize(reader.text(e))))) continue;
-    const names = p.catalog.tickets.filter(q => [...root.querySelectorAll('p,h3,span')].some(e => reader.isVisible(e) && normalize(reader.text(e)) === normalize(q.name)));
+    const names = p.catalog.tickets.filter(q => [...root.querySelectorAll('p,h3,span')].some(e => reader.isVisible(e) && ticketHasLabel(q, reader.text(e))));
     if (names.length !== 1) return;
     const quote = names[0]!;
     const stepper = plus[0]!.parentElement!;
@@ -40,7 +41,7 @@ export function readOnezoneModal(document: Document, p: EventPreferences, reader
     if (new Set(amounts).size !== 1 || amounts[0] !== quote.priceVnd) return;
     const disabled = (e: HTMLElement) => e.matches(':disabled,[aria-disabled="true"]');
     return {
-      entry: { element: root, option: { id: `onezone-modal-${quote.id}`, kind: 'ZONE', label: quote.name, displayedPriceVnd: quote.priceVnd, displayedAvailability: 'AVAILABLE', selected: true } },
+      entry: { element: root, option: { id: `onezone-modal-${quote.id}`, kind: 'ZONE', label: quote.name, ticketTypeId: quote.id, displayedPriceVnd: quote.priceVnd, displayedAvailability: 'AVAILABLE', selected: true } },
       quantity: { value, min: 1, max: disabled(plus[0]!) ? value : 100, writable: !disabled(plus[0]!) || !disabled(minus[0]!), stepper: true },
       valueElement: valueNodes[0]! as HTMLElement, increase: plus[0]!, decrease: minus[0]!, advance,
     };

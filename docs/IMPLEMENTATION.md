@@ -1,10 +1,10 @@
-# Quyết định triển khai · 0.4.2
+# Quyết định triển khai · 0.5.0
 
 Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp và đi tới checkout nhanh, trên phiên trình duyệt của người dùng. Đã tìm được metadata và hạng vé Vương Bình Hà Nội; người dùng xác nhận 12h ngày 19/10 làm mặc định có thể sửa. Chưa xác minh độc lập giờ bán từ API hoặc DOM booking đăng nhập. TP.HCM và Lavender chỉ dùng tham khảo. Không dùng ước tính 100–200 vé làm tồn kho.
 
 ## Các quyết định
 
-1. Giữ một project WXT. Chia core / application / platforms / infrastructure / UI, không cần backend hay monorepo.
+1. Giữ một project WXT. Chia core / application / platforms / infrastructure / UI; bản thử không cần backend. Cấp quyền thương mại sau này cần dịch vụ riêng, được kiểm tra trước AUTO_START.
 2. Core biểu diễn máy trạng thái và quyết định thuần; không phụ thuộc DOM, React, Chrome.
 3. Runner thực thi qua contract và transport; ghi progress trước thao tác, kiểm tra lại sau await, chờ phản hồi thay vì bấm lặp.
 4. Background là nơi sở hữu một session camp, khóa tab và revision. Cấu hình bền ở local; phiên camp ở session.
@@ -20,10 +20,15 @@ Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp 
 14. Popup gọn, workspace rộng; tìm kiếm theo lệnh người dùng, bỏ response đến muộn. Chặn bắt đầu với thay đổi chưa lưu. Giao diện chỉ nêu khả năng đã triển khai của từng nguồn.
 15. Dấu hiệu đặc thù 1Zone đặt trong `onezone-modal.ts` và adapter: hero CTA data-id, stepper span, nút tiếp tục. Quote hỗ trợ thẻ dùng p, vẫn giữ selected/ID đọc được từ DOM. Chưa truy cập React internals/token hoặc gọi API tạo giỏ riêng.
 16. Mốc người dùng cung cấp được đưa vào preset rõ ngày, chỉ điền bản nháp. Người dùng chọn/sắp ưu tiên và số vé trước; giới hạn theo suất và các hạng đã chọn được lưu, rồi đọc mới khi arm. Benchmark chạy extension production 24 mẫu; phân biệt độ trễ fixture với nhận diện trang thật và giao dịch thật chưa kiểm chứng.
-17. Giao diện/worker trao đổi phiên bản khi mở cấu hình; lỗi không tương thích hoặc timeout chỉ dẫn Reload. Đây là kiểm tra setup, không thêm request vào từng hành động camp. Link workspace/demo mở trực tiếp, không phụ thuộc command nền.
+17. Giao diện/content/worker trao đổi phiên bản khi khởi tạo; lỗi không tương thích hoặc timeout chỉ dẫn Reload. Đây là kiểm tra setup, không thêm request vào từng hành động camp. Link workspace/demo mở trực tiếp, không phụ thuộc command nền.
 18. Tên thẻ cấu hình nhanh là tên sự kiện; nhãn thao tác hiển thị riêng. Luồng mặc định tải catalog rồi dùng select; tải lỗi có thể thử lại, không tự đưa người dùng vào textarea. Chế độ thủ công cần bật rõ trong tùy chọn thêm.
 19. Khởi tạo content đọc cấu hình và phiên bằng allSettled. Có lỗi thì hiện panel thụ động và hướng dẫn khắc phục; không tạo runner từ trạng thái thiếu dữ liệu. Không bỏ kiểm tra quyền message để che lỗi worker cũ.
-20. Hạng/số vé/giờ đặt ở phần chính; thông tin sự kiện không lặp, Lưu/Bắt đầu luôn ở footer. Guide HTML tĩnh trong public mở được cả ngoài extension. Lệnh share tạo bản ZIP production tên dễ gửi, không thu thập cấu hình hoặc tài khoản.
+20. Hạng/số vé/giờ đặt ở phần chính; thông tin sự kiện không lặp, Lưu/Bắt đầu luôn ở footer. Guide HTML tĩnh trong public mở được cả ngoài extension. Đóng gói production không lấy cấu hình hoặc tài khoản của trình duyệt.
+21. `ticket-identity.ts` dùng ID hoặc các tên chính xác do nguồn cung cấp. Alias trùng ID, khác giá hoặc đổi zone trong preflight bị chặn. Canonical label/ID giữ nhất quán giữa card và modal; không để tên zone khác tên hạng phá xác nhận lựa chọn.
+22. Semantic reader dùng tên từ ARIA, alt và SVG title; executor hỗ trợ SVGElement thật, không ép kiểu HTMLElement rồi gọi click. Ảnh/canvas không có dữ liệu điều khiển vẫn chưa hỗ trợ.
+23. Đổi performance reset ngay giá trị giờ bán/số vé/budget/fallback cũ; lỗi tải hạng không làm lộ cấu hình cũ như cấu hình của suất mới. Reload cùng suất giữ chỉnh sửa giờ của người dùng.
+24. Diễn tập có hai luồng tương tác, một nút Chạy thử, Làm lại và số lượng. Fixtures kiểm tra trạng thái đặt riêng; không trộn chúng với bài thử đặt vé. Bộ tạo dữ liệu tách khỏi React entrypoint.
+25. Gói bạn bè có BAT-DAU.html và tien-ich; gói Store giữ manifest ở gốc. Workflow chạy kiểm tra rồi tạo artifact, không tự publish. Chưa có server nên không thêm khóa key cục bộ giả; quyết định triển khai cấp quyền ghi trong PHAT_HANH.md.
 
 ## Phạm vi bàn giao
 

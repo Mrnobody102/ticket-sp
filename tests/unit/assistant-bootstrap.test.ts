@@ -7,6 +7,10 @@ const config = { ...DEFAULT_CONFIG, panelVisible: true };
 const run: AutoRun = { id: 'run', tabId: 1, revision: 0, preferencesKey: 'test', startedAt: 1, expiresAt: 2, progress: { phase: 'READY', message: '' } };
 
 describe('khởi tạo panel trên tab vé', () => {
+  it('lỗi đồng bộ từ context đã bị hủy cũng không thoát ra promise khởi tạo', async () => {
+    const result = await loadAssistantState(() => { throw new Error('Extension context invalidated.'); }, async () => run);
+    expect(result.run).toBeNull(); expect(result.error).toContain('invalidated');
+  });
   it('giữ cấu hình/phiên khi đọc thành công', async () => {
     expect(await loadAssistantState(async () => config, async () => run)).toEqual({ config, run, error: undefined });
   });

@@ -13,6 +13,7 @@ interface MountOptions {
   getUrl: () => string;
   initialConfig: TaskConfig;
   initialError?: string;
+  rehearsal?: boolean;
   onStop: () => Promise<unknown>;
   onHide: () => Promise<unknown>;
   onOpen: () => Promise<unknown>;
@@ -80,7 +81,7 @@ export function mountAssistant(options: MountOptions) {
       : { snapshot: { ...lastSnapshot, url: options.getUrl() }, optionElements: [] };
     const raw = inspection.snapshot;
     // Start the state transition before computing highlights and rendering the panel.
-    void runner?.tick(inspection);
+    void runner?.tick(inspection).catch(e => { error = e instanceof Error ? e.message : 'Không đọc được trang vé.'; });
     lastSnapshot = raw;
     const snapshot = effectiveSnapshot(raw, config);
     const recommendations = config.preferences && config.panelVisible ? recommend(snapshot, config.preferences) : [];
@@ -90,7 +91,7 @@ export function mountAssistant(options: MountOptions) {
     drawHighlights();
     host.style.display = config.panelVisible ? '' : 'none';
     root.render(<Panel config={config} snapshot={snapshot} recommendations={recommendations} error={error} onRescan={scan}
-      autoRun={runner?.run} onStartAuto={runner ? () => void runAction(() => runner.start()) : undefined}
+      rehearsal={options.rehearsal} autoRun={runner?.run} onStartAuto={runner && !options.rehearsal ? () => void runAction(() => runner.start()) : undefined}
       onStopAuto={runner ? () => void runAction(() => runner.stop()) : undefined}
       onStop={() => void runAction(options.onStop)} onHide={() => void runAction(options.onHide)} onOpen={() => void runAction(options.onOpen)} />);
   }
@@ -126,6 +127,7 @@ export function mountAssistant(options: MountOptions) {
     update(next: TaskConfig) { config = next; scan(); },
     updateAuto(next: AutoRun | null) { runner?.update(next); scan(); },
     rescan: scheduleEvent,
+    startAuto: () => runAction(async () => { await runner?.start(); }),
     destroy() {
       stopped = true; observer.disconnect(); view.clearTimeout(timeout);
       runner?.destroy();

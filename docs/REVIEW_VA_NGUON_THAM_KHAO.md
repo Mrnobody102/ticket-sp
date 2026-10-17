@@ -1,4 +1,17 @@
-# Rà soát source và cơ chế tham khảo · 0.4.2
+# Rà soát source và cơ chế tham khảo · 0.5.0
+
+## Review 0.5.0
+
+| Phát hiện | Sửa và kiểm chứng |
+|---|---|
+| API có name khác zoneName; booking ưu tiên zoneName | Lưu alias cùng ID/giá, canonical hóa option/card/modal, preflight chặn alias đổi; unit và E2E qua modal 2 vé |
+| SVGElement không có HTMLElement.click; ảnh/ARIA-only từng bị bỏ qua | Đọc nhãn semantic và giá, thực thi click SVG; E2E một ghế SVG tới checkout, unit ảnh/ARIA/disabled/ID sai/alias trùng |
+| Giờ bán của suất cũ có thể theo sang suất mới | Reset trước lúc tải dữ liệu; E2E đổi Hà Nội/TP.HCM xác nhận giờ rỗng và 1 vé |
+| Demo ban đầu mở fixture tĩnh, chờ 3 phút và có quá nhiều nút kỹ thuật | Mặc định luồng tương tác, 1–2 vé, Chạy thử/Làm lại; fixtures kỹ thuật thu gọn, không bật automation |
+| Lỗi quyền từ worker/tab cũ khó phân biệt, người dùng vẫn thấy Uncaught ở bản đang nạp | Handshake cả content, version trên panel, bắt lỗi bootstrap đồng bộ và bất đồng bộ; lỗi lúc bấm Start được bắt riêng. Test không có pageerror/click vé. Không thể sửa code đã nạp trong tab cũ bằng việc chỉ ghi file trên đĩa |
+| Tài liệu bắt đầu bằng lệnh build làm người nhận tưởng phải chạy source | README ưu tiên gói dùng ngay; ZIP bạn bè có hướng dẫn tại gốc và folder extension riêng; artifact Store/checksum tách riêng |
+
+Chưa xác nhận DOM booking đăng nhập, CAPTCHA, hợp đồng giữ vé và timeout của API POST trên suất Hà Nội. Không coi các ca fixture là bằng chứng đặt vé thật. Không có backend cấp quyền trong 0.5.0; phương án triển khai và giới hạn bảo vệ ghi ở [PHAT_HANH.md](PHAT_HANH.md).
 
 Bản 0.1.0 chỉ nhắc giờ và đánh dấu vé, chưa đủ cho yêu cầu camp theo tốc độ. Bản 0.2.0 thêm executor theo trạng thái, dùng chung core/runner cho các nền tảng. Chức năng trên sự kiện thật vẫn cần xác minh từ DOM/luồng của sự kiện đó.
 
@@ -61,5 +74,7 @@ Core, máy trạng thái, adapter nghiệp vụ và UI được viết riêng th
 | [MDN Input value](https://developer.mozilla.org/en-US/docs/Web/API/HTMLInputElement/value) | Đọc/ghi giá trị; phát input/change riêng khi cập nhật |
 | [MDN Shadow DOM](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM) | Cô lập phần lớn CSS panel |
 | [WAI-ARIA Radio Group](https://www.w3.org/WAI/ARIA/apg/patterns/radio/) | Vai trò/nhãn và dấu lựa chọn có thể đọc |
+| [W3C SVG 2 · title và nhãn](https://www.w3.org/TR/SVG/struct.html) | Tên semantic có thể khác pixel được vẽ; title không cần hiển thị như text |
+| [Chrome Web Store Distribution](https://developer.chrome.com/docs/webstore/cws-dashboard-distribution) | Private theo email, Unlisted theo link; không thay thế server cấp quyền |
 
 Các API chuẩn không cung cấp dữ liệu tồn kho, selector, quan hệ zone-seat hay hợp đồng giữ vé của 1Zone. Quy tắc chữ/giá/URL là heuristic theo giao diện, chưa phải tích hợp server được xác nhận. Một số UI cần adapter cụ thể hơn; ảnh map không tự biến thành dữ liệu ghế.

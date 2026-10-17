@@ -9,7 +9,7 @@ export interface LoadedConcert { detail: ConcertDetail; performance: Performance
 export const eventDate = (value?: string) => value ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(value)) : 'Chưa có lịch';
 
 export function EventFinder({ onLoad, onReset, requestedUrl, shortcut, saved }: {
-  onLoad(value: LoadedConcert): void; onReset(): void;
+  onLoad(value: LoadedConcert): void; onReset(targetUrl?: string): void;
   requestedUrl?: { url: string; requestId: number };
   shortcut?: { title: string; description: string; onChoose(): void };
   saved?: CatalogSelection;
@@ -37,7 +37,9 @@ export function EventFinder({ onLoad, onReset, requestedUrl, shortcut, saved }: 
     finally { if (request === version.current) setBusy(false); }
   }
   async function choosePerformance(value: ConcertDetail, id: string, request: number) {
-    setPerformanceId(id); setTickets(null); if (platformForUrl(value.url)?.integration) onReset();
+    setPerformanceId(id); setTickets(null);
+    const integration = platformForUrl(value.url)?.integration;
+    if (integration) onReset(id ? integration.withPerformance(new URL(value.url), id).href : undefined);
     const performance = value.performances.find(p => p.id === id); if (!performance) return;
     const catalog = await catalogClient.tickets(value.id, id, value.platform);
     if (request !== version.current) return;

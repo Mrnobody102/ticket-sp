@@ -1,4 +1,10 @@
-# Cơ chế camp vé · bản 0.4.2
+# Cơ chế camp vé · bản 0.5.0
+
+0.5.0 giữ nguyên core/runner và tách việc nhận diện tên vé vào `core/ticket-identity.ts`: ID nếu có; nếu không thì tên hạng hoặc zone chính xác từ cùng bản ghi API, kèm giá. Lưu `zoneName` và kiểm tra lại khi bật camp. Ảnh có alt/ARIA, SVG có role và title/ARIA được đọc như điều khiển; SVG dùng bubbling MouseEvent vì không có HTMLElement.click. Không OCR hoặc bấm theo tọa độ.
+
+Diễn tập mặc định mở luồng tương tác: chọn 1–2 vé → Chạy thử → xem đúng số lượng ở thanh toán → Làm lại. Các màn nhận diện riêng nằm trong mục thu gọn và không chạy automation. `testing/rehearsal.ts` tạo dữ liệu cục bộ, không dùng Chrome storage/API. Cấu hình show thật không bị sửa.
+
+Khi đổi suất, bản nháp bỏ giờ bán và số lượng cũ ngay trước yêu cầu tải hạng; show chưa có giờ bán được xác minh phải nhập giờ do ban tổ chức cung cấp. Riêng mốc Hà Nội là preset do người dùng xác nhận. Phiên bản UI/content/worker được kiểm tra lúc khởi tạo, không kiểm tra lại trong từng click. Panel hiện version để nhận ra tab cũ. Phân phối và cấp quyền thương mại tách khỏi adapter; xem [PHAT_HANH.md](PHAT_HANH.md).
 
 Bản hiện tại kết nối **tìm sự kiện → chọn đúng suất/hạng/giá → camp tới checkout**. Bản 0.2.0 có bộ thực thi tự chọn vé; 0.3.0 bổ sung catalog API, cấu hình theo ID/giá và kiểm tra trước khi chạy. Tài liệu phân biệt kiểm thử cục bộ, GET công khai đã chạy thật và booking chưa xác minh trên sự kiện mục tiêu.
 

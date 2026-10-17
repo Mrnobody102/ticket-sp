@@ -2,16 +2,16 @@ import { version } from '../../package.json';
 
 export const EXTENSION_VERSION = version;
 export const RUNTIME_INFO = { version, protocolVersion: 1 } as const;
-export const RELOAD_EXTENSION_MESSAGE = 'Tiện ích chưa đồng bộ sau cập nhật. Mở chrome://extensions, bấm Tải lại ở Camp vé, rồi đóng và mở lại tiện ích. Tải lại cả tab 1Zone nếu đang mở.';
+export const RELOAD_EXTENSION_MESSAGE = 'Mở chrome://extensions → Camp vé → Tải lại. Sau đó tải lại tab 1Zone và mở lại tiện ích.';
 
 /** Normalize stale-worker/disconnected-context errors across all message clients. */
 export async function sendToBackground<T>(message: object): Promise<T | undefined> {
   try {
     const reply: unknown = await chrome.runtime.sendMessage(message);
     if (reply && typeof reply === 'object' && 'error' in reply) {
-      const legacyAutoDenied = reply.error === 'Lệnh chỉ dùng trong trang cấu hình tiện ích.' &&
-        'type' in message && typeof message.type === 'string' && /^AUTO_(GET|START|STOP|STEP)$/.test(message.type);
-      if (reply.error === 'Lệnh không được hỗ trợ.' || legacyAutoDenied) throw new Error(RELOAD_EXTENSION_MESSAGE);
+      const legacyDenied = reply.error === 'Lệnh chỉ dùng trong trang cấu hình tiện ích.' &&
+        'type' in message && typeof message.type === 'string' && /^(AUTO_(GET|START|STOP|STEP)|RUNTIME_INFO)$/.test(message.type);
+      if (reply.error === 'Lệnh không được hỗ trợ.' || legacyDenied) throw new Error(RELOAD_EXTENSION_MESSAGE);
     }
     return reply as T | undefined;
   } catch (error) {

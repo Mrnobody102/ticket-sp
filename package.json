@@ -1,15 +1,19 @@
 {
   "name": "ticket-sp",
-  "description": "Local 1Zone concert ticket assistant",
-  "version": "0.4.2",
+  "description": "Concert ticket automation and event catalog extension",
+  "version": "0.5.0",
+  "license": "UNLICENSED",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.0.0" },
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "dev": "wxt --level info",
     "build": "wxt build --level info",
     "zip": "wxt zip --level info",
-    "share": "npm run zip && node scripts/package-share.mjs",
+    "release": "npm run zip && node scripts/package-share.mjs",
+    "share": "npm run release",
     "postinstall": "wxt prepare --level info",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -17,11 +21,16 @@
     "test:e2e": "playwright test",
     "smoke:live": "node scripts/smoke-live.mjs",
     "smoke:catalog": "node scripts/smoke-catalog.mjs",
+    "store:assets": "node scripts/prepare-store.mjs",
     "bench:camp": "playwright test --config playwright.bench.config.ts",
     "check": "npm run typecheck && npm test && npm run build"
   },
-  "dependencies": { "react": "^19.0.0", "react-dom": "^19.0.0" },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
   "devDependencies": {
+    "@aklinker1/zero-zip": "1.0.1",
     "@playwright/test": "^1.64.1",
     "@types/chrome": "^0.0.287",
     "@types/node": "^22.10.0",

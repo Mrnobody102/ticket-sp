@@ -7,6 +7,7 @@ import { autoCommand, watchAutoRun } from '../infrastructure/automation-messages
 import { chromeAutomationTransport } from '../infrastructure/automation-transport';
 import type { AutoRun } from '../core/automation';
 import { loadAssistantState } from '../application/assistant-bootstrap';
+import { verifyExtensionRuntime } from '../infrastructure/extension-runtime';
 
 export default defineContentScript({
   matches: [...contentMatches],
@@ -21,7 +22,10 @@ export default defineContentScript({
     ctx.onInvalidated(unwatch);
     let latestRun: AutoRun | null | undefined;
     ctx.onInvalidated(watchAutoRun(run => { latestRun = run; mounted?.updateAuto(run); }));
-    const initial = await loadAssistantState(() => repository.load(), () => autoCommand({ type: 'AUTO_GET' }));
+    const initial = await loadAssistantState(() => repository.load(), async () => {
+      await verifyExtensionRuntime();
+      return autoCommand({ type: 'AUTO_GET' });
+    });
     if (disposed) return;
     mounted = mountAssistant({
       document, getUrl: () => location.href, initialConfig: latest ?? initial.config, initialError: initial.error,

@@ -102,10 +102,11 @@ test('demo chuyển đủ trạng thái; không ghi đè concert thật', async 
   const demo = await context.newPage();
   await demo.goto(`chrome-extension://${extensionId}/demo.html`);
   const frame = demo.frameLocator('iframe[title="Giao diện concert mô phỏng"]');
-  await expect(frame.locator('.recommendation')).toHaveCount(2);
+  await expect(demo.getByRole('button', { name: 'Chạy thử', exact: true })).toBeEnabled();
   await demo.screenshot({ path: 'artifacts/demo.png', fullPage: true });
+  await demo.getByText('Kiểm tra nhận diện màn hình', { exact: true }).click();
   for (const [label, state] of [['Ghế tự cấp', 'Đang chọn vé'], ['Chọn ghế', 'Đang chọn vé'], ['Phòng chờ', 'Đang xếp hàng'], ['Xác minh', 'Cần xác minh'], ['Thanh toán', 'Thanh toán'], ['Canvas', 'Chưa nhận diện']] as const) {
-    await demo.getByRole('button', { name: label, exact: true }).click();
+    await demo.getByLabel('Màn hình', { exact: true }).selectOption({ label });
     await expect(frame.locator('.status-line')).toContainText(state);
     if (label !== 'Ghế tự cấp' && label !== 'Chọn ghế') await expect(frame.locator('.highlight')).toHaveCount(0);
   }
@@ -267,13 +268,50 @@ test('camp dừng ở CAPTCHA; dừng camp hủy phiên và không thao tác khi
 test('demo tương tác chạy cùng bộ camp và không ghi phiên camp thật', async () => {
   const { popup } = await prepareAuto();
   const demo = await context.newPage(); await demo.goto(`chrome-extension://${extensionId}/demo.html`);
-  await demo.getByRole('button', { name: 'Camp tự động tới checkout', exact: true }).click();
+  await demo.getByLabel('Luồng đặt vé', { exact: true }).selectOption('booking');
   const frame = demo.frameLocator('iframe[title="Giao diện concert mô phỏng"]');
-  await frame.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await demo.getByRole('button', { name: 'Chạy thử', exact: true }).click();
   await expect(frame.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
   await expect(frame.locator('main form')).toContainText('VIP · 1 vé');
   await popup.reload(); await expect(popup.getByLabel('Link concert')).toHaveValue(target);
   expect(await context.serviceWorkers()[0]!.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1'])).toBeUndefined();
+});
+
+test('diễn tập mặc định: 2 vé qua modal, làm lại và thử 1 vé, không gọi mạng đặt vé', async () => {
+  const page = await context.newPage();
+  const requests: string[] = [];
+  page.on('request', request => { if (/^https?:/.test(request.url())) requests.push(request.url()); });
+  await page.goto(`chrome-extension://${extensionId}/demo.html`);
+  const frame = page.frameLocator('iframe');
+  await page.getByLabel('Số vé', { exact: true }).selectOption('2');
+  await page.getByRole('button', { name: 'Chạy thử', exact: true }).click();
+  await expect(frame.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(frame.locator('main form')).toContainText('HAI QUÝ - EB · 2 vé');
+  await expect(page.getByRole('button', { name: 'Chạy thử', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Làm lại', exact: true }).click();
+  await expect(frame.locator('main form')).toHaveCount(0);
+  await page.getByLabel('Số vé', { exact: true }).selectOption('1');
+  await page.getByRole('button', { name: 'Chạy thử', exact: true }).click();
+  await expect(frame.locator('main form')).toContainText('HAI QUÝ - EB · 1 vé');
+  expect(requests).toEqual([]);
+  await page.screenshot({ path: 'artifacts/rehearsal-checkout.png', fullPage: true });
+});
+
+test('một ghế SVG có title: chọn một lần và dừng ở checkout', async () => {
+  const { event } = await prepareAuto();
+  const body = '<!doctype html><html lang="vi"><head><meta charset="utf-8"></head><body><main><h1>Chọn ghế</h1><svg width="200" height="100" role="group" aria-label="Khu A"><g role="button" tabindex="0" aria-pressed="false"><title>A1 · 800.000 ₫</title><rect width="80" height="80" fill="blue"/></g></svg><button disabled data-next>Tiếp tục</button></main></body></html>';
+  await context.route(target.replace('/events/', '/booking/'), route => route.fulfill({ contentType: 'text/html', body }));
+  await event.reload();
+  await event.evaluate(() => {
+    const seat = document.querySelector('svg g')!;
+    const next = document.querySelector<HTMLButtonElement>('[data-next]')!;
+    seat.addEventListener('click', () => { seat.setAttribute('aria-pressed', 'true'); next.disabled = false; });
+    next.addEventListener('click', () => { document.querySelector('main')!.innerHTML = '<h1>Thanh toán</h1><form>A1 · 1 vé<button type="button">Xác nhận đơn hàng</button></form>'; });
+  });
+  await event.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(event.locator('main form')).toContainText('A1 · 1 vé');
+  expect(errors).toEqual([]);
 });
 
 test('bắt đầu từ popup: chờ giờ, tự vào booking và tiếp tục phiên qua điều hướng', async () => {

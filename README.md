@@ -1,10 +1,18 @@
 # Camp vé · Ticket Assistant
 
-Chrome Extension MV3 chạy cục bộ, mặc định **1 vé**, ngân sách không giới hạn. Bản **0.4.2** xử lý lỗi khởi tạo panel, gọn màn chọn vé và thêm hướng dẫn cài/dùng ngay trong tool. Luồng chính: **tìm sự kiện → chọn suất/hạng → đặt số vé/giờ → lưu → bắt đầu camp**. Nhắc giờ là phần phụ.
+Chrome Extension MV3, mặc định **1 vé**, ngân sách không giới hạn. Luồng chính: **tìm sự kiện → chọn suất/hạng → đặt số vé/giờ → lưu → bắt đầu camp**. Bản **0.5.0** sửa đối chiếu tên hạng/zone, thêm đọc điều khiển có ảnh/SVG mang nhãn, đơn giản hóa diễn tập và tách bộ gửi bạn bè khỏi gói Web Store.
 
 **1Zone** có nguồn dữ liệu và adapter camp; **Ticketbox** chỉ tra cứu; **CTicket** chưa kết nối. Preset [Vương Bình Hà Nội](https://ticket.1zone.vn/events/vuong-binh-tiec-thanh-than-mam-2?calendarId=8h0YGm) đặt **12:00 ngày 19/10/2026 UTC+7**, theo thời gian người dùng xác nhận. Trang hiện chưa mở bán; booking thật chưa được xác minh. Xem [chuẩn bị và cách test](docs/SAN_SANG_MO_BAN.md).
 
-## Cài đặt
+## Cài bản gửi bạn bè
+
+Nhận **`Camp-ve-0.5.0.zip`**, giải nén và mở **`BAT-DAU.html`**. Trong Chrome → `chrome://extensions` → Developer mode → Load unpacked, chọn thư mục **`tien-ich`**. Không cần source, Node.js hoặc npm. Mỗi người tự đăng nhập website trên Chrome của mình.
+
+Mở tool → **Diễn tập** → chọn số vé → **Chạy thử**. Kết quả cần thấy: **Đã tới thanh toán** và đúng số vé. **Làm lại** đặt lại bài thử; các màn queue/CAPTCHA/canvas nằm trong phần kiểm tra riêng.
+
+Kênh cài qua link là Chrome Web Store **Private** cho nhóm bạn, sau đó mới triển khai tài khoản/cấp quyền nếu kinh doanh. Hiện chưa đăng Store hoặc có backend khóa chia sẻ. Xem [phát hành và quyền dùng](docs/PHAT_HANH.md).
+
+## Phát triển source
 
 Node.js 22.x, chạy tại thư mục project:
 
@@ -16,17 +24,17 @@ npm run build
 1. Mở `chrome://extensions`, bật **Developer mode**.
 2. **Load unpacked** → `.output/chrome-mv3` trong project.
 3. Ghim icon **Camp vé**. Sau mỗi lần build/reload extension, tải lại tab website.
-4. **Diễn tập** → **Camp tự động tới checkout** → **Bắt đầu camp** trong panel để xem luồng chạy cục bộ.
+4. **Diễn tập** → chọn số vé → **Chạy thử**.
 
-`npm run zip` tạo `.output/ticket-sp-0.4.2-chrome.zip`. Git chỉ lưu source/lockfile, không lưu output hay dữ liệu test.
+`npm run zip` tạo `.output/ticket-sp-0.5.0-chrome.zip`. Git chỉ lưu source/lockfile, không lưu output hay dữ liệu test.
 
-### Gửi cho bạn bè
+### Tạo bản phát hành · dành cho người phát triển
 
 ```powershell
-npm run share
+npm run release
 ```
 
-Gửi **`.output/Camp-ve-0.4.2.zip`**. Người nhận giải nén toàn bộ, mở **`huong-dan.html`**, rồi Load unpacked thư mục có `manifest.json`. Không cần Node.js, npm hay source. Hướng dẫn này cũng mở được bằng nút **Hướng dẫn** trong tool. Mỗi người tự đăng nhập 1Zone trên Chrome của mình; cấu hình/phiên mua không được đóng vào ZIP.
+Hoặc chạy workflow **Build tested extension** trong GitHub Actions. Đầu ra gồm **`.output/Camp-ve-0.5.0.zip`** để gửi, ZIP riêng để upload Web Store, `SHA256SUMS.txt` và `release.json`. Không gửi repo hoặc yêu cầu người nhận chạy lệnh build. Hướng dẫn cũng có trong menu tool. [Nội dung chuẩn bị Web Store](docs/WEB_STORE.md).
 
 ### Cập nhật khi đang nạp `.output/chrome-mv3`
 
@@ -34,11 +42,11 @@ Build mới chỉ thay file trên đĩa; Chrome có thể vẫn chạy tiến tr
 
 1. Đóng popup và tab cấu hình cũ. Mở `chrome://extensions`.
 2. Ở **Camp vé · 1Zone Assistant**, bấm biểu tượng **Tải lại / Reload**.
-3. Mở lại tiện ích, kiểm tra nhãn **v0.4.2**, rồi tải lại tab 1Zone.
+3. Mở lại tiện ích, kiểm tra **v0.5.0** ở cửa sổ cấu hình và panel trên tab 1Zone.
 
 Không cần tải ZIP nếu Chrome đang nạp trực tiếp `.output/chrome-mv3` của project này. Nếu nạp thư mục giải nén ZIP ở nơi khác, cập nhật đầy đủ các file trong chính thư mục đó rồi Reload.
 
-Thông báo **Cần tải lại tiện ích** cho biết kiểm tra giao diện/worker không thành công; nó thay lỗi chung “Lệnh không được hỗ trợ”. Nút **Mở rộng ↗** và **Diễn tập** là link trực tiếp tới trang extension, không đi qua lệnh nền. Kiểm tra phiên bản chỉ chạy khi mở cấu hình, không chen vào từng hành động đặt vé.
+Thông báo **Cần tải lại tiện ích** cho biết kiểm tra giao diện/worker không thành công. Nút **Mở rộng ↗** và **Diễn tập** là link trực tiếp tới trang extension. Kiểm tra phiên bản chỉ chạy khi mở cấu hình hoặc khởi tạo tab, không chen vào từng hành động đặt vé. Chrome có thể giữ lỗi lịch sử; Xóa tất cả rồi tải lại tab để phân biệt lỗi mới.
 
 ## Sử dụng
 
@@ -63,7 +71,7 @@ Phiên camp tồn tại trong `chrome.storage.session`, qua lần worker khởi 
 | CAPTCHA / đăng nhập / lỗi giữ chỗ | Tạm dừng, hiển thị lý do; xử lý trên website rồi bắt đầu lại |
 | Canvas/iframe không có dữ liệu đọc được | Dừng; chưa có adapter thao tác map này |
 
-Ưu tiên dùng ID hạng nếu DOM cung cấp; nếu thiếu ID thì khớp tên chính xác sau chuẩn hóa. Cấu hình từ API còn yêu cầu giá trên DOM khớp giá đã chọn. Hạng hết vé bị bỏ qua; hạng khác chỉ được chọn khi bật phương án thay thế. Ngân sách xét **giá hiển thị × số vé**, chưa cộng phí. Catalog không bảo đảm tồn kho hoặc giữ vé thành công.
+Ưu tiên dùng ID hạng nếu DOM cung cấp; nếu thiếu thì khớp chính xác `name` hoặc `zoneName` từ cùng bản ghi API, kèm giá. Ví dụ HAI QUÝ - EB có thể hiển thị HAI QUÝ 2 trên booking. Alias trùng nhiều ID không được tự phân biệt bằng tên. Ảnh cần alt/ARIA hoặc điều khiển có nhãn; SVG cần role, title/ARIA và giá. Không suy ra lựa chọn từ màu hay tọa độ. Hạng hết vé bị bỏ qua. Ngân sách xét **giá hiển thị × số vé**, chưa cộng phí.
 
 ## Tốc độ và xác nhận thao tác
 
@@ -86,7 +94,7 @@ npm run zip
 
 `check` gồm typecheck, unit tests, build production. E2E chạy extension thật trên Chromium với website mô phỏng, không tạo đơn thật. `npm run dev` dùng `.output/chrome-mv3-dev`, không dùng bản này cho buổi bán.
 
-`npm run bench:camp` đo 24 mẫu với extension production và website/API mô phỏng. Báo cáo p50/p95 ở `artifacts/camp-benchmark.json`. **Diễn tập → 1Zone · Modal hạng vé** cho thử trực tiếp bằng UI. `node scripts/smoke-target.mjs` chỉ đo nhận diện trên trang Hà Nội công khai bằng profile tạm, không khởi động camp/giữ vé. Kết quả fixture không chứng minh nhanh nhất hoặc mua được vé thật.
+`npm run bench:camp` đo 24 mẫu với extension production và website/API mô phỏng. Báo cáo p50/p95 ở `artifacts/camp-benchmark.json`. **Diễn tập → Chạy thử** để thử bằng UI. `node scripts/smoke-target.mjs` chỉ đo nhận diện trên trang Hà Nội công khai bằng profile tạm, không khởi động camp/giữ vé. Kết quả fixture không chứng minh nhanh nhất hoặc mua được vé thật.
 
 `npm run smoke:live -- https://ticket.1zone.vn/events/…`, `node scripts/inspect-public-cases.mjs` và `npm run smoke:catalog` chỉ đọc trang/API công khai. Smoke catalog chạy UI thật với profile tạm, không lưu cấu hình hay khởi động camp.
 

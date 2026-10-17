@@ -1,0 +1,34 @@
+name: Build tested extension
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - run: npm run release
+      - run: npm run store:assets
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: Camp-ve
+          path: |
+            .output/Camp-ve-*.zip
+            .output/ticket-sp-*-chrome.zip
+            .output/SHA256SUMS.txt
+            .output/release.json
+            .output/store-assets/*.png
+          include-hidden-files: true
+          retention-days: 14

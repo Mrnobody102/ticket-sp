@@ -1,6 +1,7 @@
 import { test, expect, chromium } from '@playwright/test';
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+const { version } = JSON.parse(readFileSync(resolve('package.json'), 'utf8')) as { version: string };
 
 async function launch(extensionPath: string) {
   const context = await chromium.launchPersistentContext('', { channel: 'chromium', headless: true,
@@ -75,5 +76,32 @@ test('hướng dẫn mở được từ tool và đủ bước cài bản gửi 
     await expect(guide.getByRole('heading', { name: 'Cài một lần' })).toBeVisible();
     await expect(guide.locator('body')).toContainText('manifest.json');
     await expect(guide.getByRole('heading', { name: 'Chuẩn bị đặt vé' })).toBeVisible();
+  } finally { await context.close(); }
+});
+
+test('worker từ chối lệnh khi bấm camp: lỗi được bắt, không Uncaught hoặc click vé', async ({}, info) => {
+  const extensionPath = info.outputPath('legacy-start-extension');
+  cpSync(resolve('.output/chrome-mv3'), extensionPath, { recursive: true });
+  writeFileSync(resolve(extensionPath, 'background.js'), `chrome.runtime.onMessage.addListener((message, _sender, reply) => {
+    if (message.type === 'RUNTIME_INFO') reply({ info: { version: ${JSON.stringify(version)}, protocolVersion: 1 } });
+    else if (message.type === 'AUTO_GET') reply({ run: null });
+    else reply({ error: 'Lệnh chỉ dùng trong trang cấu hình tiện ích.' });
+  });`);
+  const { context } = await launch(extensionPath);
+  const errors: string[] = [];
+  try {
+    await context.serviceWorkers()[0]!.evaluate(async () => {
+      await chrome.storage.local.set({ 'ticket-assistant.config.v1': { schemaVersion: 1, enabled: true, panelVisible: true,
+        preferences: { platform: 'onezone', eventUrl: 'https://ticket.1zone.vn/events/runtime-start', saleStartAt: '2020-01-01T00:00:00Z', quantity: 1, preferredZoneLabels: ['VIP'], allowAlternatives: false } } });
+    });
+    await context.route('https://ticket.1zone.vn/**', route => route.fulfill({ contentType: 'text/html', body: readFileSync('fixtures/zone.html', 'utf8') }));
+    const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
+    await page.goto('https://ticket.1zone.vn/events/runtime-start');
+    await expect(page.locator('.panel-version')).toHaveText(`v${version}`);
+    await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('chrome://extensions');
+    await expect(page.locator('.auto-status')).not.toHaveAttribute('data-auto-phase');
+    await expect(page.locator('article button').first()).not.toHaveAttribute('aria-pressed', 'true');
+    expect(errors).toEqual([]);
   } finally { await context.close(); }
 });

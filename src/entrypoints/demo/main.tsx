@@ -1,69 +1,67 @@
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { fixtures, type FixtureName } from '../../testing/fixtures';
-import type { TaskConfig } from '../../core/models';
-import { DEFAULT_QUANTITY } from '../../core/models';
+import type { AutoRun } from '../../core/automation';
+import { preferencesKey } from '../../core/automation';
+import { createRehearsal } from '../../testing/rehearsal';
 import { mountAssistant } from '../../ui/mount-assistant';
 import '../../ui/styles.css';
-import { installBookingDemo } from '../../testing/booking-demo';
-import { preferencesKey, type AutoRun } from '../../core/automation';
-import { installOnezoneDemo } from '../../testing/onezone-demo';
 
 function Demo() {
-  const [name, setName] = useState<FixtureName>('zone');
-  const frame = useRef<HTMLIFrameElement>(null);
+  const [name, setName] = useState<FixtureName>('onezone-modal');
+  const [quantity, setQuantity] = useState(1);
+  const [attempt, setAttempt] = useState(0);
+  const [ready, setReady] = useState(false);
+  const [started, setStarted] = useState(false);
   const mounted = useRef<ReturnType<typeof mountAssistant> | null>(null);
-  const [visible, setVisible] = useState(true);
-  const config = useRef<TaskConfig>({
-    schemaVersion: 1, enabled: true, panelVisible: true,
-    preferences: {
-      platform: 'onezone', eventUrl: 'https://ticket.1zone.vn/events/local-demo',
-      saleStartAt: new Date(Date.now() + 3 * 60 * 1000).toISOString(), quantity: DEFAULT_QUANTITY,
-      preferredZoneLabels: ['VIP', 'Khu A', 'A1', 'A2'], allowAlternatives: false,
-    },
-  });
-  useEffect(() => () => { mounted.current?.destroy(); }, []);
-  function onLoad() {
+  const interactive = name === 'booking' || name === 'onezone-modal';
+  useEffect(() => () => mounted.current?.destroy(), []);
+
+  function onLoad(event: React.SyntheticEvent<HTMLIFrameElement>) {
     mounted.current?.destroy();
-    const doc = frame.current?.contentDocument;
+    const doc = event.currentTarget.contentDocument;
     if (!doc) return;
-    const style = doc.createElement('style');
-    style.textContent = 'body{font:15px Segoe UI,sans-serif;background:#fff;color:#20312e;margin:26px} main{margin-left:360px;max-width:500px} article{border:1px solid #dce5df;border-radius:12px;padding:16px;margin:12px 0} h3{margin-top:0} button{padding:9px 16px;border:1px solid #cbd8d1;border-radius:8px;background:#f4f8f5;color:#20312e;cursor:pointer} canvas{border:1px dashed #999;background:#f1f4f2} @media(max-width:700px){main{margin:0 0 600px}}';
-    doc.head.append(style);
-    config.current = { ...config.current, enabled: true, panelVisible: true };
-    config.current.preferences = { ...config.current.preferences!, preferredZoneLabels: ['VIP', 'Khu A', 'A1', 'A2'], catalog: undefined,
-      saleStartAt: new Date(Date.now() + (['booking', 'onezone-modal'].includes(name) ? -1000 : 180000)).toISOString() };
-    if (name === 'booking') installBookingDemo(doc);
-    if (name === 'onezone-modal') {
-      installOnezoneDemo(doc);
-      config.current.preferences = { ...config.current.preferences, preferredZoneLabels: ['HAI QUÝ - EB'],
-        catalog: { eventId: 'demo', performanceId: 'demo', title: 'Diễn tập 1Zone', venue: 'Hà Nội', startsAt: '2030-01-01T00:00:00Z', verifiedAt: Date.now(),
-          tickets: [{ id: 'demo-hai-quy', name: 'HAI QUÝ - EB', priceVnd: 2996000, seatMode: 'AUTO' }] } };
-    }
-    let localRun: AutoRun | null = null;
-    setVisible(true);
+    const config = createRehearsal(doc, name, quantity);
+    let run: AutoRun | null = null;
     mounted.current = mountAssistant({
-      document: doc, getUrl: () => config.current.preferences!.eventUrl, initialConfig: config.current,
-      onStop: async () => { localRun = null; mounted.current?.updateAuto(null); config.current = { ...config.current, enabled: false }; mounted.current?.update(config.current); },
-      onHide: async () => { config.current = { ...config.current, panelVisible: false }; mounted.current?.update(config.current); setVisible(false); },
-      onOpen: async () => { /* Demo stays local. */ },
-      automation: { transport: {
-        start: async () => localRun = { id: crypto.randomUUID(), tabId: 0, revision: 0, preferencesKey: preferencesKey(config.current.preferences!), startedAt: Date.now(), expiresAt: Date.now() + 3600000, progress: { phase: 'READY', message: 'Diễn tập camp tự động.' } },
-        stop: async () => localRun = null,
-        commit: async (run, progress) => {
-          if (!localRun || localRun.id !== run.id || localRun.revision !== run.revision) throw new Error('Phiên demo đã đổi.');
-          return localRun = { ...localRun, revision: localRun.revision + 1, progress };
+      document: doc, getUrl: () => config.preferences!.eventUrl,
+      initialConfig: config, rehearsal: true,
+      onStop: async () => { run = null; mounted.current?.updateAuto(null); },
+      onHide: async () => undefined, onOpen: async () => undefined,
+      automation: interactive ? { transport: {
+        start: async () => run = {
+          id: crypto.randomUUID(), tabId: 0, revision: 0,
+          preferencesKey: preferencesKey(config.preferences!), startedAt: Date.now(), expiresAt: Date.now() + 60000,
+          progress: { phase: 'READY', message: 'Đang thử chọn vé.' },
         },
-      } },
+        stop: async () => run = null,
+        commit: async (before, progress) => {
+          if (!run || run.id !== before.id || run.revision !== before.revision) throw new Error('Bài thử đã được đặt lại.');
+          return run = { ...run, revision: run.revision + 1, progress };
+        },
+      } } : undefined,
     });
+    setReady(true);
   }
+  function reset(next = name) { setReady(false); setStarted(false); setName(next); setAttempt(v => v + 1); }
   return <main className="demo">
-    <span className="eyebrow">CAMP VÉ / DIỄN TẬP CỤC BỘ</span><h1>Sẵn sàng trước giờ G.</h1>
-    <p className="muted">Thử nhận diện, gợi ý và dừng theo dõi. Dữ liệu mô phỏng, không kết nối 1Zone và không sửa cấu hình concert của bạn.</p>
-    <div className="toolbar">{Object.entries(fixtures).map(([key, fixture]) => <button key={key} aria-pressed={key === name} onClick={() => setName(key as FixtureName)}>{fixture.label}</button>)}
-      {!visible && <button onClick={() => { config.current = { ...config.current, panelVisible: true }; mounted.current?.update(config.current); setVisible(true); }}>Hiện panel</button>}
+    <header className="demo-header"><div><h1>Diễn tập</h1><p>Thử chọn vé tới thanh toán. Không đặt vé thật, không đổi cấu hình đã lưu.</p></div>
+      <a href={chrome.runtime.getURL('/workspace.html')}>Cấu hình đặt vé ↗</a></header>
+    <div className="rehearsal-controls">
+      <label>Luồng đặt vé<select aria-label="Luồng đặt vé" value={interactive ? name : ''} onChange={e => reset(e.target.value as FixtureName)}>
+        {!interactive && <option value="">Đang xem màn hình kiểm tra</option>}
+        <option value="onezone-modal">1Zone · Vé tự cấp ghế</option><option value="booking">Chọn khu vực và số lượng</option>
+      </select></label>
+      <label>Số vé<select aria-label="Số vé" value={quantity} onChange={e => { setQuantity(Number(e.target.value)); reset(); }}><option value="1">1</option><option value="2">2</option></select></label>
+      <button type="button" className="primary" disabled={!ready || !interactive || started} onClick={() => { setStarted(true); void mounted.current?.startAuto(); }}>Chạy thử</button>
+      <button type="button" onClick={() => reset()}>Làm lại</button>
     </div>
-    <iframe ref={frame} title="Giao diện concert mô phỏng" srcDoc={fixtures[name].html} onLoad={onLoad} style={{ width: '100%', height: 760, border: '1px solid #dce5df', borderRadius: 16, background: '#fff' }} />
+    <details className="diagnostic-fixtures"><summary>Kiểm tra nhận diện màn hình</summary>
+      <label>Màn hình<select aria-label="Màn hình" value={interactive ? '' : name} onChange={e => { if (e.target.value) reset(e.target.value as FixtureName); }}>
+        <option value="">Chọn màn hình</option>{Object.entries(fixtures).filter(([key]) => !['booking', 'onezone-modal'].includes(key)).map(([key, fixture]) => <option key={key} value={key}>{fixture.label}</option>)}
+      </select></label><p>Chỉ kiểm tra trạng thái và lựa chọn tool đọc được.</p>
+    </details>
+    <iframe key={attempt} title="Giao diện concert mô phỏng" srcDoc={fixtures[name].html} onLoad={onLoad} />
   </main>;
 }
 createRoot(document.getElementById('root')!).render(<Demo />);

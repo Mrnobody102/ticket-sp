@@ -64,6 +64,10 @@ Component SelectTicketModal công khai dùng `btn-sub`, `btn-add`, số lượng
 
 ## 5. Vì sao chưa gửi thẳng API đặt vé?
 
+Đọc lại ngày 18/10/2026 cho suất `aAq6NT / 8h0YGm`: summary có `ticketType: seatmap_zone`, `seatType: auto`, `isCaptchaEnable: true`; các cặp name/zoneName gồm HAI QUÝ - EB / HAI QUÝ 2, BA THƯƠNG - EB / BA THƯƠNG 2, TƯ MẾN - EB / TƯ MẾN 2, ÚT CƯNG - EB / ÚT CƯNG 4. Client public `TicketDetailModal` gọi `getTicketDisplayName(ticket, {preferZoneName: isBookingPage})`. Đây là bằng chứng cần giữ alias từ API, không đoán bằng cách bỏ hậu tố - EB. 0.5.0 đã bổ sung và kiểm thử đối chiếu này.
+
+Metadata vẫn `status: CLOSE`, `saleConfig: []`; `venueMap` là URL PNG SeatMap_VB_HN. Ảnh PNG là minh họa, không phải hợp đồng chọn ghế. Client còn có các nhánh SEATMAP/SEATMAP_ZONE/MIXED, preview và booking; có callbacks chọn/bỏ ghế/category. Các nhánh này không chứng minh thao tác map truy cập được từ content script. Không gọi renderer nội bộ, không lấy secret/signature của client, không tạo giữ chỗ trong khảo sát.
+
 Client công khai của 1Zone có đường gọi `POST /ticketing/api/v3/order/add-to-cart` và bước tạo đơn thanh toán riêng. Phần tạo giỏ liên quan phiên đăng nhập, token xác minh và thông tin phòng chờ. Biết tên endpoint chưa xác định được hợp đồng đặt/giữ vé đúng cho suất mục tiêu.
 
 Để triển khai transport booking trực tiếp cần xác minh bằng luồng tài khoản bình thường:

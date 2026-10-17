@@ -1,6 +1,7 @@
 export interface PageReader {
   isVisible(element: Element): boolean;
   text(element: Element): string;
+  name(element: Element): string;
 }
 
 /** Cache only within one inspection: the next DOM update always gets fresh values. */
@@ -34,5 +35,17 @@ export function createPageReader(document: Document): PageReader {
     texts.set(element, result);
     return result;
   }
-  return { isVisible, text };
+  function name(element: Element): string {
+    const aria = element.getAttribute('aria-label')?.trim();
+    if (aria) return aria;
+    const labelled = (element.getAttribute('aria-labelledby') ?? '').split(/\s+/)
+      .map(id => document.getElementById(id)).filter((e): e is HTMLElement => !!e && isVisible(e)).map(text).join(' ').trim();
+    if (labelled) return labelled;
+    const title = element.namespaceURI === 'http://www.w3.org/2000/svg' ?
+      [...element.children].find(child => child.localName === 'title' && !child.matches('[aria-hidden="true"]'))?.textContent?.trim() : undefined;
+    if (title) return title;
+    const images = [...element.querySelectorAll('img[alt]')].filter(isVisible).map(e => e.getAttribute('alt')?.trim()).filter(Boolean);
+    return [...images, text(element)].filter(Boolean).join(' ');
+  }
+  return { isVisible, text, name };
 }

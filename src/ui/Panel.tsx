@@ -3,6 +3,7 @@ import type { PageSnapshot, TaskConfig, WorkflowState } from '../core/models';
 import { countdown, isSameEvent, money } from '../core/preferences';
 import type { Recommendation } from '../core/workflow';
 import { autoActive, type AutoPhase, type AutoRun } from '../core/automation';
+import { EXTENSION_VERSION } from '../infrastructure/extension-runtime';
 
 const stateLabels: Record<WorkflowState, string> = {
   NOT_READY: 'Chưa sẵn sàng', WAITING_ROOM: 'Đang xếp hàng', EVENT_PAGE: 'Trang concert',
@@ -26,9 +27,10 @@ interface Props {
   autoRun?: AutoRun | null;
   onStartAuto?: () => void;
   onStopAuto?: () => void;
+  rehearsal?: boolean;
 }
 
-export function Panel({ config, snapshot, recommendations: options, error, onRescan, onStop, onHide, onOpen, autoRun, onStartAuto, onStopAuto }: Props) {
+export function Panel({ config, snapshot, recommendations: options, error, onRescan, onStop, onHide, onOpen, autoRun, onStartAuto, onStopAuto, rehearsal }: Props) {
   const [now, setNow] = useState(Date.now());
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
@@ -37,26 +39,26 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
   return <aside className={`assistant ${collapsed ? 'collapsed' : ''}`} aria-label="Trợ lý camp vé">
     <header className="panel-header">
       <button className="brand-button" onClick={() => setCollapsed(v => !v)} title="Thu gọn hoặc mở rộng">
-        <span>Camp vé</span>
+        <span>Camp vé <small className="panel-version">v{EXTENSION_VERSION}</small></span>
       </button>
-      <button className="icon-button" onClick={onHide} aria-label="Ẩn panel" title="Hiện lại từ icon tiện ích">×</button>
+      {!rehearsal && <button className="icon-button" onClick={onHide} aria-label="Ẩn panel" title="Hiện lại từ icon tiện ích">×</button>}
     </header>
     {!collapsed && <>
       <div className="status-line"><span className={`status-dot ${config.enabled ? 'active' : ''}`} />{stateLabels[snapshot.state]}</div>
-      {p && <div className="countdown-card">
+      {p && !rehearsal && <div className="countdown-card">
         <span className="eyebrow">GIỜ MỞ BÁN ĐÃ ĐẶT · VIỆT NAM</span>
         <strong className="countdown" role="timer">{countdown(p.saleStartAt, now)}</strong>
         <small>{new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }).format(new Date(p.saleStartAt))}</small>
       </div>}
       <div className="panel-body">
-        {onStartAuto && <div className="auto-status" role="status" data-auto-phase={autoRun?.progress.phase}>
+        {(onStartAuto || autoRun) && <div className="auto-status" role="status" data-auto-phase={autoRun?.progress.phase}>
           <b>{autoRun ? phaseLabels[autoRun.progress.phase] : 'Camp tới thanh toán'}</b>
           {autoRun && <p>{autoRun.progress.message}</p>}
           {autoRun?.progress.checkoutReachedAt && autoRun.progress.selectionStartedAt && <p>Chọn vé → thanh toán: {((autoRun.progress.checkoutReachedAt - autoRun.progress.selectionStartedAt) / 1000).toFixed(2)} giây (phiên này).</p>}
-          <button className={autoActive(autoRun ?? null) ? 'danger-button' : 'primary'} disabled={!p} onClick={autoActive(autoRun ?? null) ? onStopAuto : onStartAuto}>{autoActive(autoRun ?? null) ? 'Dừng camp' : 'Bắt đầu camp'}</button>
+          {onStartAuto && <button className={autoActive(autoRun ?? null) ? 'danger-button' : 'primary'} disabled={!p} onClick={autoActive(autoRun ?? null) ? onStopAuto : onStartAuto}>{autoActive(autoRun ?? null) ? 'Dừng camp' : 'Bắt đầu camp'}</button>}
         </div>}
-        <p className={`event-match ${sameEvent ? 'ok' : ''}`}>{sameEvent ? 'Đúng link / suất đã lưu' : 'Chưa khớp sự kiện đã lưu'}</p>
-        <p className="reason">{snapshot.reason}</p>
+        {!rehearsal && <p className={`event-match ${sameEvent ? 'ok' : ''}`}>{sameEvent ? 'Đúng link / suất đã lưu' : 'Chưa khớp sự kiện đã lưu'}</p>}
+        {!rehearsal && <p className="reason">{snapshot.reason}</p>}
         {p && <>
           <div className="metrics"><span><b>{p.quantity}</b> vé</span><span>{p.maxTotalVnd ? money(p.maxTotalVnd) : 'Không giới hạn ngân sách'}</span></div>
           {snapshot.selectionMode !== 'UNKNOWN' && <p className="muted">{modeLabels[snapshot.selectionMode]}</p>}
@@ -71,8 +73,8 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
           </div>)}
         </div> : snapshot.state === 'SELECTING' && <p className="muted">Chưa có lựa chọn khớp đủ điều kiện. Kiểm tra hạng vé, giá và số lượng trực tiếp.</p>}
         {error && <p role="alert" className="error">{error}</p>}
-        <div className="panel-actions"><button onClick={onRescan}>Nhận diện lại</button><button onClick={onOpen}>Mở concert</button><button className="danger-button" disabled={!config.enabled} onClick={onStop}>Dừng</button></div>
-        <p className="footnote">Giữ Chrome mở và máy thức.</p>
+        {!rehearsal && <div className="panel-actions"><button onClick={onRescan}>Nhận diện lại</button><button onClick={onOpen}>Mở concert</button><button className="danger-button" disabled={!config.enabled} onClick={onStop}>Dừng</button></div>}
+        {!rehearsal && <p className="footnote">Giữ Chrome mở và máy thức.</p>}
       </div>
     </>}
   </aside>;

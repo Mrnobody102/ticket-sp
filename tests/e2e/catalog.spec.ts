@@ -122,8 +122,9 @@ test('cấu hình nhanh Hà Nội tự điền link, 12h và 1 vé; chỉ chọn
 });
 
 test('thẻ tiêu đề p → modal 1Zone → số lượng span 2 vé → checkout', async () => {
-  const mocks = defaults(); mocks[2]!.body = ticketReply([{ ...ticketData, name: 'HAI QUÝ - EB', finalPriceVn: 2996000 }]); await mockCatalog(mocks);
-  const body = readFileSync('fixtures/onezone-modal.html', 'utf8') + `<script>(${installOnezoneDemo.toString()})(document)</script>`;
+  const mocks = defaults(); mocks[2]!.body = ticketReply([{ ...ticketData, name: 'HAI QUÝ - EB', zoneName: 'HAI QUÝ 2', finalPriceVn: 2996000 }]); await mockCatalog(mocks);
+  // Booking cards may use zoneName; the quantity modal can use the ticket name.
+  const body = readFileSync('fixtures/onezone-modal.html', 'utf8').replaceAll('HAI QUÝ - EB', 'HAI QUÝ 2') + `<script>(${installOnezoneDemo.toString()})(document)</script>`;
   await context.route('https://ticket.1zone.vn/**', route => route.fulfill({ contentType: 'text/html', body }));
   const page = await workspace(); await selectEvent(page);
   await page.getByLabel('Số vé', { exact: true }).fill('2');
@@ -154,7 +155,8 @@ test('tải catalog lỗi: báo lỗi và thử lại để có select, không �
 });
 
 test('nhiều suất yêu cầu chọn; link sai calendarId không tự chuyển suất', async () => {
-  const mocks = defaults(); mocks[1]!.body = flightHtml({ ...eventData, eventCalendar: [calendar(), calendar('HCM')] }); await mockCatalog(mocks);
+  const mocks = defaults(); mocks[1]!.body = flightHtml({ ...eventData, eventCalendar: [calendar(), calendar('HCM')] });
+  mocks.unshift({ path: '/get-summary-event/event-test?type=group&calendarId=HCM', body: ticketReply([{ ...ticketData, calendarId: 'HCM' }]) }); await mockCatalog(mocks);
   const page = await workspace();
   await page.getByLabel('Link concert').fill(catalogUrl);
   await page.getByRole('button', { name: 'Tải chi tiết từ link', exact: true }).click();
@@ -162,6 +164,11 @@ test('nhiều suất yêu cầu chọn; link sai calendarId không tự chuyển
   await expect(page.getByLabel('Thêm hạng vé ưu tiên')).toHaveCount(0);
   await page.getByLabel('Suất diễn', { exact: true }).selectOption('HN');
   await expect(page.getByLabel('Thêm hạng vé ưu tiên')).toBeVisible();
+  await page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)').fill('2026-10-19T12:00');
+  await page.getByLabel('Số vé', { exact: true }).fill('2');
+  await page.getByLabel('Suất diễn', { exact: true }).selectOption('HCM');
+  await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('');
+  await expect(page.getByLabel('Số vé', { exact: true })).toHaveValue('1');
   await page.locator('.event-link > summary').click();
   await page.getByLabel('Link concert').fill(catalogUrl + '?calendarId=invalid');
   await page.getByRole('button', { name: 'Tải chi tiết từ link', exact: true }).click();
