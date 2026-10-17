@@ -1,3 +1,5 @@
+import type { CatalogSelection } from './catalog';
+
 export type Platform = 'onezone' | 'ticketbox' | 'cticket';
 export type SeatSelectionMode = 'ZONE_ONLY' | 'PICK_SEAT' | 'ASSIGNED_SEAT' | 'MIXED' | 'UNKNOWN';
 export type WorkflowState = 'NOT_READY' | 'WAITING_ROOM' | 'EVENT_PAGE' | 'SELECTING' | 'CHECKOUT' | 'CHALLENGE' | 'UNKNOWN' | 'STOPPED';
@@ -10,6 +12,7 @@ export interface EventPreferences {
   maxTotalVnd?: number;
   preferredZoneLabels: string[];
   allowAlternatives: boolean;
+  catalog?: CatalogSelection;
 }
 
 export interface VisibleOption {
@@ -17,6 +20,7 @@ export interface VisibleOption {
   label: string;
   kind: 'ZONE' | 'SEAT';
   zoneLabel?: string;
+  ticketTypeId?: string;
   selected?: boolean;
   displayedPriceVnd?: number;
   displayedAvailability: 'AVAILABLE' | 'UNAVAILABLE' | 'UNKNOWN';

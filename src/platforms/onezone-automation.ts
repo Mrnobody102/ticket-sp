@@ -41,7 +41,7 @@ function safeLink(element: Element, p: EventPreferences, enter: boolean): boolea
     return url.origin === new URL(p.eventUrl).origin &&
       (enter || /^\/booking\//.test(url.pathname)
         ? /^\/booking\//.test(url.pathname) && isSameEvent(url.href, p.eventUrl)
-        : /^\/checkout\//.test(url.pathname));
+        : /^\/checkout(?:\/|$)/.test(url.pathname));
   } catch { return false; }
 }
 function findQuantity(document: Document, scope: Element | undefined, reader: PageReader): QuantityBinding | undefined {

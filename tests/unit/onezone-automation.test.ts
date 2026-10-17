@@ -60,6 +60,15 @@ describe('hợp đồng adapter và thao tác 1Zone', () => {
     document.body.innerHTML = '<h1>Phiên đặt vé đã hết hạn</h1>';
     expect(read().page.problem).toContain('hết hạn');
   });
+  it('nhận link checkout gốc và add-ons nhưng từ chối host khác', () => {
+    document.querySelector('main > button')?.remove();
+    document.body.innerHTML += '<a href="https://ticket.1zone.vn/checkout?orderId=test">Tiếp tục</a>';
+    expect(read().page.advanceCount).toBe(1);
+    document.querySelector('a')!.setAttribute('href', 'https://ticket.1zone.vn/checkout/add-ons?orderId=test');
+    expect(read().page.advanceCount).toBe(1);
+    document.querySelector('a')!.setAttribute('href', 'https://evil.com/checkout?orderId=test');
+    expect(read().page.advanceCount).toBe(0);
+  });
   it('đọc aria-pressed và từ chối control đã bị gỡ trước khi thực thi', () => {
     const button = document.querySelector('article button')!; button.setAttribute('aria-pressed', 'true');
     expect(read().page.snapshot.visibleOptions[0]?.selected).toBe(true);

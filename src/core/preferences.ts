@@ -1,6 +1,7 @@
 import type { EventPreferences, TaskConfig } from './models';
 import { DEFAULT_CONFIG } from './models';
 import { platformForUrl } from './platform-catalog';
+import type { CatalogSelection } from './catalog';
 
 export function eventUrl(value: string): URL {
   const url = new URL(value);
@@ -42,11 +43,24 @@ export function validatePreferences(value: unknown): EventPreferences {
       p.preferredZoneLabels.some(v => typeof v !== 'string' || !v.trim() || v.length > 100)) {
     throw new Error('Nhập tối đa 20 hạng vé, mỗi dòng một hạng (tối đa 100 ký tự).');
   }
+  let catalog: CatalogSelection | undefined;
+  if (p.catalog !== undefined) {
+    const c = p.catalog as CatalogSelection;
+    if (!c || typeof c !== 'object' || typeof c.eventId !== 'string' || !/^[\w-]{1,100}$/.test(c.eventId) || typeof c.performanceId !== 'string' || !/^[\w-]{1,100}$/.test(c.performanceId) ||
+        platform.integration?.performanceId(cleanUrl) !== c.performanceId || typeof c.title !== 'string' || c.title.length > 300 ||
+        typeof c.venue !== 'string' || c.venue.length > 500 || typeof c.startsAt !== 'string' || !Number.isFinite(Date.parse(c.startsAt)) || !Number.isFinite(c.verifiedAt) ||
+        !Array.isArray(c.tickets) || !c.tickets.length || c.tickets.length > 20 || c.tickets.some(t => !t || typeof t.id !== 'string' || !/^[\w-]{1,100}$/.test(t.id) ||
+          typeof t.name !== 'string' || !t.name.trim() || t.name.length > 100 || !Number.isSafeInteger(t.priceVnd) || t.priceVnd < 0) ||
+        new Set(c.tickets.map(t => t.id)).size !== c.tickets.length) throw new Error('Dữ liệu hạng vé/suất không hợp lệ. Tải lại chi tiết sự kiện.');
+    catalog = { eventId: c.eventId, performanceId: c.performanceId, title: c.title, venue: c.venue, startsAt: c.startsAt, verifiedAt: c.verifiedAt,
+      tickets: c.tickets.map(t => ({ id: t.id, name: t.name.trim(), priceVnd: t.priceVnd })) };
+  }
   return {
     platform: platform.id, eventUrl: cleanUrl.href, saleStartAt: new Date(p.saleStartAt).toISOString(),
     quantity: p.quantity, maxTotalVnd: p.maxTotalVnd as number | undefined,
-    preferredZoneLabels: [...new Set((p.preferredZoneLabels as string[]).map(v => v.trim()))],
+    preferredZoneLabels: catalog ? catalog.tickets.map(t => t.name) : [...new Set((p.preferredZoneLabels as string[]).map(v => v.trim()))],
     allowAlternatives: p.allowAlternatives === true,
+    ...(catalog ? { catalog } : {}),
   };
 }
 

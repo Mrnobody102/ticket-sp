@@ -13,7 +13,10 @@ export function recommend(snapshot: PageSnapshot, p: EventPreferences): Recommen
     const label = normalize(option.label);
     const zone = option.zoneLabel ? normalize(option.zoneLabel) : undefined;
     // Exact normalized labels prevent VIP from silently matching VVIP / VIP 2.
-    const priority = p.preferredZoneLabels.findIndex(v => normalize(v) === label || (zone !== undefined && normalize(v) === zone));
+    const preferred = p.catalog?.tickets;
+    const priority = preferred?.length ? preferred.findIndex(t => option.ticketTypeId ? t.id === option.ticketTypeId : normalize(t.name) === label || normalize(t.name) === zone)
+      : p.preferredZoneLabels.findIndex(v => normalize(v) === label || (zone !== undefined && normalize(v) === zone));
+    if (priority !== -1 && preferred?.[priority] && option.displayedPriceVnd !== preferred[priority]!.priceVnd) return [];
     if (priority === -1 && !p.allowAlternatives && p.preferredZoneLabels.length > 0) return [];
     const total = option.displayedPriceVnd === undefined ? undefined : option.displayedPriceVnd * p.quantity;
     if (p.maxTotalVnd !== undefined && (total === undefined || total > p.maxTotalVnd)) return [];

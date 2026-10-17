@@ -6,6 +6,7 @@ import { reconcileReminder, SALE_ALARM } from '../infrastructure/reminders';
 import type { AutoCommand } from '../infrastructure/automation-messages';
 import { handleAutoCommand, readAutoRun, reconcileAutoRun, stopAutoRun } from '../infrastructure/automation-service';
 import { openEventTab } from '../infrastructure/event-tab';
+import { handleCatalogCommand, type CatalogCommand } from '../infrastructure/catalog-service';
 
 export default defineBackground(() => {
   // Serialize mutations in this worker; durable configuration lives in storage.
@@ -18,8 +19,14 @@ export default defineBackground(() => {
   const reconcile = () => { void enqueue(async () => { await reconcileAutoRun(); await reconcileReminder(); }).catch(() => undefined); };
   chrome.runtime.onMessage.addListener((raw: unknown, sender, respond) => {
     if (sender.id !== chrome.runtime.id || !raw || typeof raw !== 'object') return;
-    const message = raw as Command | AutoCommand;
+    const message = raw as Command | AutoCommand | CatalogCommand;
     if (typeof message.type !== 'string') return;
+    if (message.type.startsWith('CATALOG_')) {
+      if (!sender.url?.startsWith(chrome.runtime.getURL('/'))) { respond({ error: 'Mở tiện ích để tìm sự kiện.' }); return; }
+      // Network reads must not block the serialized automation/mutation queue.
+      void handleCatalogCommand(message as CatalogCommand).then(data => respond({ data }), error => respond({ error: error instanceof Error ? error.message : 'Không tải được dữ liệu.' }));
+      return true;
+    }
     if (message.type.startsWith('AUTO_')) {
       void enqueue(() => handleAutoCommand(message as AutoCommand, sender)).then(run => respond({ run }), error => respond({ error: error instanceof Error ? error.message : 'Không thực hiện được camp.' }));
       return true;
@@ -49,6 +56,7 @@ export default defineBackground(() => {
           break;
         }
         case 'OPEN_DEMO': await chrome.tabs.create({ url: chrome.runtime.getURL('/demo.html') }); break;
+        case 'OPEN_WORKSPACE': await chrome.tabs.create({ url: chrome.runtime.getURL('/workspace.html') }); break;
         default: throw new Error('Lệnh không được hỗ trợ.');
       }
       await chrome.action.setBadgeText({ text: '' });

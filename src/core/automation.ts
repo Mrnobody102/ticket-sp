@@ -14,6 +14,7 @@ export function isAutoProgress(value: unknown): value is AutoProgress {
   if (chosen === undefined) return true;
   return !!chosen && typeof chosen === 'object' && (typeof chosen.label === 'string' && chosen.label.length <= 100 && ['ZONE', 'SEAT'].includes(chosen.kind) &&
     (chosen.zoneLabel === undefined || typeof chosen.zoneLabel === 'string') &&
+    (chosen.ticketTypeId === undefined || (typeof chosen.ticketTypeId === 'string' && /^[\w-]{1,100}$/.test(chosen.ticketTypeId))) &&
     (chosen.displayedPriceVnd === undefined || Number.isSafeInteger(chosen.displayedPriceVnd)));
 }
 export function allowsAutoTransition(from: AutoPhase, to: AutoPhase): boolean {
@@ -29,7 +30,7 @@ export function allowsAutoTransition(from: AutoPhase, to: AutoPhase): boolean {
 export interface AutoProgress {
   phase: AutoPhase;
   message: string;
-  chosen?: Pick<VisibleOption, 'label' | 'kind' | 'zoneLabel' | 'displayedPriceVnd'>;
+  chosen?: Pick<VisibleOption, 'label' | 'kind' | 'zoneLabel' | 'displayedPriceVnd' | 'ticketTypeId'>;
   actionAt?: number;
   quantityAfterAction?: number;
   selectionStartedAt?: number;
@@ -65,7 +66,8 @@ export type AutoDecision = { type: 'WAIT'; wakeAt?: number } | { type: 'STEP'; p
 export const preferencesKey = (p: EventPreferences) => JSON.stringify(p);
 export const autoActive = (run: AutoRun | null) => !!run && !['CHECKOUT', 'PAUSED'].includes(run.progress.phase);
 export const sameOption = (a: NonNullable<AutoProgress['chosen']>, b: VisibleOption) =>
-  normalize(a.label) === normalize(b.label) && a.kind === b.kind && normalize(a.zoneLabel ?? '') === normalize(b.zoneLabel ?? '') && a.displayedPriceVnd === b.displayedPriceVnd;
+  normalize(a.label) === normalize(b.label) && a.kind === b.kind && normalize(a.zoneLabel ?? '') === normalize(b.zoneLabel ?? '') && a.displayedPriceVnd === b.displayedPriceVnd &&
+  (a.ticketTypeId === undefined || a.ticketTypeId === b.ticketTypeId);
 const pause = (progress: AutoProgress, message: string): AutoDecision => ({ type: 'STEP', progress: { ...progress, phase: 'PAUSED', message } });
 
 /** Decide first, persist the transition, then act. No DOM/Chrome dependencies here. */

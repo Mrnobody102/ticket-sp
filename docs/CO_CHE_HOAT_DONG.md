@@ -1,12 +1,12 @@
-# Cơ chế camp vé · bản 0.2.0
+# Cơ chế camp vé · bản 0.3.0
 
-Bản hiện tại thêm luồng **tự chọn vé và đi tới checkout**. Bản 0.1.0 chỉ nhắc giờ/đánh dấu vé, chưa đáp ứng mục tiêu tốc độ đặt vé. Tài liệu này mô tả code 0.2.0 và phân biệt những gì đã kiểm thử cục bộ với phần cần xác minh trên sự kiện thật.
+Bản hiện tại kết nối **tìm sự kiện → chọn đúng suất/hạng/giá → camp tới checkout**. Bản 0.2.0 có bộ thực thi tự chọn vé; 0.3.0 bổ sung catalog API, cấu hình theo ID/giá và kiểm tra trước khi chạy. Tài liệu phân biệt kiểm thử cục bộ, GET công khai đã chạy thật và booking chưa xác minh trên sự kiện mục tiêu.
 
 ## 1. Đầu vào và đầu ra
 
 Đầu vào gồm nền tảng, link concert/suất, giờ mở bán, số vé, ngân sách tổng và thứ tự zone/hạng vé. Mặc định **1 vé**, ngân sách trống. Cấu hình cũ được giữ đúng lựa chọn đã lưu.
 
-Khi bấm **Bắt đầu camp**, tool dùng cấu hình đã lưu để vào bước mua, chọn lựa chọn phù hợp, cập nhật số lượng rồi bấm tiếp. Đầu ra thành công của bộ thực thi là **nhận diện trang checkout**. Đây chưa phải xác nhận server đã giữ vé hoặc thanh toán thành công.
+Khi bấm **Bắt đầu camp**, tool dùng cấu hình đã lưu; nếu chọn qua catalog thì tải mới và đối chiếu dữ liệu trước. Sau đó vào bước mua, chọn lựa chọn phù hợp, cập nhật số lượng rồi bấm tiếp. Đầu ra thành công của bộ thực thi là **nhận diện trang checkout**. Đây chưa phải xác nhận server đã giữ vé hoặc thanh toán thành công.
 
 Đăng nhập trước, hoàn thành xác minh khi website yêu cầu và thanh toán cuối vẫn là những bước người dùng thực hiện. Nhắc giờ là tính năng phụ.
 
@@ -14,7 +14,11 @@ Khi bấm **Bắt đầu camp**, tool dùng cấu hình đã lưu để vào bư
 
 ```mermaid
 flowchart LR
-  UI[Popup / Panel] --> BG[Background: session + revision]
+  UI[Popup / Workspace / Panel] --> BG[Background: session + revision]
+  UI --> CAT[Catalog service: GET / cache]
+  CAT --> API[Provider 1Zone / Ticketbox]
+  API --> DATA[Suất + ID hạng + giá]
+  DATA --> UI
   BG --> RUN[Runner trong tab chủ]
   RUN --> READ[Platform adapter: đọc DOM]
   READ --> CORE[Core: quyết định bước tiếp]
@@ -29,8 +33,8 @@ flowchart LR
 |---|---|---|
 | Core | Model, URL policy, validate, xếp hạng, quyết định | TypeScript thuần |
 | Application | Chạy từng bước, hẹn giờ, chống lệnh cũ, kiểm tra lại trước thao tác | Core, contract, transport được truyền vào |
-| Platform | Hiểu DOM và điều khiển riêng của website | Core, Browser DOM |
-| Infrastructure | Chrome storage/session, messages, tab và alarm | Core, Chrome APIs |
+| Platform | Provider chuyển schema API; adapter hiểu DOM/điều khiển riêng | Core; transport được truyền vào hoặc Browser DOM |
+| Infrastructure | GET/cache, Chrome storage/session, messages, tab và alarm | Core, Chrome/fetch APIs |
 | UI / entrypoints | Form, trạng thái, observer, lắp các thành phần | Các lớp trên |
 
 Core không import React, Chrome hoặc DOM. Runner không import adapter 1Zone. Website khác dùng lại core và runner qua [contract](../src/platforms/contracts.ts) và [registry](../src/platforms/registry.ts).
@@ -49,7 +53,29 @@ Core không import React, Chrome hoặc DOM. Runner không import adapter 1Zone.
 | AutoDecision | Chờ với mốc đánh thức, hoặc chuyển bước với một hành động |
 | AutoAction | ENTER, CHOOSE, QUANTITY, ADVANCE |
 
-ID option chỉ tồn tại trong một lần đọc. Qua các lần đọc, lựa chọn được đối chiếu bằng loại, nhãn, khu và giá. Nếu hai lựa chọn trùng các dấu hiệu này, core dừng thay vì suy đoán vị trí.
+ID option chỉ tồn tại trong một lần đọc. Qua các lần đọc, lựa chọn được đối chiếu bằng loại, nhãn, khu, giá và ID hạng nếu DOM cung cấp. Nếu hai lựa chọn trùng các dấu hiệu này, core dừng thay vì suy đoán vị trí.
+
+### Catalog và cấu hình theo dữ liệu nguồn
+
+[catalog.ts](../src/core/catalog.ts) định nghĩa các kiểu chung:
+
+| Kiểu | Nội dung |
+|---|---|
+| ConcertSummary / ConcertDetail | Event ID, tên/link/địa điểm, các suất và currency |
+| Performance | ID suất, địa điểm, giờ diễn, giới hạn số lượng nếu có |
+| TicketType / TicketCatalog | ID hạng, tên, giá, giới hạn, mode ghế, thời điểm đọc và suất sở hữu |
+| CatalogSelection | Event/suất và danh sách ID hạng + tên + giá đã chọn theo thứ tự |
+| CatalogProvider | Contract search/detail/tickets, không có thao tác đặt vé |
+
+`onezone-catalog.ts` đọc search API, JSON eventData trong HTML và summary hạng vé. `ticketbox-catalog.ts` đọc search và event/showings/ticketTypes. Mỗi provider kiểm tra schema, danh tính và giá trước khi trả model chung. Hai parser không gọi nhau.
+
+`catalog-service.ts` sở hữu GET allowlist, timeout, cache và gộp request. Những GET tra cứu không đi vào hàng đợi tuần tự của automation. UI không nhận dữ liệu JSON thô hay token. `EventFinder` bỏ response đến muộn bằng phiên bản request; nhiều suất phải chọn rõ, link có ID suất sai không tự chuyển sang suất khác. Giờ diễn luôn ghi riêng, người dùng nhập giờ bán theo thông báo chính thức.
+
+`TicketPriorities` dùng native select, cho thêm/đổi thứ tự/bỏ hạng. Lưu cấu hình giữ ID và giá; reopen vẫn giữ snapshot đã chọn. Form sửa chưa lưu hoặc cấu hình đổi ở cửa sổ khác sẽ khóa Bắt đầu camp cho tới khi lưu/tải lại.
+
+Khi bật camp có catalog, detail và tickets được GET mới song song (`no-store`, không dùng cache). [catalog-validation.ts](../src/core/catalog-validation.ts) đối chiếu event/suất, ngày/địa điểm, VND, thời gian kết thúc, giới hạn số lượng, ID/tên/giá. Sai lệch thì không tạo phiên camp. Cấu hình cũ nhập thủ công vẫn dùng được, nhưng không có đối chiếu catalog này.
+
+Khi chọn trên DOM, hạng ưu tiên phải khớp ID nếu có; thiếu ID thì khớp tên đã chuẩn hóa. Giá DOM phải khớp giá snapshot của hạng ưu tiên. Tình trạng trong catalog không thay thế phản hồi giữ vé của website. Chi tiết endpoint, cache và bằng chứng khảo sát nằm trong [nghiên cứu API](NGHIEN_CUU_API.md).
 
 ## 4. Máy trạng thái
 
@@ -165,7 +191,7 @@ Chi phí mỗi hành động gồm đọc DOM, quyết định, ghi session qua 
 
 [platform-catalog.ts](../src/core/platform-catalog.ts) là cấu hình miền thuần: ID, tên, origin, route alias và tham số suất. Validation suy ra nền tảng từ URL và đối chiếu trường platform. Manifest/content matches lấy cùng danh mục.
 
-[BrowserPlatformAdapter](../src/platforms/contracts.ts) chuẩn hóa snapshot, bindings hiển thị, AutoPage và executor. Registry chọn adapter theo URL. UI/runner không rẽ nhánh theo tên website.
+[BrowserPlatformAdapter](../src/platforms/contracts.ts) chuẩn hóa snapshot, bindings hiển thị, AutoPage và executor. Registry chọn adapter theo URL. Runner không rẽ nhánh theo tên website; UI dùng catalog origin/integration để phân biệt nguồn tra cứu và khả năng camp.
 
 Quy trình thêm nền tảng:
 
@@ -175,7 +201,7 @@ Quy trình thêm nền tảng:
 4. Thêm fixtures gồm thành công, hết vé, phòng chờ, lỗi, checkout; chạy cùng test core và E2E adapter.
 5. Bổ sung kiểu hành động/core chỉ khi có nhu cầu nghiệp vụ thật chưa biểu diễn được.
 
-Ticketbox/CTicket hiện chỉ có tên/ID, chưa có origin được kích hoạt hay adapter giả. Kiến trúc chung không đồng nghĩa cả ba nền tảng đã chạy được.
+Ticketbox đã có provider tra cứu và quyền GET API; chưa có content script/booking adapter. CTicket chưa có provider hoặc adapter. Thêm catalog không tự bật khả năng mua vé; booking cần contract, URL policy và E2E riêng.
 
 ## 11. Nhắc giờ, dữ liệu và kiểm chứng
 
@@ -185,6 +211,6 @@ Unit tests kiểm tra quyết định, URL/UTC+7, DOM và Chrome session mock. T
 
 Demo [booking-demo.ts](../src/testing/booking-demo.ts) gắn hành vi vào fixture cục bộ, dùng cùng core/runner/adapter và transport bộ nhớ. Demo không sửa phiên hoặc cấu hình thật.
 
-Chưa có URL/DOM bước mua suất Hà Nội, nên chưa xác nhận luồng tự đặt trên sự kiện mục tiêu. [Khảo sát](KHAO_SAT_1ZONE.md) là bằng chứng trang công khai; [kết quả kiểm tra](VALIDATION.md) ghi phạm vi đã chạy.
+Đã tìm được URL/metadata/hạng vé suất Hà Nội, nhưng chưa có DOM booking của phiên đăng nhập hợp lệ để xác nhận luồng tự đặt trên sự kiện mục tiêu. [Khảo sát](KHAO_SAT_1ZONE.md) và [nghiên cứu API](NGHIEN_CUU_API.md) ghi bằng chứng công khai; [kết quả kiểm tra](VALIDATION.md) ghi phạm vi đã chạy.
 
 Tài liệu cơ chế chuẩn: [Chrome Storage](https://developer.chrome.com/docs/extensions/reference/api/storage), [HTMLElement.click](https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/click), [MutationObserver](https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver). Quy tắc vé và máy trạng thái là code riêng của project, không phải SDK booking 1Zone.

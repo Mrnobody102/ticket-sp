@@ -48,6 +48,7 @@ export function readOptionElements(document: Document, mode: SeatSelectionMode =
     const option: Omit<VisibleOption, 'id'> = {
       label, kind: seat ? 'SEAT' : 'ZONE',
       zoneLabel: zoneLabel && zoneLabel.length <= 100 ? zoneLabel : undefined, selected,
+      ticketTypeId: element.getAttribute('data-ticket-class-id') ?? element.getAttribute('data-ticket-type-id') ?? undefined,
       displayedPriceVnd: prices[0], displayedAvailability: unavailable ? 'UNAVAILABLE' : 'AVAILABLE',
     };
     // A priced child control is more specific than its card/group. In particular,

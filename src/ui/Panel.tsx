@@ -2,13 +2,17 @@ import { useEffect, useState } from 'react';
 import type { PageSnapshot, TaskConfig, WorkflowState } from '../core/models';
 import { countdown, isSameEvent, money } from '../core/preferences';
 import type { Recommendation } from '../core/workflow';
-import { autoActive, type AutoRun } from '../core/automation';
+import { autoActive, type AutoPhase, type AutoRun } from '../core/automation';
 
 const stateLabels: Record<WorkflowState, string> = {
   NOT_READY: 'Chưa sẵn sàng', WAITING_ROOM: 'Đang xếp hàng', EVENT_PAGE: 'Trang concert',
   SELECTING: 'Đang chọn vé', CHECKOUT: 'Thanh toán', CHALLENGE: 'Cần xác minh', UNKNOWN: 'Chưa nhận diện', STOPPED: 'Đã dừng',
 };
 const modeLabels = { ZONE_ONLY: 'Chọn khu vực', PICK_SEAT: 'Chọn ghế', ASSIGNED_SEAT: 'Ghế tự cấp', MIXED: 'Nhiều cách chọn theo khu vực', UNKNOWN: 'Chưa rõ cách chọn chỗ' };
+const phaseLabels: Record<AutoPhase, string> = {
+  READY: 'Sẵn sàng', OPENING: 'Vào trang đặt vé', CHOOSING: 'Chọn vé', QUANTITY: 'Kiểm tra số lượng',
+  SETTING_QUANTITY: 'Đặt số lượng', ADVANCING: 'Chuyển tới thanh toán', CHECKOUT: 'Đã tới thanh toán', PAUSED: 'Tạm dừng',
+};
 const modeGuidance = {
   ZONE_ONLY: 'Chọn khu vực và số lượng trên website. Chưa xác định cách bố trí chỗ nếu mô tả không nói rõ.',
   ASSIGNED_SEAT: 'Chọn hạng/khu vực và số lượng; website cấp ghế theo quy định sự kiện. Chưa khẳng định ghế ngẫu nhiên hay liền nhau.',
@@ -40,22 +44,22 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
   return <aside className={`assistant ${collapsed ? 'collapsed' : ''}`} aria-label="Trợ lý camp vé">
     <header className="panel-header">
       <button className="brand-button" onClick={() => setCollapsed(v => !v)} title="Thu gọn hoặc mở rộng">
-        <span className="brand-mark">C</span><span>Camp vé <small>1ZONE ASSISTANT</small></span>
+        <span>Camp vé</span>
       </button>
       <button className="icon-button" onClick={onHide} aria-label="Ẩn panel" title="Hiện lại từ icon tiện ích">×</button>
     </header>
     {!collapsed && <>
-      <div className="status-line"><span className={`status-dot ${config.enabled ? 'active' : ''}`} />{stateLabels[snapshot.state]}<span className="mode-tag">ASSIST</span></div>
+      <div className="status-line"><span className={`status-dot ${config.enabled ? 'active' : ''}`} />{stateLabels[snapshot.state]}</div>
       {p && <div className="countdown-card">
         <span className="eyebrow">GIỜ MỞ BÁN ĐÃ ĐẶT · VIỆT NAM</span>
         <strong className="countdown" role="timer">{countdown(p.saleStartAt, now)}</strong>
         <small>{new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }).format(new Date(p.saleStartAt))}</small>
       </div>}
       <div className="panel-body">
-        {onStartAuto && <div className="auto-status" role="status">
-          <b>{autoRun ? `Camp · ${autoRun.progress.phase}` : 'Camp tới thanh toán'}</b>
-          <p>{autoRun?.progress.message ?? 'Tự chọn vé theo ưu tiên, đặt số lượng và bấm tiếp tới checkout.'}</p>
-          {autoRun?.progress.checkoutReachedAt && autoRun.progress.selectionStartedAt && <p>Chọn vé → checkout: {((autoRun.progress.checkoutReachedAt - autoRun.progress.selectionStartedAt) / 1000).toFixed(2)} giây (phiên này).</p>}
+        {onStartAuto && <div className="auto-status" role="status" data-auto-phase={autoRun?.progress.phase}>
+          <b>{autoRun ? phaseLabels[autoRun.progress.phase] : 'Camp tới thanh toán'}</b>
+          <p>{autoRun?.progress.message ?? 'Tự chọn vé theo ưu tiên, đặt số lượng và chuyển tới thanh toán.'}</p>
+          {autoRun?.progress.checkoutReachedAt && autoRun.progress.selectionStartedAt && <p>Chọn vé → thanh toán: {((autoRun.progress.checkoutReachedAt - autoRun.progress.selectionStartedAt) / 1000).toFixed(2)} giây (phiên này).</p>}
           <button className={autoActive(autoRun ?? null) ? 'danger-button' : 'primary'} disabled={!p} onClick={autoActive(autoRun ?? null) ? onStopAuto : onStartAuto}>{autoActive(autoRun ?? null) ? 'Dừng camp' : 'Bắt đầu camp'}</button>
         </div>}
         <p className={`event-match ${sameEvent ? 'ok' : ''}`}>{sameEvent ? '✓ Đúng link concert / suất diễn đã lưu' : '○ Chưa khớp concert đã lưu'}</p>

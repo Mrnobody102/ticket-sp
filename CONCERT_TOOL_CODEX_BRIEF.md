@@ -1,10 +1,10 @@
 # Concert Ticket Assistant — Codex Implementation Brief
 
-> **Phạm vi 0.2.0 theo điều chỉnh người dùng:** tự vào mua vé, chọn zone/ghế theo ưu tiên, đặt số lượng và chuyển tới checkout; nhắc giờ là phần phụ. Core/runner và contract adapter dùng chung cho nền tảng khác. Phần brief phía dưới giữ lại làm ngữ cảnh ban đầu; hành vi hiện hành theo [cơ chế 0.2.0](docs/CO_CHE_HOAT_DONG.md) và [quyết định triển khai](docs/IMPLEMENTATION.md).
+> **Phạm vi 0.3.0 theo điều chỉnh người dùng:** tìm sự kiện và chọn suất/hạng/giá từ API; tự vào mua vé, chọn zone/ghế theo ưu tiên, đặt số lượng và chuyển tới checkout. Nhắc giờ là phần phụ. Core/runner, CatalogProvider và booking adapter tách riêng để mở rộng nền tảng. 1Zone có catalog + adapter; Ticketbox mới tra cứu; CTicket chưa kết nối. Phần brief phía dưới giữ làm ngữ cảnh ban đầu; hành vi hiện hành theo [cơ chế](docs/CO_CHE_HOAT_DONG.md), [nghiên cứu API](docs/NGHIEN_CUU_API.md) và [quyết định triển khai](docs/IMPLEMENTATION.md).
 
 > **Điều chỉnh 17/10/2026:** một project WXT ở root, tách `src/core`, `src/platforms`, `src/infrastructure`, `src/ui`; chưa cần monorepo/backend. Xem [kế hoạch cập nhật](docs/IMPLEMENTATION.md) và [hướng dẫn chạy](README.md).
 >
-> **Đã xác nhận:** thử fan meeting Vương Bình tại Hà Nội, dự kiến toàn sự kiện 100–200 vé, ngân sách không giới hạn. Theo điều chỉnh mới nhất, popup mặc định **1 vé**. Chưa có link/giờ bán suất Hà Nội đã xác nhận; link TP.HCM và map sự kiện khác chỉ là tham khảo.
+> **Đã xác nhận:** thử fan meeting Vương Bình tại Hà Nội, dự kiến toàn sự kiện 100–200 vé (ước tính của người dùng, không phải tồn kho), ngân sách không giới hạn. Mặc định **1 vé**. Ngày 18/10 đã đọc được [suất Hà Nội Mâm 2](https://ticket.1zone.vn/events/vuong-binh-tiec-thanh-than-mam-2?calendarId=8h0YGm) cùng hạng/giá; giờ bán và DOM booking chưa xác minh. Link TP.HCM và map event khác chỉ tham khảo.
 >
 > **Bổ sung P0:** Chrome Alarms khôi phục sau worker restart và ghi dấu chống nhắc lặp; chỉ highlight khi khớp event/`calendarId`; demo nội bộ không thêm quyền localhost; tôn trọng giới hạn số vé đọc được. Fixtures là mô phỏng ngữ nghĩa, chưa phải DOM fan meeting sắp mở bán.
 

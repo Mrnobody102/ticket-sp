@@ -1,7 +1,7 @@
 {
   "name": "ticket-sp",
   "description": "Local 1Zone concert ticket assistant",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "engines": { "node": ">=22.0.0" },
@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "smoke:live": "node scripts/smoke-live.mjs",
+    "smoke:catalog": "node scripts/smoke-catalog.mjs",
     "check": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": { "react": "^19.0.0", "react-dom": "^19.0.0" },

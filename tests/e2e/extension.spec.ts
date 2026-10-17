@@ -212,7 +212,7 @@ test('camp tự chọn zone, đặt 2 vé và tới checkout; không bấm thanh
   }));
   const started = Date.now();
   await event.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
-  await expect(event.locator('.auto-status')).toContainText('CHECKOUT');
+  await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
   await expect(event.locator('main form')).toContainText('VIP · 2 vé');
   await expect(event.getByRole('button', { name: 'Xác nhận đơn hàng', exact: true })).toBeVisible();
   await expect.poll(() => actions.length).toBe(2);
@@ -244,7 +244,7 @@ test('camp khóa một tab; phòng chờ tự đi tiếp khi được vào; ẩn
 test('camp dừng ở CAPTCHA; dừng camp hủy phiên và không thao tác khi vào chọn vé sau đó', async () => {
   const { event } = await prepareAuto('1', 'challenge');
   await event.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
-  await expect(event.locator('.auto-status')).toContainText('PAUSED');
+  await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'PAUSED');
   await expect(event.locator('.auto-status')).toContainText('xác minh');
   const worker = context.serviceWorkers()[0]!;
   await worker.evaluate(async () => chrome.storage.session.remove('ticket-assistant.auto.session.v1'));
@@ -264,7 +264,7 @@ test('demo tương tác chạy cùng bộ camp và không ghi phiên camp thật
   await demo.getByRole('button', { name: 'Camp tự động tới checkout', exact: true }).click();
   const frame = demo.frameLocator('iframe[title="Giao diện concert mô phỏng"]');
   await frame.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
-  await expect(frame.locator('.auto-status')).toContainText('CHECKOUT');
+  await expect(frame.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
   await expect(frame.locator('main form')).toContainText('VIP · 1 vé');
   await popup.reload(); await expect(popup.getByLabel('Link concert')).toHaveValue(target);
   expect(await context.serviceWorkers()[0]!.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1'])).toBeUndefined();
@@ -284,10 +284,12 @@ test('bắt đầu từ popup: chờ giờ, tự vào booking và tiếp tục p
     config.preferences.saleStartAt = new Date(Date.now() + 5000).toISOString();
     await chrome.storage.local.set({ [key]: config });
   });
+  // A change from another window invalidates the open form. Reload the saved configuration.
+  await popup.reload();
   await popup.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
   await expect(event).toHaveURL(target);
   await expect(event).toHaveURL(booking, { timeout: 12000 });
-  await expect(event.locator('.auto-status')).toContainText('CHECKOUT');
+  await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
   await expect(event.locator('main form')).toContainText('VIP · 1 vé');
   expect(errors).toEqual([]);
 });
@@ -306,7 +308,7 @@ test('camp một ghế DOM có nhãn tới checkout', async () => {
     next.addEventListener('click', () => { document.querySelector('main')!.innerHTML = '<h1>Thanh toán</h1><form><p>A1 · 1 vé</p><button type="button">Xác nhận đơn hàng</button></form>'; });
   });
   await event.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
-  await expect(event.locator('.auto-status')).toContainText('CHECKOUT');
+  await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
   await expect(event.locator('main form')).toContainText('A1 · 1 vé');
   expect(errors).toEqual([]);
 });

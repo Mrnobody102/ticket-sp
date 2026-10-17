@@ -1,4 +1,4 @@
-# Rà soát source và cơ chế tham khảo · 0.2.0
+# Rà soát source và cơ chế tham khảo · 0.3.0
 
 Bản 0.1.0 chỉ nhắc giờ và đánh dấu vé, chưa đủ cho yêu cầu camp theo tốc độ. Bản 0.2.0 thêm executor theo trạng thái, dùng chung core/runner cho các nền tảng. Chức năng trên sự kiện thật vẫn cần xác minh từ DOM/luồng của sự kiện đó.
 
@@ -15,7 +15,7 @@ Bản 0.1.0 chỉ nhắc giờ và đánh dấu vé, chưa đủ cho yêu cầu 
 | infrastructure/automation-*.ts | Chrome session, tab owner, revision, messages | Dùng lại |
 | ui và entrypoints | Cấu hình, quan sát trang và trạng thái | Content matches lấy từ catalog |
 
-Không có implementation giả cho Ticketbox/CTicket. Chỉ thêm một class không làm nền tảng chạy được; cần khảo sát URL, DOM, trạng thái, quyền host và test giao dịch mô phỏng.
+Nguồn catalog 1Zone/Ticketbox là hai provider thật, dùng schema GET đã quan sát và transport được truyền vào; tests dùng dữ liệu tổng hợp tối thiểu. Ticketbox chưa có booking adapter, CTicket chưa kết nối. Contract nguồn dữ liệu và contract thao tác website độc lập: thêm tra cứu không đồng nghĩa đã đặt vé được.
 
 ## Những điểm được sửa/kiểm tra
 
@@ -29,12 +29,15 @@ Không có implementation giả cho Ticketbox/CTicket. Chỉ thêm một class k
 - Ghi session theo ID/revision trước thao tác. Lệnh lặp/cũ, tab khác, iframe, progress hỏng và nhảy bước không hợp lệ bị từ chối.
 - Sau await, đọc lại DOM và quyết định; tests trì hoãn persist để kiểm tra STOP/đổi DOM không gây click cũ.
 - Ẩn panel vẫn chạy phiên camp; đổi cấu hình/dừng/đóng tab hủy phiên. Reload Chrome không tự chạy phiên cũ.
+- Catalog giữ event/performance/ticket ID và giá; chặn ID trùng, giá mơ hồ, link ngoài nguồn, sai suất/ngày/địa điểm, currency và giới hạn số lượng.
+- Khi bật camp đọc mới dữ liệu, không tin cache tra cứu. Các GET tìm kiếm chạy riêng, không chặn chuyển bước automation.
+- UI bỏ kết quả đến muộn, chặn chạy form chưa lưu; popup và workspace dùng cùng component. Trạng thái người dùng được viết bằng tiếng Việt; phase kỹ thuật giữ ở session/data attribute để chẩn đoán.
 
 TypeScript bật strict, noUncheckedIndexedAccess, noUnusedLocals và noUnusedParameters. Xem [VALIDATION.md](VALIDATION.md) cho kết quả từng bộ test và giới hạn.
 
 ## Cơ chế chuẩn được tham khảo
 
-Core, máy trạng thái, adapter nghiệp vụ và UI được viết riêng theo yêu cầu, khảo sát trang công khai và fixtures. Không tích hợp SDK booking hay source bot 1Zone có sẵn.
+Core, máy trạng thái, adapter nghiệp vụ và UI được viết riêng theo yêu cầu, khảo sát trang công khai và fixtures. Không tích hợp SDK booking hay source bot 1Zone có sẵn. Đã tham khảo cách tổ chức workflow/chờ phản hồi của [Automa](https://github.com/AutomaApp/automa), không chép mã. Script Ticketbox cũ được xem để đối chiếu, không dùng endpoint cũ làm contract hiện tại. Nguồn và bằng chứng mỗi website ghi trong [nghiên cứu API](NGHIEN_CUU_API.md).
 
 | Nguồn chính thức | Áp dụng |
 |---|---|

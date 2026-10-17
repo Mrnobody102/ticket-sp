@@ -102,7 +102,7 @@ export function mountAssistant(options: MountOptions) {
     if (records.some(r => r.target !== host && !host.contains(r.target))) schedule();
   });
   observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true,
-    attributeFilter: ['hidden', 'style', 'class', 'aria-hidden', 'aria-disabled', 'disabled', 'aria-label', 'aria-labelledby', 'inert', 'role', 'href', 'min', 'max', 'aria-valuemin', 'aria-valuemax', 'aria-selected', 'aria-checked', 'aria-pressed', 'aria-valuenow', 'checked', 'value'] });
+    attributeFilter: ['hidden', 'style', 'class', 'aria-hidden', 'aria-disabled', 'disabled', 'aria-label', 'aria-labelledby', 'inert', 'role', 'href', 'min', 'max', 'aria-valuemin', 'aria-valuemax', 'aria-selected', 'aria-checked', 'aria-pressed', 'aria-valuenow', 'checked', 'value', 'data-ticket-class-id', 'data-ticket-type-id'] });
   view.addEventListener('scroll', drawSoon, true);
   view.addEventListener('resize', scheduleEvent);
   view.addEventListener('popstate', scheduleEvent);

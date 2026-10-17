@@ -3,6 +3,8 @@ import { isSameEvent } from '../core/preferences';
 import type { AutoCommand } from './automation-messages';
 import { openEventTab } from './event-tab';
 import { repository } from './storage';
+import { getCatalogProvider } from './catalog-service';
+import { verifyCatalogSelection } from '../core/catalog-validation';
 
 export const AUTO_KEY = 'ticket-assistant.auto.session.v1';
 export async function readAutoRun(): Promise<AutoRun | null> {
@@ -44,6 +46,11 @@ export async function handleAutoCommand(message: AutoCommand, sender: chrome.run
   if (!p) throw new Error('Lưu link concert, giờ bán và ưu tiên trước khi bắt đầu camp.');
   if (message.type === 'AUTO_START') {
     if (autoActive(run) && run!.expiresAt > Date.now()) throw new Error('Đang camp trên một tab. Dừng phiên hiện tại trước khi bắt đầu lại.');
+    if (p.catalog) {
+      const provider = getCatalogProvider(p.platform, true);
+      const [detail, tickets] = await Promise.all([provider.detail(p.eventUrl), provider.tickets(p.catalog.eventId, p.catalog.performanceId)]);
+      verifyCatalogSelection(p, detail, tickets, Date.now());
+    }
     if (!extensionPage && (!sender.tab?.url || !isSameEvent(sender.tab.url, p.eventUrl))) throw new Error('Mở đúng concert/suất đã lưu trước khi bắt đầu camp.');
     const tabId = extensionPage ? await openEventTab(p.eventUrl) : sender.tab!.id!;
     if (!config.enabled || !config.panelVisible) await repository.save({ ...config, enabled: true, panelVisible: true });

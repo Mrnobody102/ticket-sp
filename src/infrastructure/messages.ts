@@ -5,7 +5,8 @@ export type Command =
   | { type: 'ENABLE'; enabled: boolean }
   | { type: 'PANEL'; visible: boolean }
   | { type: 'OPEN_EVENT' }
-  | { type: 'OPEN_DEMO' };
+  | { type: 'OPEN_DEMO' }
+  | { type: 'OPEN_WORKSPACE' };
 
 export async function command(message: Command): Promise<TaskConfig> {
   const reply = await chrome.runtime.sendMessage(message) as { config?: TaskConfig; error?: string } | undefined;

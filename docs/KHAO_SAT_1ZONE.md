@@ -2,6 +2,8 @@
 
 > Ngày đối chiếu: 17/10/2026. Mục tiêu người dùng là **Vương Bình tại Hà Nội**, 1–2 vé, không đặt trần ngân sách. URL TP.HCM và sơ đồ sự kiện khác dùng để nghiên cứu; không tự lưu chúng thành cấu hình mua vé.
 
+> **Cập nhật 18/10/2026, bản 0.3.0:** API tìm kiếm đã trả [Vương Bình Mâm 2 tại Hà Nội](https://ticket.1zone.vn/events/vuong-binh-tiec-thanh-than-mam-2?calendarId=8h0YGm), event `aAq6NT`, suất `8h0YGm`, tại Cung Thiếu nhi Hà Nội. Đã đọc hạng `HAI QUÝ - EB`, `BA THƯƠNG - EB`, `TƯ MẾN - EB`, `ÚT CƯNG - EB`; metadata ghi giờ diễn 11:00 ngày 21/11/2026, **chưa xác minh giờ mở bán**. Xem [nghiên cứu API](NGHIEN_CUU_API.md) cho giá, giới hạn và phạm vi tích hợp. Các mục khảo sát DOM dưới đây ghi lại lần quan sát trước đó.
+
 ## 1. Những gì đã kiểm tra được
 
 Đã mở sáu URL bằng Chromium với profile tạm, không đăng nhập, không click điều khiển của website và không gửi lệnh chọn/giữ vé. Báo cáo quan sát DOM nằm ở `artifacts/public-cases/`; đây là bằng chứng của lần quan sát, không phải dữ liệu tồn kho theo thời gian thực.
@@ -17,7 +19,7 @@
 
 Link Lavender người dùng gửi có dấu phẩy cuối `calendarId=UlSY5H,`. Lần khảo sát dùng `UlSY5H` vì coi dấu phẩy là dấu câu trong tin nhắn, và ghi rõ giả định này. Tool không tự bỏ dấu câu trong calendarId: ID sai vẫn phải được xem là suất khác.
 
-Tìm kiếm và các trang trên chưa cung cấp URL đã xác nhận cho suất Vương Bình Hà Nội ngày người dùng dự định thử. Không suy từ lịch biểu diễn của suất TP.HCM ra giờ bán Hà Nội.
+Ở lần khảo sát ngày 17/10, các trang trên chưa cung cấp URL suất Vương Bình Hà Nội. API search ở lần cập nhật 18/10 đã tìm được URL như ghi ở đầu tài liệu. Vẫn không suy từ lịch biểu diễn ra giờ bán.
 
 ## 2. Ảnh và sơ đồ giúp xây tool ở điểm nào?
 
@@ -71,7 +73,7 @@ Khi có link Hà Nội cần xác nhận lại bốn nhóm thông tin:
 - Bổ sung nhận diện câu hướng dẫn chọn vị trí chỗ ngồi; gặp canvas không đủ dữ liệu vẫn trả unsupported.
 - Thêm fixture cấu trúc thẻ giới thiệu và test hồi quy; không giả lập fixture đó là DOM của trang chọn ghế đã xác minh.
 
-Những sửa đổi này chưa bổ sung click zone, chọn ghế, điều khiển zoom/tầng, bộ đọc đồng hồ giữ chỗ hoặc xử lý phiên hết hạn. Chúng làm phần nhận diện đúng hơn; không biến bản MVP thành công cụ đặt vé tự động.
+Những sửa đổi ở lần khảo sát 0.1.0 chỉ cải thiện nhận diện. Từ 0.2.0 đã bổ sung executor chọn zone/một ghế DOM, số lượng và đi tới checkout; từ 0.3.0 có catalog API và preflight ID/giá. Chưa điều khiển zoom/tầng/canvas/iframe hoặc đọc đầy đủ đồng hồ giữ chỗ. Booking mục tiêu vẫn cần đối chiếu bằng phiên thật.
 
 ## 5. Phần cần quan sát tiếp
 
