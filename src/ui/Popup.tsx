@@ -14,6 +14,9 @@ import { EXTENSION_VERSION, verifyExtensionRuntime } from '../infrastructure/ext
 import { emptyBookingDraft, type BookingDraft } from '../core/booking-draft';
 import { clearBookingDraft, loadBookingDraft, saveBookingDraft } from '../infrastructure/booking-draft';
 
+const isOnSale = (value: LoadedConcert) => value.performance.saleStatus === 'OPEN' ||
+  (value.detail.performances.length === 1 && value.detail.status === 'OPEN');
+
 export function Popup({ workspace = false }: { workspace?: boolean }) {
   const [config, setConfig] = useState<TaskConfig>(DEFAULT_CONFIG);
   const [ready, setReady] = useState(false);
@@ -33,6 +36,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
   const [runtimeReady, setRuntimeReady] = useState(false);
   const [runtimeError, setRuntimeError] = useState('');
   const draftEvent = useRef('');
+  const presetPriorityPending = useRef(false);
   function edit(patch: Partial<BookingDraft>, markDirty = true) {
     const next = { ...formRef.current, ...patch }; formRef.current = next; setForm(next);
     if (markDirty) setDirty(true);
@@ -70,6 +74,9 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
           retainedCatalog: p.catalog, refreshAtSale: p.refreshAtSale === true, manualMode: !p.catalog && p.preferredZoneLabels.length > 0 };
       }
       if (savedDraft && baseKey.current === JSON.stringify(c.preferences)) { initial = savedDraft.form; setDirty(savedDraft.dirty); }
+      // Older drafts can contain OPEN detail without performance.saleStatus.
+      // An empty schedule must not prevent buying a show that is already on sale.
+      if (!initial.saleTime && initial.loaded && isOnSale(initial.loaded)) initial = { ...initial, immediate: true, refreshAtSale: false };
       draftEvent.current = initial.url; formRef.current = initial; setForm(initial); initialized.current = true;
       setReady(true);
     }).catch(() => { if (active) setError('Không đọc được cấu hình. Đóng và mở lại tiện ích.'); });
@@ -85,6 +92,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
   async function save(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError(''); setNotice('');
     try {
+      const startImmediately = immediate || (!saleTime && !!loaded && isOnSale(loaded));
       let catalog = retainedCatalog;
       if (!loaded && !catalog && !manualMode) throw new Error('Tải hạng vé từ sự kiện rồi chọn ít nhất một hạng ưu tiên.');
       if (loaded) {
@@ -98,13 +106,13 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
           }) };
       }
       const preferences = validatePreferences({
-        platform: platformForUrl(url.trim())?.id, eventUrl: url.trim(), saleStartAt: immediate ? new Date().toISOString() : fromVietnamLocal(saleTime),
-        ...(immediate ? { startMode: 'IMMEDIATE' } : {}), quantity: Number(quantity),
+        platform: platformForUrl(url.trim())?.id, eventUrl: url.trim(), saleStartAt: startImmediately ? new Date().toISOString() : fromVietnamLocal(saleTime),
+        ...(startImmediately ? { startMode: 'IMMEDIATE' } : {}), quantity: Number(quantity),
         maxTotalVnd: budget.trim() ? Number(budget) : undefined,
-        preferredZoneLabels: labels.split('\n').map(v => v.trim()).filter(Boolean), allowAlternatives: alternatives, catalog, refreshAtSale: !immediate && refreshAtSale,
+        preferredZoneLabels: labels.split('\n').map(v => v.trim()).filter(Boolean), allowAlternatives: alternatives, catalog, refreshAtSale: !startImmediately && refreshAtSale,
       });
       const saved = await command({ type: 'SAVE', preferences }); setConfig(saved); baseKey.current = JSON.stringify(saved.preferences);
-      const next = { ...formRef.current, retainedCatalog: catalog }; formRef.current = next; setForm(next); setDirty(false);
+      const next = { ...formRef.current, immediate: startImmediately, retainedCatalog: catalog }; formRef.current = next; setForm(next); setDirty(false);
       await clearBookingDraft().catch(() => undefined); // Saved preferences already invalidate an older draft's base key.
       setNotice('Đã lưu cấu hình.'); setAutoRun(null);
     } catch (e) { setError(e instanceof Error ? e.message : 'Không thể lưu cấu hình.'); }
@@ -131,15 +139,19 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
     const integration = platformForUrl(value.detail.url)?.integration;
     if (!integration) return;
     const target = integration.withPerformance(new URL(value.detail.url), value.performance.id);
-    edit({ url: target.href, loaded: value, retainedCatalog: undefined, selectedTickets: [], labels: '', manualMode: false,
-      ...(value.performance.saleStatus === 'OPEN' && !formRef.current.saleTime ? { immediate: true, refreshAtSale: false } : {}) });
-    setNotice(''); setError('');
+    const usePresetPriority = presetPriorityPending.current && isSameEvent(target.href, HANOI_PRESET.eventUrl);
+    presetPriorityPending.current = false;
+    const preferred = usePresetPriority ? value.catalog.tickets.filter(t => t.name === HANOI_PRESET.preferredTicketName) : [];
+    edit({ url: target.href, loaded: value, retainedCatalog: undefined, selectedTickets: preferred.length === 1 ? [preferred[0]!.id] : [], labels: '', manualMode: false,
+      ...(isOnSale(value) && !formRef.current.saleTime ? { immediate: true, refreshAtSale: false } : {}) });
+    setNotice(''); setError(usePresetPriority && preferred.length !== 1 ? 'Chưa tìm thấy đúng hạng HAI QUÝ - EB. Kiểm tra danh sách vé.' : '');
   }
   const running = autoActive(autoRun);
   const current = loaded?.detail.title ?? retainedCatalog?.title;
   const quantityLimit = catalogQuantityLimit(loaded?.performance.maxQuantity ?? retainedCatalog?.maxQuantity,
     loaded ? loaded.catalog.tickets.filter(t => selectedTickets.includes(t.id)) : retainedCatalog?.tickets ?? []);
   function useTarget() {
+    presetPriorityPending.current = true;
     draftEvent.current = HANOI_PRESET.eventUrl;
     edit({ url: HANOI_PRESET.eventUrl, saleTime: toVietnamLocal(HANOI_PRESET.saleStartAt), immediate: false, quantity: String(HANOI_PRESET.quantity),
       budget: '', alternatives: false, refreshAtSale: true, labels: '', manualMode: false, loaded: null, retainedCatalog: undefined, selectedTickets: [] });
@@ -165,7 +177,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
           <label>Số vé<input aria-label="Số vé" type="number" min="1" max={Math.min(100, quantityLimit ?? 100)} step="1" required value={quantity} onChange={e => edit({ quantity: e.target.value })} />{quantityLimit !== undefined && <small>Tối đa {quantityLimit}</small>}</label>
           <label>Bắt đầu<select aria-label="Cách bắt đầu camp" value={immediate ? 'IMMEDIATE' : 'SCHEDULED'} onChange={e => edit({ immediate: e.target.value === 'IMMEDIATE' })}><option value="SCHEDULED">Đúng giờ mở bán</option><option value="IMMEDIATE">Ngay khi bật camp</option></select></label>
         </div>
-        {!immediate && <label>Giờ mở bán · UTC+7<input aria-label="Giờ mở bán · giờ Việt Nam (UTC+7)" type="datetime-local" required value={saleTime} onChange={e => edit({ saleTime: e.target.value })} />{!saleTime && <small>Nguồn chưa cung cấp giờ mở bán. Nhập giờ ban tổ chức công bố.</small>}</label>}
+        {!immediate && <label>Giờ mở bán · UTC+7<input aria-label="Giờ mở bán · giờ Việt Nam (UTC+7)" type="datetime-local" required={!loaded || !isOnSale(loaded)} value={saleTime} onChange={e => edit({ saleTime: e.target.value })} />{!saleTime && <small>{loaded && isOnSale(loaded) ? 'Show đang bán. Để trống để camp ngay.' : 'Nguồn chưa cung cấp giờ mở bán. Nhập giờ ban tổ chức công bố.'}</small>}</label>}
         <details className="event-link" open={!current}><summary>Link sự kiện</summary><label><span className="sr-only">Link concert</span><input type="url" required value={url} onChange={e => { draftEvent.current = ''; edit({ url: e.target.value, loaded: null, retainedCatalog: undefined, manualMode: false, immediate: false, saleTime: '', selectedTickets: [] }); }} placeholder="https://ticket.1zone.vn/events/…" /></label><button type="button" className="subtle-button" disabled={!url.trim()} onClick={reloadTickets}>Tải chi tiết từ link</button></details>
         <details className="extra-settings"><summary>Ngân sách và cách chọn vé</summary>
           <label>Tổng ngân sách (VNĐ)<input type="number" min="1" step="1" value={budget} onChange={e => edit({ budget: e.target.value })} placeholder="Không giới hạn" /></label>

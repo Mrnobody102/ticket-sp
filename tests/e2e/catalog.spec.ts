@@ -200,6 +200,30 @@ test('show đã mở mặc định camp ngay, không nhập ngày giờ và đi 
   await expect.poll(() => worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1']?.progress.phase)).toBe('CHECKOUT');
 });
 
+test('bản nháp OPEN cũ thiếu giờ và saleStatus: mở lại camp ngay, lưu được không nhập ngày', async () => {
+  const mocks = defaults(); mocks[1]!.body = flightHtml({ ...eventData, status: 'OPEN', canPurchase: true }); await mockCatalog(mocks);
+  let page = await workspace();
+  await page.getByLabel('Tìm concert', { exact: true }).fill('Vương Bình');
+  await page.getByRole('button', { name: 'Tìm', exact: true }).click(); await page.locator('.event-result').click();
+  await page.getByLabel('Thêm hạng vé ưu tiên').selectOption('vip-test');
+  await page.close();
+  await worker.evaluate(async () => {
+    const key = 'ticket-assistant.booking-draft.v1';
+    const draft = (await chrome.storage.local.get(key))[key];
+    draft.form.immediate = false; draft.form.saleTime = '';
+    delete draft.form.loaded.performance.saleStatus;
+    await chrome.storage.local.set({ [key]: draft });
+  });
+  page = await workspace();
+  await expect(page.getByLabel('Cách bắt đầu camp')).toHaveValue('IMMEDIATE');
+  await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveCount(0);
+  await page.getByLabel('Cách bắt đầu camp').selectOption('SCHEDULED');
+  await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).not.toHaveAttribute('required');
+  await page.getByRole('button', { name: 'Lưu cấu hình', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('Đã lưu');
+  expect(await worker.evaluate(async () => (await chrome.storage.local.get('ticket-assistant.config.v1'))['ticket-assistant.config.v1'].preferences.startMode)).toBe('IMMEDIATE');
+});
+
 test('bản nháp khi đang camp không sửa số vé hoặc hủy phiên đang chạy', async () => {
   await context.route(/^https:\/\/ticket\.1zone\.vn\//, route => route.fulfill({ contentType: 'text/html', body:
     '<!doctype html><meta charset="utf-8"><h1>Sắp mở bán</h1><button data-id="btn-by-ticket" disabled>Sắp mở bán</button>' }));
@@ -219,10 +243,10 @@ test('bản nháp khi đang camp không sửa số vé hoặc hủy phiên đang
   expect(actual.run.progress.phase).toBe('READY');
 });
 
-test('cấu hình nhanh Hà Nội tự điền link, 12h và 1 vé; chỉ chọn hạng rồi lưu, chưa tự arm', async () => {
+test('cấu hình nhanh Hà Nội chọn HAI QUÝ, 12h và 1 vé; chỉ lưu, chưa tự arm', async () => {
   const mocks = defaults();
   mocks.unshift({ path: '/events/vuong-binh-tiec-thanh-than-mam-2', body: flightHtml({ ...eventData, id: 'aAq6NT', pathName: 'vuong-binh-tiec-thanh-than-mam-2', eventCalendar: [{ ...calendar('8h0YGm'), eventId: 'aAq6NT' }] }), text: true });
-  mocks.unshift({ path: '/get-summary-event/aAq6NT?', body: ticketReply([{ ...ticketData, eventId: 'aAq6NT', calendarId: '8h0YGm' }]) });
+  mocks.unshift({ path: '/get-summary-event/aAq6NT?', body: ticketReply([{ ...ticketData, name: 'HAI QUÝ - EB', finalPriceVn: 2996000, eventId: 'aAq6NT', calendarId: '8h0YGm' }]) });
   await mockCatalog(mocks);
   const page = await workspace();
   await expect(page.locator('.target-shortcut strong')).toHaveText(HANOI_PRESET.title);
@@ -230,7 +254,7 @@ test('cấu hình nhanh Hà Nội tự điền link, 12h và 1 vé; chỉ chọn
   await expect(page.getByLabel('Link concert')).toHaveValue(HANOI_PRESET.eventUrl);
   await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('2026-10-18T12:00');
   await expect(page.getByLabel('Số vé', { exact: true })).toHaveValue('1');
-  await page.getByLabel('Thêm hạng vé ưu tiên').selectOption('vip-test');
+  await expect(page.locator('.ticket-priorities li')).toContainText('HAI QUÝ - EB');
   await expect(page.getByLabel('Số vé', { exact: true })).toHaveAttribute('max', '2');
   await page.getByLabel('Số vé', { exact: true }).fill('3');
   expect(await page.getByLabel('Số vé', { exact: true }).evaluate((e: HTMLInputElement) => e.validity.rangeOverflow)).toBe(true);
@@ -239,11 +263,12 @@ test('cấu hình nhanh Hà Nội tự điền link, 12h và 1 vé; chỉ chọn
   await expect(page.getByRole('status')).toContainText('Đã lưu');
   const saved = await worker.evaluate(async () => (await chrome.storage.local.get('ticket-assistant.config.v1'))['ticket-assistant.config.v1']);
   expect(saved.preferences.refreshAtSale).toBe(true); expect(saved.preferences.maxTotalVnd).toBeUndefined();
+  expect(saved.preferences.preferredZoneLabels).toEqual(['HAI QUÝ - EB']);
   expect(await worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1'])).toBeUndefined();
   await page.reload();
   await expect(page.getByLabel('Số vé', { exact: true })).toHaveAttribute('max', '2');
   await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('2026-10-18T12:00');
-  await expect(page.locator('.saved-tickets')).toContainText('VIP');
+  await expect(page.locator('.saved-tickets')).toContainText('HAI QUÝ - EB');
   await page.locator('.setup-form').evaluate(e => { e.scrollTop = 0; });
   await page.screenshot({ path: 'artifacts/hanoi-preset.png', fullPage: true });
 });

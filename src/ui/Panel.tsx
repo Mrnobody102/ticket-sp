@@ -64,7 +64,8 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
           {onStartAuto && autoRun?.progress.phase !== 'CHECKOUT' && <button className={running ? 'danger-button' : 'primary'} disabled={!p || (autoBusy && !running)} onClick={running ? onStopAuto : onStartAuto}>{running ? 'Dừng camp' : 'Bắt đầu camp'}</button>}
         </div>}
         {!rehearsal && <p className={`event-match ${sameEvent ? 'ok' : ''}`}>{sameEvent ? 'Đúng link / suất đã lưu' : 'Chưa khớp sự kiện đã lưu'}</p>}
-        {!rehearsal && !(running && (routineScreen || snapshot.state === 'CHALLENGE')) && <p className="reason">{snapshot.reason}</p>}
+        {!rehearsal && !(running && (routineScreen || snapshot.state === 'CHALLENGE')) &&
+          !(autoRun?.progress.phase === 'PAUSED' && autoRun.progress.message === snapshot.reason) && <p className="reason">{snapshot.reason}</p>}
         {p && <>
           <div className="metrics"><span><b>{p.quantity}</b> vé</span><span>{p.maxTotalVnd ? money(p.maxTotalVnd) : 'Không giới hạn ngân sách'}</span></div>
           {snapshot.selectionMode !== 'UNKNOWN' && <p className="muted">{modeLabels[snapshot.selectionMode]}</p>}

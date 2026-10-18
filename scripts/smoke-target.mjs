@@ -11,10 +11,7 @@ try {
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
   const setup = await context.newPage(); await setup.goto(`chrome-extension://${new URL(worker.url()).host}/workspace.html`);
   await setup.getByRole('button', { name: /^Chuẩn bị TIỆC/ }).click();
-  const picker = setup.getByLabel('Thêm hạng vé ưu tiên');
-  const quote = await picker.locator('option').filter({ hasText: 'HAI QUÝ - EB' }).getAttribute('value');
-  if (!quote) throw new Error('Expected target tier not present; inspect catalog instead of guessing.');
-  await picker.selectOption(quote);
+  await setup.locator('.ticket-priorities li').filter({ hasText: 'HAI QUÝ - EB' }).waitFor({ timeout: 20000 });
   await setup.getByRole('button', { name: 'Lưu cấu hình' }).click();
   const page = await context.newPage(); await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.locator('.status-line').waitFor({ timeout: 15000 });
