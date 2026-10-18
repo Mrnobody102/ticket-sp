@@ -14,23 +14,29 @@ test('đo từ mở CTA tới checkout qua extension production, không gọi we
     const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
     const metadata = flightHtml({ id: 'bench-event', name: 'Diễn tập', pathName: 'bench-camp', address: 'Hà Nội', currencyCode: 'VND', eventCalendar: [{ ...calendar(), eventId: 'bench-event' }] });
     await worker.evaluate(html => {
-      globalThis.fetch = async input => String(input).startsWith('https://ticket.1zone.vn/events/bench-camp') ? new Response(html) : String(input).includes('/get-summary-event/bench-event?') ? new Response(JSON.stringify({ errorCode: 0, data: [{ eventId: 'bench-event', calendarId: 'HN', ticketClassId: 'bench-hai', name: 'HAI QUÝ - EB', finalPriceVn: 2996000, seatType: 'auto', maxTicketPerUser: 2 }] })) : Promise.reject(new Error('Benchmark forbids external requests'));
+      globalThis.fetch = async input => {
+        const url = String(input);
+        if (url.startsWith('https://ticket.1zone.vn/events/bench-camp')) return new Response(html);
+        if (url.includes('/get-summary-event/bench-event/zones?')) return new Response(JSON.stringify({ errorCode: 0, data: [1, 2].map(index => ({ id: `bench-zone-${index}`, name: `HAI QUÝ ${index}`, ticketClassId: 'bench-hai', eventId: 'bench-event', calendarId: 'HN' })) }));
+        if (url.includes('/get-summary-event/bench-event?')) return new Response(JSON.stringify({ errorCode: 0, data: [{ eventId: 'bench-event', calendarId: 'HN', ticketClassId: 'bench-hai', name: 'HAI QUÝ - EB', zoneName: 'HAI QUÝ 2', ticketType: 'seatmap_zone', finalPriceVn: 2996000, seatType: 'auto', maxTicketPerUser: 2 }] }));
+        throw new Error('Benchmark forbids external requests');
+      };
     }, metadata);
     let body = '';
     await context.route('https://ticket.1zone.vn/**', route => route.fulfill({ contentType: 'text/html', body }));
     const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
-    const fixture = readFileSync('fixtures/onezone-modal.html', 'utf8');
+    const fixture = readFileSync('fixtures/onezone-modal.html', 'utf8').replaceAll('HAI QUÝ - EB', 'HAI QUÝ 1');
     for (const delayMs of [0, 100]) {
       // First trial in each scenario is a warmup, then collect 12 independent runs.
       for (let index = 0; index < 13; index++) {
         await worker.evaluate(async () => { await chrome.storage.session.clear(); });
-        body = fixture.replace('<div id="ticket-list">', '<h2 id="gate">Sắp mở bán</h2><button data-id="btn-by-ticket" disabled>Sắp mở bán</button><button data-sticky disabled>Sắp mở bán</button><div id="ticket-list" hidden>') + `<script>(${installOnezoneDemo.toString()})(document,{checkoutDelayMs:${delayMs}})</script>`;
+        body = fixture.replace('<div id="ticket-list">', '<h2 id="gate">Sắp mở bán</h2><button data-id="btn-by-ticket" disabled>Sắp mở bán</button><button data-sticky disabled>Sắp mở bán</button><div id="ticket-list" hidden>') + `<script>(${installOnezoneDemo.toString()})(document,{checkoutDelayMs:${delayMs},displayName:'HAI QUÝ 1'})</script>`;
         await page.goto(url);
         const saleAt = Date.now() + 500;
         await worker.evaluate(async ({ saleAt, url, startsAt }) => {
           await chrome.storage.local.set({ 'ticket-assistant.config.v1': { schemaVersion: 1, enabled: true, panelVisible: true, preferences: {
             platform: 'onezone', eventUrl: url, saleStartAt: new Date(saleAt).toISOString(), quantity: 1, preferredZoneLabels: ['HAI QUÝ - EB'], allowAlternatives: false,
-            catalog: { eventId: 'bench-event', performanceId: 'HN', title: 'Diễn tập', venue: 'Cung Thiếu nhi Hà Nội', startsAt, verifiedAt: Date.now(), tickets: [{ id: 'bench-hai', name: 'HAI QUÝ - EB', priceVnd: 2996000, seatMode: 'AUTO' }] },
+            catalog: { eventId: 'bench-event', performanceId: 'HN', title: 'Diễn tập', venue: 'Cung Thiếu nhi Hà Nội', startsAt, verifiedAt: Date.now(), tickets: [{ id: 'bench-hai', name: 'HAI QUÝ - EB', priceVnd: 2996000, seatMode: 'AUTO', zones: [1, 2].map(index => ({ id: `bench-zone-${index}`, name: `HAI QUÝ ${index}` })) }] },
           } } });
         }, { saleAt, url, startsAt: calendar().startDate });
         await page.evaluate(({ saleAt, delayMs }) => {

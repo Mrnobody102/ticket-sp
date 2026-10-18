@@ -14,7 +14,15 @@ label { display: grid; gap: 6px; font-size: 12px; font-weight: 600; }
 small, .muted { color: #626d7c; font-size: 11px; line-height: 1.5; font-weight: 400; }
 p { line-height: 1.5; }
 h2 { font-size: 14px; font-weight: 650; }
-summary { cursor: pointer; font-size: 12px; color: #505e70; }
+summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 10px 0; cursor: pointer; list-style: none; font-size: 14px; font-weight: 600; color: #344155; }
+summary::marker { content: ''; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: '+'; display: grid; place-items: center; width: 24px; height: 24px; flex-shrink: 0; border: 1px solid #d3dbe6; border-radius: 4px; font-size: 18px; font-weight: 400; color: #42536d; }
+details[open] > summary::after { content: '−'; }
+.setup-form > details { border-top: 1px solid #e1e6ed; }
+.setup-form :is(label, .checkbox-label) { font-size: 13px; line-height: 1.5; }
+.setup-form input, .setup-form textarea, .setup-form select { font-size: 14px; }
+.setup-form small { font-size: 12px; }
 .error { color: #9e302c; background: #fff2f1; border: 1px solid #f0ccc8; border-radius: 5px; padding: 9px; font-size: 12px; }
 .success { color: #287143; font-size: 12px; margin: 0; }
 .primary { background: #2458ae; color: #fff; border-color: #2458ae; }
@@ -38,14 +46,15 @@ summary { cursor: pointer; font-size: 12px; color: #505e70; }
 .setup-form { display: grid; gap: 12px; align-content: start; min-width: 0; }
 .booking-fields { display: grid; grid-template-columns: 76px minmax(0,1fr); gap: 12px; }
 .booking-fields label { align-content: start; }
-.booking-fields input { font-size: 12px; padding-inline: 7px; }
+.booking-fields input { padding-inline: 7px; }
 .event-link > label { margin-top: 8px; }
 .section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .section-title h2 { margin: 0; }
 .section-title span { font-size: 10px; color: #7a8492; }
 .setup-form > .section-title { margin-bottom: 0; }
 .field-row { display: grid; grid-template-columns: 90px minmax(0,1fr); gap: 12px; }
-.checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 400; }
+.checkbox-label { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; font-weight: 400; }
+.checkbox-label input { margin-top: 3px; }
 .button-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
 .button-row > button { flex: 1; }
 .manual-preferences label { margin-top: 10px; }
@@ -150,5 +159,9 @@ summary { cursor: pointer; font-size: 12px; color: #505e70; }
 .diagnostic-fixtures { margin-bottom: 16px; font-size: 12px; }
 .diagnostic-fixtures label { max-width: 320px; }
 .diagnostic-fixtures p { color: #5c6879; }
-.demo iframe { width: 100%; height: clamp(460px, calc(100vh - 260px), 640px); border: 1px solid #dbe1e8; border-radius: 6px; background: #fff; }
+.rehearsal-gate { display: flex; align-items: center; gap: 20px; padding: 12px 16px; border: 1px solid #dbe1e8; border-radius: 5px; background: #fff; margin-bottom: 12px; }
+.rehearsal-gate p { flex: 1; margin: 0; font-size: 14px; }
+.rehearsal-gate button { flex-shrink: 0; }
+.rehearsal-limit { font-size: 12px; color: #5c6879; }
+.demo iframe { width: 100%; height: clamp(460px, calc(100vh - 340px), 640px); border: 1px solid #dbe1e8; border-radius: 6px; background: #fff; }
 @media(max-width: 800px) { .workspace { width: 100%; margin: 0; border: 0; border-radius: 0; height: 100vh; min-height: 0; } .workspace .setup-grid { grid-template-columns: minmax(0,1fr); grid-template-rows: auto; align-content: start; overflow-y: auto; } .workspace .event-finder { border: 0; padding-right: 0; } .workspace .event-finder, .workspace .setup-form { overflow: visible; } }

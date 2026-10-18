@@ -5,6 +5,7 @@ import { openEventTab } from './event-tab';
 import { repository } from './storage';
 import { getCatalogProvider } from './catalog-service';
 import { verifyCatalogSelection } from '../core/catalog-validation';
+import { ensureEventRuntime } from './event-runtime';
 
 export const AUTO_KEY = 'ticket-assistant.auto.session.v1';
 export async function readAutoRun(): Promise<AutoRun | null> {
@@ -53,6 +54,7 @@ export async function handleAutoCommand(message: AutoCommand, sender: chrome.run
     }
     if (!extensionPage && (!sender.tab?.url || !isSameEvent(sender.tab.url, p.eventUrl))) throw new Error('Mở đúng concert/suất đã lưu trước khi bắt đầu camp.');
     const tabId = extensionPage ? await openEventTab(p.eventUrl) : sender.tab!.id!;
+    if (extensionPage) await ensureEventRuntime(tabId);
     if (!config.enabled || !config.panelVisible) await repository.save({ ...config, enabled: true, panelVisible: true });
     const next: AutoRun = {
       id: crypto.randomUUID(), tabId, revision: 0, preferencesKey: preferencesKey(p), startedAt: Date.now(),

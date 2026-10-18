@@ -17,8 +17,15 @@ beforeEach(() => {
   });
   vi.stubGlobal('chrome', { storage: { local: area(local), session: area(session) }, tabs: { sendMessage: vi.fn(async () => undefined) }, runtime: { getURL: (path: string) => `chrome-extension://ext${path}` } });
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe('khóa phiên và CAS tại background', () => {
+  it('bật trước giờ bán một ngày: hết phiên một giờ sau giờ bán, không sau lúc bật', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-18T05:00:00Z'));
+    const config = local[CONFIG_KEY] as TaskConfig;
+    config.preferences = { ...prefs, saleStartAt: '2026-10-19T05:00:00Z' };
+    const run = await handleAutoCommand({ type: 'AUTO_START' }, sender);
+    expect(run?.expiresAt).toBe(Date.parse('2026-10-19T06:00:00Z'));
+  });
   it('một tab sở hữu; tab khác không lấy hoặc ghi đè phiên', async () => {
     const run = await handleAutoCommand({ type: 'AUTO_START' }, sender);
     expect(run?.tabId).toBe(1);

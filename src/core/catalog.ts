@@ -23,11 +23,13 @@ export interface ConcertDetail extends ConcertSummary {
   currency: string;
   requiresQueue?: boolean;
 }
+export interface TicketZone { id: string; name: string }
 export interface TicketType {
   id: string;
   name: string;
   priceVnd: number;
   zoneName?: string;
+  zones?: TicketZone[];
   maxQuantity?: number;
   available?: number;
   seatMode: 'AUTO' | 'PICK' | 'UNKNOWN';
@@ -47,7 +49,7 @@ export interface CatalogSelection {
   startsAt: string;
   verifiedAt: number;
   maxQuantity?: number;
-  tickets: (Pick<TicketType, 'id' | 'name' | 'priceVnd'> & Partial<Pick<TicketType, 'seatMode' | 'maxQuantity' | 'zoneName'>>)[];
+  tickets: (Pick<TicketType, 'id' | 'name' | 'priceVnd'> & Partial<Pick<TicketType, 'seatMode' | 'maxQuantity' | 'zoneName' | 'zones'>>)[];
 }
 export interface ConcertSearchResult {
   items: ConcertSummary[];

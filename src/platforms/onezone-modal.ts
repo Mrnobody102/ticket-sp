@@ -31,6 +31,8 @@ export function readOnezoneModal(document: Document, p: EventPreferences, reader
     const names = p.catalog.tickets.filter(q => [...root.querySelectorAll('p,h3,span')].some(e => reader.isVisible(e) && ticketHasLabel(q, reader.text(e))));
     if (names.length !== 1) return;
     const quote = names[0]!;
+    const physical = quote.zones?.filter(z => [...root.querySelectorAll('p,h3,span')].some(e => reader.isVisible(e) && normalize(reader.text(e)) === normalize(z.name))) ?? [];
+    if (physical.length > 1) return;
     const stepper = plus[0]!.parentElement!;
     const valueNodes = [...stepper.children].filter(e => e.tagName === 'SPAN' && /^\d{1,3}$/.test(reader.text(e)));
     if (valueNodes.length !== 1) return;
@@ -41,7 +43,7 @@ export function readOnezoneModal(document: Document, p: EventPreferences, reader
     if (new Set(amounts).size !== 1 || amounts[0] !== quote.priceVnd) return;
     const disabled = (e: HTMLElement) => e.matches(':disabled,[aria-disabled="true"]');
     return {
-      entry: { element: root, option: { id: `onezone-modal-${quote.id}`, kind: 'ZONE', label: quote.name, ticketTypeId: quote.id, displayedPriceVnd: quote.priceVnd, displayedAvailability: 'AVAILABLE', selected: true } },
+      entry: { element: root, option: { id: `onezone-modal-${quote.id}`, kind: 'ZONE', label: quote.name, ticketTypeId: quote.id, zoneLabel: physical[0]?.name, displayedPriceVnd: quote.priceVnd, displayedAvailability: 'AVAILABLE', selected: true } },
       quantity: { value, min: 1, max: disabled(plus[0]!) ? value : 100, writable: !disabled(plus[0]!) || !disabled(minus[0]!), stepper: true },
       valueElement: valueNodes[0]! as HTMLElement, increase: plus[0]!, decrease: minus[0]!, advance,
     };

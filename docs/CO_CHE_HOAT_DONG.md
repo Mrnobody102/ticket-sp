@@ -1,4 +1,8 @@
-# Cơ chế camp vé · bản 0.5.0
+# Cơ chế camp vé · bản 0.5.1
+
+0.5.1 xử lý queue sau bước vào mua: OPENING → queue thì trở về READY để chờ; khi được trả về event có thể vào mua tiếp. Không reset ADVANCING vì đó có thể là yêu cầu giữ vé chưa rõ kết quả. START/STOP có trạng thái đang chờ: tránh gửi START hai lần, không nhận lại progress revision cũ, không để phản hồi START muộn ghi đè phiên đã tiến bước hoặc vừa dừng. STOP ngắt hành động cục bộ trước khi chờ worker. Các kiểm tra này không thêm request vào từng click.
+
+Popup không sở hữu vòng lặp chọn vé nên đóng popup vẫn chạy trên tab chủ. Máy ngủ/đóng băng tab làm gián đoạn timer; Chrome điện thoại không hỗ trợ cài bản này. Hướng dẫn vận hành ngắn nằm ở [CHUAN_BI_19_10.md](CHUAN_BI_19_10.md).
 
 0.5.0 giữ nguyên core/runner và tách việc nhận diện tên vé vào `core/ticket-identity.ts`: ID nếu có; nếu không thì tên hạng hoặc zone chính xác từ cùng bản ghi API, kèm giá. Lưu `zoneName` và kiểm tra lại khi bật camp. Ảnh có alt/ARIA, SVG có role và title/ARIA được đọc như điều khiển; SVG dùng bubbling MouseEvent vì không có HTMLElement.click. Không OCR hoặc bấm theo tọa độ.
 
@@ -15,6 +19,10 @@ Bản hiện tại kết nối **tìm sự kiện → chọn đúng suất/hạn
 0.4.2 bắt lỗi đọc phiên lúc khởi tạo content bằng `Promise.allSettled`. Nếu không đọc được cấu hình hoặc phiên, panel hiển thị lỗi và không tạo runner. Lỗi quyền kiểu worker cũ chỉ được đổi thành hướng dẫn Reload với các lệnh AUTO hợp lệ; quyền SAVE từ content vẫn bị chặn. UI gom thông tin sự kiện, đặt hạng/số lượng/giờ trước, giữ Lưu/Bắt đầu ở footer. `public/huong-dan.html` là hướng dẫn tĩnh, dùng được trong extension và mở trực tiếp sau giải nén.
 
 ## 1. Đầu vào và đầu ra
+
+Bản 0.5.1 còn kiểm tra phiên bản content script trong tab vé trước khi bật từ popup. Tab chưa nạp mã mới không được báo là đã camp. Kiểm tra kết nối này chỉ chạy khi bắt đầu, không nằm trên đường chọn vé. API `/zones` bổ sung đủ 12 khu của 4 hạng cho suất Hà Nội; khi đã chọn khu cụ thể, modal phải khớp khu ấy.
+
+Diễn tập dùng cùng adapter, state machine và runner nhưng có transport lưu trong bộ nhớ, website tổng hợp và không gọi mạng đặt vé. Ba tình huống cho thấy mua bình thường, chờ website cho vào, và tạm dừng để xác minh. Nút “Cho vào chọn vé”/“Đã xác minh · chạy tiếp” chỉ điều khiển bài mô phỏng; bản thật chờ website và người dùng tương ứng. Không dùng kết quả diễn tập làm bằng chứng đã giữ được vé trên server.
 
 Đầu vào gồm nền tảng, link concert/suất, giờ mở bán, số vé, ngân sách tổng và thứ tự zone/hạng vé. Mặc định **1 vé**, ngân sách trống. Cấu hình cũ được giữ đúng lựa chọn đã lưu.
 

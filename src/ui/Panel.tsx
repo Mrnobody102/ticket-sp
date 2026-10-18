@@ -28,9 +28,11 @@ interface Props {
   onStartAuto?: () => void;
   onStopAuto?: () => void;
   rehearsal?: boolean;
+  background?: boolean;
+  autoBusy?: boolean;
 }
 
-export function Panel({ config, snapshot, recommendations: options, error, onRescan, onStop, onHide, onOpen, autoRun, onStartAuto, onStopAuto, rehearsal }: Props) {
+export function Panel({ config, snapshot, recommendations: options, error, onRescan, onStop, onHide, onOpen, autoRun, onStartAuto, onStopAuto, rehearsal, background, autoBusy }: Props) {
   const [now, setNow] = useState(Date.now());
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
@@ -51,11 +53,11 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
         <small>{new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }).format(new Date(p.saleStartAt))}</small>
       </div>}
       <div className="panel-body">
-        {(onStartAuto || autoRun) && <div className="auto-status" role="status" data-auto-phase={autoRun?.progress.phase}>
+        {(onStartAuto || autoRun) && <div className="auto-status" role="status" data-auto-phase={autoRun?.progress.phase} data-auto-pending={autoBusy ? 'true' : 'false'}>
           <b>{autoRun ? phaseLabels[autoRun.progress.phase] : 'Camp tới thanh toán'}</b>
           {autoRun && <p>{autoRun.progress.message}</p>}
           {autoRun?.progress.checkoutReachedAt && autoRun.progress.selectionStartedAt && <p>Chọn vé → thanh toán: {((autoRun.progress.checkoutReachedAt - autoRun.progress.selectionStartedAt) / 1000).toFixed(2)} giây (phiên này).</p>}
-          {onStartAuto && <button className={autoActive(autoRun ?? null) ? 'danger-button' : 'primary'} disabled={!p} onClick={autoActive(autoRun ?? null) ? onStopAuto : onStartAuto}>{autoActive(autoRun ?? null) ? 'Dừng camp' : 'Bắt đầu camp'}</button>}
+          {onStartAuto && <button className={autoActive(autoRun ?? null) ? 'danger-button' : 'primary'} disabled={!p || (autoBusy && !autoActive(autoRun ?? null))} onClick={autoActive(autoRun ?? null) ? onStopAuto : onStartAuto}>{autoActive(autoRun ?? null) ? 'Dừng camp' : 'Bắt đầu camp'}</button>}
         </div>}
         {!rehearsal && <p className={`event-match ${sameEvent ? 'ok' : ''}`}>{sameEvent ? 'Đúng link / suất đã lưu' : 'Chưa khớp sự kiện đã lưu'}</p>}
         {!rehearsal && <p className="reason">{snapshot.reason}</p>}
@@ -69,12 +71,12 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
         {options.length > 0 ? <div className="recommendations">
           <span className="eyebrow">LỰA CHỌN PHÙ HỢP ĐANG HIỂN THỊ</span>
           {options.slice(0, 4).map(({ option, estimatedTotalVnd }, i) => <div className="recommendation" key={option.id}>
-            <span className="rank">{i + 1}</span><div><b>{option.label}</b>{option.kind === 'SEAT' && <small>Ghế cụ thể{option.zoneLabel ? ` · ${option.zoneLabel}` : ''}</small>}<small>{estimatedTotalVnd === undefined ? 'Website chưa hiển thị giá rõ ràng' : `${money(estimatedTotalVnd)} / ${p?.quantity} vé · chưa tính phí`}</small></div>
+            <span className="rank">{i + 1}</span><div><b>{option.label}</b>{option.kind === 'SEAT' ? <small>Ghế cụ thể{option.zoneLabel ? ` · ${option.zoneLabel}` : ''}</small> : option.zoneLabel && <small>{option.zoneLabel}</small>}<small>{estimatedTotalVnd === undefined ? 'Website chưa hiển thị giá rõ ràng' : `${money(estimatedTotalVnd)} / ${p?.quantity} vé · chưa tính phí`}</small></div>
           </div>)}
         </div> : snapshot.state === 'SELECTING' && <p className="muted">Chưa có lựa chọn khớp đủ điều kiện. Kiểm tra hạng vé, giá và số lượng trực tiếp.</p>}
         {error && <p role="alert" className="error">{error}</p>}
         {!rehearsal && <div className="panel-actions"><button onClick={onRescan}>Nhận diện lại</button><button onClick={onOpen}>Mở concert</button><button className="danger-button" disabled={!config.enabled} onClick={onStop}>Dừng</button></div>}
-        {!rehearsal && <p className="footnote">Giữ Chrome mở và máy thức.</p>}
+        {!rehearsal && <p className="footnote">{background && autoActive(autoRun ?? null) ? 'Đưa tab vé ra phía trước để tránh chậm giờ.' : 'Giữ tab vé ở phía trước và máy thức.'}</p>}
       </div>
     </>}
   </aside>;

@@ -1,12 +1,14 @@
 # Camp vé · Ticket Assistant
 
-Chrome Extension MV3, mặc định **1 vé**, ngân sách không giới hạn. Luồng chính: **tìm sự kiện → chọn suất/hạng → đặt số vé/giờ → lưu → bắt đầu camp**. Bản **0.5.0** sửa đối chiếu tên hạng/zone, thêm đọc điều khiển có ảnh/SVG mang nhãn, đơn giản hóa diễn tập và tách bộ gửi bạn bè khỏi gói Web Store.
+Chrome Extension MV3 trên máy tính, mặc định **1 vé**, ngân sách không giới hạn. Luồng chính: **tìm sự kiện → chọn suất/hạng → đặt số vé/giờ → lưu → bắt đầu camp**. **0.5.1** bổ sung queue trả về trang event, bảo vệ START/STOP khỏi phản hồi muộn và kiểm thử vòng đời worker. Giữ các sửa của 0.5.0 về tên hạng/zone, ảnh/SVG có nhãn, diễn tập và đóng gói.
+
+Đóng popup vẫn camp; giữ tab vé ở phía trước và máy thức. Không hỗ trợ Chrome điện thoại. Phiên tự dừng ở checkout, tạm dừng khi cần xử lý, hoặc hết hạn một giờ sau mốc muộn hơn giữa lúc bật và giờ bán. Xem [cách dùng cho ngày 19/10](docs/CHUAN_BI_19_10.md).
 
 **1Zone** có nguồn dữ liệu và adapter camp; **Ticketbox** chỉ tra cứu; **CTicket** chưa kết nối. Preset [Vương Bình Hà Nội](https://ticket.1zone.vn/events/vuong-binh-tiec-thanh-than-mam-2?calendarId=8h0YGm) đặt **12:00 ngày 19/10/2026 UTC+7**, theo thời gian người dùng xác nhận. Trang hiện chưa mở bán; booking thật chưa được xác minh. Xem [chuẩn bị và cách test](docs/SAN_SANG_MO_BAN.md).
 
 ## Cài bản gửi bạn bè
 
-Nhận **`Camp-ve-0.5.0.zip`**, giải nén và mở **`BAT-DAU.html`**. Trong Chrome → `chrome://extensions` → Developer mode → Load unpacked, chọn thư mục **`tien-ich`**. Không cần source, Node.js hoặc npm. Mỗi người tự đăng nhập website trên Chrome của mình.
+Nhận **`Camp-ve-0.5.1.zip`**, giải nén và mở **`BAT-DAU.html`**. Trong Chrome → `chrome://extensions` → Developer mode → Load unpacked, chọn thư mục **`tien-ich`**. Không cần source, Node.js hoặc npm. Mỗi người tự đăng nhập website trên Chrome của mình.
 
 Mở tool → **Diễn tập** → chọn số vé → **Chạy thử**. Kết quả cần thấy: **Đã tới thanh toán** và đúng số vé. **Làm lại** đặt lại bài thử; các màn queue/CAPTCHA/canvas nằm trong phần kiểm tra riêng.
 
@@ -26,7 +28,7 @@ npm run build
 3. Ghim icon **Camp vé**. Sau mỗi lần build/reload extension, tải lại tab website.
 4. **Diễn tập** → chọn số vé → **Chạy thử**.
 
-`npm run zip` tạo `.output/ticket-sp-0.5.0-chrome.zip`. Git chỉ lưu source/lockfile, không lưu output hay dữ liệu test.
+`npm run zip` tạo `.output/ticket-sp-0.5.1-chrome.zip`. Git chỉ lưu source/lockfile, không lưu output hay dữ liệu test.
 
 ### Tạo bản phát hành · dành cho người phát triển
 
@@ -34,7 +36,7 @@ npm run build
 npm run release
 ```
 
-Hoặc chạy workflow **Build tested extension** trong GitHub Actions. Đầu ra gồm **`.output/Camp-ve-0.5.0.zip`** để gửi, ZIP riêng để upload Web Store, `SHA256SUMS.txt` và `release.json`. Không gửi repo hoặc yêu cầu người nhận chạy lệnh build. Hướng dẫn cũng có trong menu tool. [Nội dung chuẩn bị Web Store](docs/WEB_STORE.md).
+Hoặc chạy workflow **Build tested extension** trong GitHub Actions. Đầu ra gồm **`.output/Camp-ve-0.5.1.zip`** để gửi, ZIP riêng để upload Web Store, `SHA256SUMS.txt` và `release.json`. Không gửi repo hoặc yêu cầu người nhận chạy lệnh build. Hướng dẫn cũng có trong menu tool. [Nội dung chuẩn bị Web Store](docs/WEB_STORE.md).
 
 ### Cập nhật khi đang nạp `.output/chrome-mv3`
 
@@ -42,7 +44,8 @@ Build mới chỉ thay file trên đĩa; Chrome có thể vẫn chạy tiến tr
 
 1. Đóng popup và tab cấu hình cũ. Mở `chrome://extensions`.
 2. Ở **Camp vé · 1Zone Assistant**, bấm biểu tượng **Tải lại / Reload**.
-3. Mở lại tiện ích, kiểm tra **v0.5.0** ở cửa sổ cấu hình và panel trên tab 1Zone.
+3. **Tải lại tab 1Zone** để thay content script cũ. Mở lại tiện ích, kiểm tra **v0.5.1** ở cửa sổ cấu hình và bảng camp trên tab vé.
+4. Tải lại hạng vé, chọn ưu tiên và lưu lại để nhận đầy đủ các khu của từng hạng. Bản cũ chỉ lưu một tên khu đại diện.
 
 Không cần tải ZIP nếu Chrome đang nạp trực tiếp `.output/chrome-mv3` của project này. Nếu nạp thư mục giải nén ZIP ở nơi khác, cập nhật đầy đủ các file trong chính thư mục đó rồi Reload.
 
@@ -51,14 +54,14 @@ Thông báo **Cần tải lại tiện ích** cho biết kiểm tra giao diện/
 ## Sử dụng
 
 1. Đăng nhập 1Zone trước. Mở tiện ích; **Mở rộng ↗** mở cửa sổ cấu hình rộng hơn. Tìm tên sự kiện hoặc dán link bán vé ngay vào ô tìm.
-2. Chọn đúng suất, chọn hạng bằng select; mỗi lần chọn tự thêm vào danh sách ưu tiên. Dùng ↑ ↓ để sắp thứ tự. Đặt số vé và giờ bán **UTC+7**; mặc định 1 vé. Nếu tải lỗi, thử lại bằng **Tải hạng vé**. Nhập thủ công chỉ xuất hiện khi chủ động bật trong **Tùy chọn thêm**.
+2. Chọn đúng suất, chọn hạng bằng danh sách; mỗi lần chọn tự thêm vào ưu tiên. Dùng ↑ ↓ để sắp thứ tự. Đặt số vé và giờ bán **UTC+7**; mặc định 1 vé. Nếu tải lỗi, thử lại bằng **Tải hạng vé**. Nhập thủ công chỉ xuất hiện khi chủ động bật trong **Ngân sách và cách chọn vé**.
 3. **Lưu cấu hình**, rồi **Bắt đầu camp** ở thanh cuối cửa sổ. Tool đọc mới catalog để đối chiếu suất/hạng/giá trước khi mở/dùng lại tab concert. Cũng có thể bắt đầu trên panel.
 4. Tool chờ giờ bán theo đồng hồ máy và nút mua khả dụng. Khi được vào chọn vé, tool tự thao tác trên điều khiển đọc được.
 5. Panel báo từng bước và kết quả. Khi tới checkout, bạn kiểm tra vé, phí và thanh toán.
 
-Với suất đã chốt, chọn thẻ **TIỆC THÀNH-THÂN (MÂM 2): VƯƠNG BÌNH 💘 VOI CON**, bên dưới có nhãn **Chuẩn bị sự kiện →**, để tự điền link, giờ và 1 vé, tự tải hạng/giá. Bạn chọn và sắp thứ tự hạng trước, sửa số vé hoặc giờ bán nếu cần. Số vé bị giới hạn theo suất và các hạng đã chọn; khi chưa có giới hạn từ nguồn, tool không khẳng định giới hạn của website. Ngân sách/fallback nằm trong **Tùy chọn thêm**. Lưu rồi bật camp **trước 12h** để preflight hoàn tất trước mốc chạy. Preset không tự lưu, tự chọn hạng hoặc tự bật camp. Show khác dùng cùng luồng tìm/dán link và cấu hình, không phụ thuộc preset Hà Nội.
+Với suất đã chốt, chọn thẻ **TIỆC THÀNH-THÂN (MÂM 2): VƯƠNG BÌNH 💘 VOI CON**, bên dưới có nhãn **Chuẩn bị sự kiện →**, để tự điền link, giờ và 1 vé, tự tải hạng/giá. Bạn chọn và sắp thứ tự hạng trước, sửa số vé hoặc giờ bán nếu cần. Số vé bị giới hạn theo suất và các hạng đã chọn; khi chưa có giới hạn từ nguồn, tool không khẳng định giới hạn của website. Ngân sách/fallback nằm trong **Ngân sách và cách chọn vé**. Lưu rồi bật camp **trước 12h** để preflight hoàn tất trước mốc chạy. Preset không tự lưu, tự chọn hạng hoặc tự bật camp. Show khác dùng cùng luồng tìm/dán link và cấu hình, không phụ thuộc preset Hà Nội.
 
-Camp chỉ dùng **cấu hình đã lưu**; nút bắt đầu bị khóa khi form có thay đổi chưa lưu. Lưu lại cấu hình dừng phiên hiện tại. Một phiên sở hữu một tab; tab khác không thực thi. **Dừng camp** hủy phiên thao tác; **Dừng theo dõi** hủy cả camp và nhắc giờ. **Ẩn panel** chỉ ẩn UI, camp vẫn chạy; dừng bằng popup nếu cần.
+Camp chỉ dùng **cấu hình đã lưu**; nút bắt đầu bị khóa khi form có thay đổi chưa lưu. Lưu lại cấu hình dừng phiên hiện tại. Một phiên sở hữu một tab; tab khác không thực thi. **Dừng camp** hủy phiên thao tác; **Tắt công cụ trên trang vé** hủy cả camp và nhắc giờ. Ẩn bảng camp chỉ ẩn UI, camp vẫn chạy; dừng bằng popup nếu cần.
 
 Phiên camp tồn tại trong `chrome.storage.session`, qua lần worker khởi động lại/điều hướng tab, nhưng không tự bật lại sau khi đóng/mở Chrome hoặc reload extension. Đóng tab chủ sẽ hủy phiên. Phiên hết hạn sau một giờ tính từ mốc muộn hơn giữa lúc bắt đầu và giờ bán.
 

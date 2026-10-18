@@ -5,13 +5,23 @@ import { installOnezoneDemo } from './onezone-demo';
 import { validatePreferences } from '../core/preferences';
 
 /** Local-only test data: no Chrome storage or server calls. */
-export function createRehearsal(document: Document, name: FixtureName, quantity: number): TaskConfig {
+export type RehearsalScenario = 'normal' | 'queue' | 'challenge';
+export function createRehearsal(document: Document, name: FixtureName, quantity: number, scenario: RehearsalScenario = 'normal'): { config: TaskConfig; release: () => void } {
   const style = document.createElement('style');
   style.textContent = 'body{font:14px Segoe UI,sans-serif;color:#20252c;background:#fff;margin:24px}main{margin-left:344px;max-width:560px}h1{font-size:21px}article,.ticket-card,[role=dialog]{border:1px solid #dbe1e8;border-radius:6px;padding:16px;margin:12px 0}button,select,input{font:inherit;padding:9px 12px;border:1px solid #cbd4e1;border-radius:4px}button{cursor:pointer}button:disabled{cursor:default;color:#8792a0}button:focus-visible{outline:2px solid #2458ae}canvas{border:1px dashed #999} @media(max-width:700px){main{margin:0 0 440px}}';
   document.head.append(style);
   if (name === 'booking') installBookingDemo(document);
   if (name === 'onezone-modal') installOnezoneDemo(document);
-  return {
+  const main = document.querySelector('main');
+  const original = document.createDocumentFragment();
+  if (main && scenario !== 'normal') {
+    original.append(...Array.from(main.childNodes));
+    const heading = document.createElement('h1');
+    heading.textContent = scenario === 'queue' ? 'Phòng chờ' : 'Hoàn thành CAPTCHA';
+    main.append(heading);
+  }
+  const release = () => { if (main && original.childNodes.length) main.replaceChildren(original); };
+  const config: TaskConfig = {
     schemaVersion: 1, enabled: true, panelVisible: true,
     preferences: validatePreferences({
       platform: 'onezone', eventUrl: 'https://ticket.1zone.vn/events/local-demo?calendarId=demo',
@@ -25,4 +35,5 @@ export function createRehearsal(document: Document, name: FixtureName, quantity:
       } : undefined,
     }),
   };
+  return { config, release };
 }

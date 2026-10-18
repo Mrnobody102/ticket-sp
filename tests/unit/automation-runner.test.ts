@@ -6,6 +6,43 @@ import type { PlatformInspection } from '../../src/platforms/contracts';
 
 afterEach(() => vi.useRealTimers());
 describe('runner độc lập platform', () => {
+  function controls() {
+    const config: TaskConfig = { schemaVersion: 1, enabled: true, panelVisible: true, preferences: { platform: 'onezone', eventUrl: 'https://ticket.1zone.vn/events/demo', saleStartAt: new Date(0).toISOString(), quantity: 1, preferredZoneLabels: [], allowAlternatives: false } };
+    const run: AutoRun = { id: 'control-test', tabId: 1, revision: 0, preferencesKey: preferencesKey(config.preferences!), startedAt: Date.now(), expiresAt: Date.now() + 3600000, progress: { phase: 'READY', message: '' } };
+    let resolveStart!: (run: AutoRun) => void;
+    const start = vi.fn(() => new Promise<AutoRun>(resolve => { resolveStart = resolve; }));
+    const stop = vi.fn(async () => null);
+    const runner = createAutomationRunner({ config: () => config, inspect: () => { throw new Error('No DOM action expected'); }, changed: vi.fn(), transport: { start, stop, commit: vi.fn() } });
+    return { run, runner, start, stop, resolveStart: () => resolveStart(run) };
+  }
+  it('bấm bắt đầu hai lần chỉ gửi một yêu cầu và hiện trạng thái chờ', async () => {
+    const { runner, start, resolveStart } = controls();
+    const pending = runner.start(); await runner.start();
+    expect(start).toHaveBeenCalledOnce(); expect(runner.pendingControl).toBe(true);
+    resolveStart(); await pending;
+    expect(runner.pendingControl).toBe(false); runner.destroy();
+  });
+  it('phản hồi START muộn không ghi đè AUTO_UPDATED đã tiến xa hơn', async () => {
+    const { runner, run, resolveStart } = controls();
+    const pending = runner.start();
+    runner.update({ ...run, revision: 3, progress: { phase: 'CHECKOUT', message: 'Đã tới thanh toán' } });
+    resolveStart(); await pending;
+    expect(runner.run?.revision).toBe(3); expect(runner.run?.progress.phase).toBe('CHECKOUT');
+    runner.update(run); expect(runner.run?.revision).toBe(3); runner.destroy();
+  });
+  it('STOP thắng START đang chờ và broadcast muộn của phiên đã hủy', async () => {
+    const { runner, run, resolveStart } = controls();
+    const pending = runner.start(); await runner.stop();
+    runner.update(run); expect(runner.run).toBeNull();
+    resolveStart(); await pending;
+    runner.update(run); expect(runner.run).toBeNull(); runner.destroy();
+  });
+  it('STOP bị mất kết nối vẫn ngắt hành động cục bộ, không hồi sinh phiên cũ', async () => {
+    const { runner, run, stop } = controls(); runner.update(run);
+    stop.mockRejectedValueOnce(new Error('Disconnected'));
+    await expect(runner.stop()).rejects.toThrow('Disconnected');
+    runner.update(run); expect(runner.run).toBeNull(); runner.destroy();
+  });
   it.each(['STOP', 'DOM_CHANGED'] as const)('không bấm nếu %s trong lúc persist đang chờ', async reason => {
     const config: TaskConfig = { schemaVersion: 1, enabled: true, panelVisible: true, preferences: { platform: 'onezone', eventUrl: 'https://ticket.1zone.vn/events/demo', saleStartAt: new Date(0).toISOString(), quantity: 1, preferredZoneLabels: [], allowAlternatives: false } };
     const run: AutoRun = { id: 'run', tabId: 1, revision: 0, preferencesKey: preferencesKey(config.preferences!), startedAt: Date.now(), expiresAt: Date.now() + 3600000, progress: { phase: 'READY', message: '' } };

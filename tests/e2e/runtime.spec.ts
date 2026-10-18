@@ -105,3 +105,28 @@ test('worker từ chối lệnh khi bấm camp: lỗi được bắt, không Unc
     expect(errors).toEqual([]);
   } finally { await context.close(); }
 });
+
+test('worker mới nhưng tab chỉ có content cũ: không tạo phiên camp giả', async ({}, info) => {
+  const extensionPath = info.outputPath('legacy-tab-extension');
+  cpSync(resolve('.output/chrome-mv3'), extensionPath, { recursive: true });
+  writeFileSync(resolve(extensionPath, 'content-scripts/tickets.js'), '// Legacy content without readiness handshake.');
+  const { context, extensionId } = await launch(extensionPath);
+  const errors: string[] = [];
+  try {
+    const worker = context.serviceWorkers()[0]!;
+    const target = 'https://ticket.1zone.vn/events/stale-tab';
+    await worker.evaluate(async url => {
+      await chrome.storage.local.set({ 'ticket-assistant.config.v1': { schemaVersion: 1, enabled: true, panelVisible: true,
+        preferences: { platform: 'onezone', eventUrl: url, saleStartAt: '2026-10-19T05:00:00Z', quantity: 1, preferredZoneLabels: ['VIP'], allowAlternatives: false } } });
+    }, target);
+    await context.route(target, route => route.fulfill({ contentType: 'text/html', body: readFileSync('fixtures/zone.html', 'utf8') }));
+    const event = await context.newPage(); await event.goto(target);
+    const popup = await context.newPage(); popup.on('pageerror', error => errors.push(error.message));
+    await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+    await popup.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+    await expect(popup.getByRole('alert')).toContainText('Tải lại tab vé', { timeout: 12000 });
+    expect(await worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1'])).toBeUndefined();
+    await expect(popup.getByRole('button', { name: 'Dừng camp', exact: true })).toHaveCount(0);
+    expect(errors).toEqual([]);
+  } finally { await context.close(); }
+});

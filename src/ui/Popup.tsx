@@ -86,7 +86,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
           verifiedAt: source.fetchedAt, maxQuantity: performance.maxQuantity, tickets: selectedTickets.map(id => {
             const ticket = source.tickets.find(t => t.id === id);
             if (!ticket) throw new Error('Hạng vé đã đổi. Tải lại danh sách.');
-            return { id: ticket.id, name: ticket.name, priceVnd: ticket.priceVnd, zoneName: ticket.zoneName, seatMode: ticket.seatMode, maxQuantity: ticket.maxQuantity };
+            return { id: ticket.id, name: ticket.name, priceVnd: ticket.priceVnd, zoneName: ticket.zoneName, zones: ticket.zones, seatMode: ticket.seatMode, maxQuantity: ticket.maxQuantity };
           }) };
       }
       const preferences = validatePreferences({
@@ -152,9 +152,10 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
           <label>Giờ mở bán · UTC+7<input aria-label="Giờ mở bán · giờ Việt Nam (UTC+7)" type="datetime-local" required value={saleTime} onChange={e => { setSaleTime(e.target.value); setDirty(true); }} />{!saleTime && <small>Nhập giờ mở bán do ban tổ chức công bố.</small>}</label>
         </div>
         <details className="event-link" open={!current}><summary>Link sự kiện</summary><label><span className="sr-only">Link concert</span><input type="url" required value={url} onChange={e => { setUrl(e.target.value); setLoaded(null); setRetainedCatalog(undefined); setManualMode(false); setDirty(true); }} placeholder="https://ticket.1zone.vn/events/…" /></label><button type="button" className="subtle-button" disabled={!url.trim()} onClick={reloadTickets}>Tải chi tiết từ link</button></details>
-        <details className="extra-settings"><summary>Tùy chọn thêm</summary>
+        <details className="extra-settings"><summary>Ngân sách và cách chọn vé</summary>
           <label>Tổng ngân sách (VNĐ)<input type="number" min="1" step="1" value={budget} onChange={e => { setBudget(e.target.value); setDirty(true); }} placeholder="Không giới hạn" /></label>
-          <label className="checkbox-label"><input type="checkbox" checked={alternatives} onChange={e => { setAlternatives(e.target.checked); setDirty(true); }} />Cho phép hạng khác trong ngân sách</label>
+          <label className="checkbox-label"><input type="checkbox" checked={alternatives} onChange={e => { setAlternatives(e.target.checked); setDirty(true); }} />Cho phép mua hạng ngoài danh sách ưu tiên</label>
+          {alternatives && <small>Chỉ chọn trong ngân sách đã đặt. Để trống nghĩa là không giới hạn giá.</small>}
           <label className="checkbox-label"><input type="checkbox" checked={refreshAtSale} onChange={e => { setRefreshAtSale(e.target.checked); setDirty(true); }} />Tải lại một lần lúc mở bán nếu trang còn khóa</label>
           {!loaded && !retainedCatalog && <><label className="checkbox-label"><input type="checkbox" checked={manualMode} onChange={e => { setManualMode(e.target.checked); setDirty(true); }} />Nhập hạng vé thủ công</label>
             {manualMode && <label>Hạng vé ưu tiên · mỗi dòng một hạng<textarea value={labels} onChange={e => { setLabels(e.target.value); setDirty(true); }} placeholder={'VIP\nKhu A'} /><small>Chỉ dùng khi nguồn không cung cấp danh sách. Tên phải khớp hạng hiển thị trên website.</small></label>}</>}
@@ -162,11 +163,11 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
         {error && <p className="error" role="alert">{error}</p>}
         {notice && <p className="success" role="status">{notice}</p>}
         <details className="display-settings"><summary>Trang vé và hiển thị</summary><div className="button-row">
-          <button type="button" disabled={busy || !config.preferences} onClick={() => void send({ type: 'OPEN_EVENT' })}>Mở concert đã lưu</button>
-          <button type="button" disabled={busy || !config.preferences} onClick={() => void send({ type: 'ENABLE', enabled: !config.enabled })}>{config.enabled ? 'Dừng theo dõi' : 'Tiếp tục theo dõi'}</button>
+          <button type="button" disabled={busy || !config.preferences} onClick={() => void send({ type: 'OPEN_EVENT' })}>Mở trang vé</button>
+          <button type="button" disabled={busy || !config.preferences} onClick={() => void send({ type: 'ENABLE', enabled: !config.enabled })}>{config.enabled ? 'Tắt công cụ trên trang vé' : 'Bật công cụ trên trang vé'}</button>
         </div><label className="checkbox-label"><input type="checkbox" checked={config.panelVisible} disabled={!ready || busy} onChange={e => {
           const previous = config; setConfig({ ...config, panelVisible: e.target.checked }); void send({ type: 'PANEL', visible: e.target.checked }, previous);
-        }} />Hiển thị panel trên trang vé</label></details>
+        }} />Hiện bảng camp trên trang vé</label></details>
       </form>
     </div>
     <footer className="run-bar"><div className="run-summary"><b>{running ? 'Đang camp' : autoRun?.progress.phase === 'CHECKOUT' ? 'Đã tới thanh toán' : dirty ? 'Chưa lưu' : config.preferences ? 'Đã lưu' : 'Chọn sự kiện'}</b>{autoRun && <p>{autoRun.progress.message}</p>}</div>

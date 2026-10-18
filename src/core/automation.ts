@@ -67,7 +67,8 @@ export type AutoDecision = { type: 'WAIT'; wakeAt?: number } | { type: 'STEP'; p
 export const preferencesKey = (p: EventPreferences) => JSON.stringify(p);
 export const autoActive = (run: AutoRun | null) => !!run && !['CHECKOUT', 'PAUSED'].includes(run.progress.phase);
 export const sameOption = (a: NonNullable<AutoProgress['chosen']>, b: VisibleOption) =>
-  normalize(a.label) === normalize(b.label) && a.kind === b.kind && normalize(a.zoneLabel ?? '') === normalize(b.zoneLabel ?? '') && a.displayedPriceVnd === b.displayedPriceVnd &&
+  normalize(a.label) === normalize(b.label) && a.kind === b.kind &&
+  ((a.kind === 'ZONE' && a.zoneLabel === undefined) || normalize(a.zoneLabel ?? '') === normalize(b.zoneLabel ?? '')) && a.displayedPriceVnd === b.displayedPriceVnd &&
   (a.ticketTypeId === undefined || a.ticketTypeId === b.ticketTypeId);
 const pause = (progress: AutoProgress, message: string): AutoDecision => ({ type: 'STEP', progress: { ...progress, phase: 'PAUSED', message } });
 
@@ -83,7 +84,14 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
   if (snapshot.state === 'CHECKOUT') return { type: 'STEP', progress: { ...progress, phase: 'CHECKOUT', message: 'Đã tới bước thanh toán. Kiểm tra đơn và thanh toán.', checkoutReachedAt: now } };
   if (page.problem) return pause(progress, page.problem);
   if (snapshot.state === 'CHALLENGE') return pause(progress, 'Hoàn thành xác minh trên website rồi bắt đầu lại.');
-  if (snapshot.state === 'WAITING_ROOM') return wait();
+  if (snapshot.state === 'WAITING_ROOM') {
+    // Admission can return to the event page, requiring a new navigation click.
+    // Only an entry navigation is reset; never repeat an uncertain cart request.
+    if (progress.phase === 'OPENING') return { type: 'STEP', progress: {
+      ...progress, phase: 'READY', message: 'Đang xếp hàng. Chờ website cho vào.',
+    } };
+    return wait();
+  }
   if (!isSameEvent(snapshot.url, p.eventUrl)) {
     if (['OPENING', 'ADVANCING'].includes(progress.phase) && now - (progress.actionAt ?? 0) < AUTO_TIMING.navigationMs) return wait((progress.actionAt ?? now) + AUTO_TIMING.navigationMs);
     return pause(progress, 'URL không còn khớp concert/suất đã lưu.');

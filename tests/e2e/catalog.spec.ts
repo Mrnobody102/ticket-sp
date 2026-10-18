@@ -137,6 +137,30 @@ test('thẻ tiêu đề p → modal 1Zone → số lượng span 2 vé → check
   await expect(event.getByRole('button', { name: 'Xác nhận đơn hàng', exact: true })).toBeVisible();
 });
 
+test('một hạng gồm nhiều zone: chọn khu đúng ID/giá, modal xác nhận khu, 2 vé tới checkout', async () => {
+  const mocks = defaults();
+  mocks[2]!.body = ticketReply([{ ...ticketData, name: 'HAI QUÝ - EB', zoneName: 'HAI QUÝ 2', ticketType: 'seatmap_zone', finalPriceVn: 2996000 }]);
+  mocks.unshift({ path: '/get-summary-event/event-test/zones?', body: { errorCode: 0, data: [1, 2].map(index => ({
+    id: `zone-${index}`, name: `HAI QUÝ ${index}`, ticketClassId: 'vip-test', eventId: 'event-test', calendarId: 'HN',
+  })) } });
+  await mockCatalog(mocks);
+  const body = readFileSync('fixtures/onezone-modal.html', 'utf8').replaceAll('HAI QUÝ - EB', 'HAI QUÝ 1')
+    .replace('</button></div></div>', '</button></div><div class="ticket-card"><p>HAI QUÝ 2</p><p>2.996.000 ₫</p><button disabled>Chọn</button></div></div>')
+    + `<script>(${installOnezoneDemo.toString()})(document,{displayName:'HAI QUÝ 1'})</script>`;
+  await context.route('https://ticket.1zone.vn/**', route => route.fulfill({ contentType: 'text/html', body }));
+  const page = await workspace(); await selectEvent(page);
+  await page.getByLabel('Số vé', { exact: true }).fill('2');
+  await page.getByRole('button', { name: 'Lưu cấu hình' }).click();
+  const stored = await worker.evaluate(async () => (await chrome.storage.local.get('ticket-assistant.config.v1'))['ticket-assistant.config.v1']);
+  expect(stored.preferences.catalog.tickets[0].zones).toEqual([{ id: 'zone-1', name: 'HAI QUÝ 1' }, { id: 'zone-2', name: 'HAI QUÝ 2' }]);
+  const event = await context.newPage(); await event.goto(catalogUrl + '?calendarId=HN');
+  await event.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(event.locator('#modal-host form')).toContainText('HAI QUÝ 1 · 2 vé');
+  const log = await worker.evaluate(() => (globalThis as unknown as { catalogLog: { url: string }[] }).catalogLog);
+  expect(log.filter(request => request.url.includes('/zones?'))).toHaveLength(2); // Setup and preflight only.
+});
+
 test('tải catalog lỗi: báo lỗi và thử lại để có select, không đưa ô nhập thủ công ra mặc định', async () => {
   const mocks = defaults(); mocks[1]!.status = 503; await mockCatalog(mocks);
   const page = await workspace();

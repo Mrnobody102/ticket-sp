@@ -7,7 +7,12 @@ type Quote = CatalogSelection['tickets'][number];
 /** Aliases come from the same catalog record, never substring/fuzzy matching. */
 export function ticketHasLabel(ticket: Quote, label: string): boolean {
   const value = normalize(label);
-  return !!value && [ticket.name, ticket.zoneName].some(name => name && normalize(name) === value);
+  const zones = ticket.zones ? ticket.zones.map(zone => zone.name) : [ticket.zoneName];
+  return !!value && [ticket.name, ...zones].some(name => name && normalize(name) === value);
+}
+
+export function ticketZoneForLabel(ticket: Quote, label: string) {
+  return ticket.zones?.find(zone => normalize(zone.name) === normalize(label));
 }
 
 export function ticketMatchesOption(ticket: Quote, option: Pick<VisibleOption, 'ticketTypeId' | 'label' | 'zoneLabel'>): boolean {

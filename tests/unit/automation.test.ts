@@ -12,6 +12,18 @@ function page(patch: Partial<AutoPage> = {}): AutoPage {
   return { snapshot: { url: p.eventUrl, state: 'SELECTING', selectionMode: 'ZONE_ONLY', supported: true, reason: '', visibleOptions: [vip], maxQuantity: 2 }, enterCount: 0, advanceCount: 1, selectable: ['vip'], quantity: { value: 1, min: 1, max: 2, writable: true, stepper: false }, ...patch };
 }
 describe('máy trạng thái camp dùng chung', () => {
+  it('đã bấm mua → queue lâu → trang sự kiện: cho phép vào mua sau khi được cấp lượt', () => {
+    const queued = page(); queued.snapshot.state = 'WAITING_ROOM';
+    const waiting = decideAutomation(run({ phase: 'OPENING', actionAt: now - 60000 }), queued, p, now);
+    expect(waiting).toMatchObject({ type: 'STEP', progress: { phase: 'READY' } });
+    if (waiting.type !== 'STEP') throw new Error('Expected queued entry transition');
+    const admitted = page(); admitted.snapshot.state = 'EVENT_PAGE'; admitted.enterCount = 1;
+    expect(decideAutomation({ ...run(), progress: waiting.progress }, admitted, p, now)).toMatchObject({ type: 'STEP', action: { kind: 'ENTER' } });
+  });
+  it('queue sau khi gửi bước đi checkout không được reset để đặt lại vé', () => {
+    const queued = page(); queued.snapshot.state = 'WAITING_ROOM';
+    expect(decideAutomation(run({ phase: 'ADVANCING', actionAt: now - 60000 }), queued, p, now).type).toBe('WAIT');
+  });
   it('chỉ tải lại một lần tại giờ bán khi vẫn khóa; không reload queue hoặc selection', () => {
     const configured = { ...p, refreshAtSale: true };
     const initial = { ...run(), preferencesKey: preferencesKey(configured) };

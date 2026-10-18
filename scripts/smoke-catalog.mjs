@@ -37,6 +37,13 @@ try {
   await page.getByLabel('Thêm hạng vé ưu tiên').selectOption(targetTier.id);
   onezone.draftPriority = await page.locator('.ticket-priorities li').first().innerText();
   onezone.quantityMax = await page.getByLabel('Số vé', { exact: true }).getAttribute('max');
+  if (!onezone.draftPriority.includes('2 khu')) throw new Error('HAI QUÝ must include both verified physical zones.');
+  const ut = onezone.tickets.find(ticket => ticket.label?.includes('ÚT CƯNG - EB'));
+  if (!ut) throw new Error('Expected ÚT CƯNG tier missing.');
+  await page.getByRole('button', { name: 'Bỏ HAI QUÝ - EB', exact: true }).click();
+  await page.getByLabel('Thêm hạng vé ưu tiên').selectOption(ut.id);
+  onezone.utPriority = await page.locator('.ticket-priorities li').first().innerText();
+  if (!onezone.utPriority.includes('6 khu')) throw new Error('ÚT CƯNG must include all six verified physical zones.');
   mkdirSync('artifacts', { recursive: true });
   await page.screenshot({ path: 'artifacts/catalog-live-onezone.png', fullPage: true });
   await page.getByRole('button', { name: 'Đổi sự kiện' }).click();

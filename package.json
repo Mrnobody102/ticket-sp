@@ -1,7 +1,7 @@
 {
   "name": "ticket-sp",
   "description": "Concert ticket automation and event catalog extension",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "license": "UNLICENSED",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
     "dev": "wxt --level info",
     "build": "wxt build --level info",
     "zip": "wxt zip --level info",
-    "release": "npm run zip && node scripts/package-share.mjs",
+    "release": "npm run zip && node scripts/verify-output.mjs && node scripts/package-share.mjs",
     "share": "npm run release",
     "postinstall": "wxt prepare --level info",
     "typecheck": "tsc --noEmit",

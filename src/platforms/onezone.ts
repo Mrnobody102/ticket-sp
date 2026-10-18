@@ -54,7 +54,7 @@ export function inspectOnezonePage(document: Document, url: URL, p?: EventPrefer
     return finish({ ...base, selectionMode, maxQuantity, state: 'NOT_READY', supported: true, reason: 'Website hiển thị chưa mở bán.' });
   }
   const entries = readOptionElements(document, selectionMode, reader, p?.catalog?.tickets);
-  if (selectionMode === 'UNKNOWN' && entries.length && entries.every(e => p?.catalog?.tickets.some(q => normalize(q.name) === normalize(e.option.label) && q.seatMode === 'AUTO'))) selectionMode = 'ASSIGNED_SEAT';
+  if (entries.length && entries.every(e => e.option.kind === 'ZONE' && p?.catalog?.tickets.some(q => q.id === e.option.ticketTypeId && q.seatMode === 'AUTO'))) selectionMode = 'ASSIGNED_SEAT';
   const details = { ...base, selectionMode, maxQuantity, visibleOptions: entries.map(e => e.option) };
   const unreadableMap = [...document.querySelectorAll('canvas, iframe')].some(isVisible);
   if (unreadableMap && (selectionMode === 'PICK_SEAT' || selectionMode === 'MIXED' || !entries.length)) {

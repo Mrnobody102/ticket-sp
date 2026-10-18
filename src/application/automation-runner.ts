@@ -20,8 +20,16 @@ export function createAutomationRunner(options: RunnerOptions) {
   let run = options.initialRun ?? null;
   let busy = false;
   let disposed = false;
+  let starting = false;
+  let stopping = false;
+  let controlRevision = 0;
+  let startRevision = 0;
+  let cancelledRunId: string | undefined;
   let wake: ReturnType<typeof setTimeout> | undefined;
   function update(next: AutoRun | null) {
+    if (disposed || (next && (stopping || (starting && startRevision !== controlRevision) || next.id === cancelledRunId))) return;
+    if (next && run?.id === next.id && next.revision < run.revision) return;
+    if (!next && run) { cancelledRunId = run.id; controlRevision++; }
     run = next;
     clearTimeout(wake);
     if (!disposed) options.changed();
@@ -69,10 +77,30 @@ export function createAutomationRunner(options: RunnerOptions) {
   }
   return {
     get run() { return run; },
+    get pendingControl() { return starting || stopping; },
     update,
     tick,
-    async start() { update(await options.transport.start()); },
-    async stop() { update(await options.transport.stop()); },
-    destroy() { disposed = true; clearTimeout(wake); },
+    async start() {
+      if (disposed || starting || stopping) return;
+      starting = true; startRevision = ++controlRevision;
+      const revision = startRevision;
+      options.changed();
+      try {
+        const next = await options.transport.start();
+        if (disposed) return;
+        if (revision !== controlRevision) { if (next) cancelledRunId = next.id; return; }
+        // AUTO_UPDATED can arrive before the command response, already carrying
+        // newer progress. A delayed START response must not rewind that state.
+        if (!next || run?.id !== next.id) update(next);
+      } finally { starting = false; if (!disposed) options.changed(); }
+    },
+    async stop() {
+      if (disposed || stopping) return;
+      stopping = true; controlRevision++;
+      update(null); // Cancel pending local actions before awaiting the worker.
+      try { await options.transport.stop(); }
+      finally { stopping = false; if (!disposed) options.changed(); }
+    },
+    destroy() { disposed = true; controlRevision++; clearTimeout(wake); },
   };
 }

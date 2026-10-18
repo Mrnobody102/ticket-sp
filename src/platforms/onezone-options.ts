@@ -3,7 +3,7 @@ import { normalize } from '../core/preferences';
 import { createPageReader, type PageReader } from './onezone-dom';
 import type { OptionElement } from './contracts';
 import type { CatalogSelection } from '../core/catalog';
-import { ticketHasLabel, ticketMatchesOption } from '../core/ticket-identity';
+import { ticketHasLabel, ticketMatchesOption, ticketZoneForLabel } from '../core/ticket-identity';
 export type { OptionElement } from './contracts';
 
 function ticketIds(elements: Element[]): string[] {
@@ -93,17 +93,24 @@ export function readOptionElements(document: Document, mode: SeatSelectionMode =
       const unique = currentPriceValues(card, reader);
       if (unique.length !== 1 || unique[0] !== quote.priceVnd) break;
       const selected = card.matches('[aria-selected="true"],[aria-checked="true"],[aria-pressed="true"]') || button.matches('[aria-selected="true"],[aria-checked="true"],[aria-pressed="true"]');
+      const physical = quote.zones?.filter(z => [...card!.querySelectorAll('p,h2,h3,h4,span,img[alt],svg')].some(e => isVisible(e) && normalize(e.getAttribute('alt') ?? reader.name(e)) === normalize(z.name))) ?? [];
+      if (physical.length > 1) break;
       optionsByElement.set(card, { kind: 'ZONE', label: quote.name, ticketTypeId: ids[0], displayedPriceVnd: unique[0], selected,
+        zoneLabel: physical[0]?.name,
         displayedAvailability: button.matches(':disabled,[aria-disabled="true"]') ? 'UNAVAILABLE' : 'AVAILABLE' });
       break;
     }
   }
   // Apply the display limit after resolving groups, keeping DOM order and unique IDs.
-  return [...optionsByElement].slice(0, 100).map(([element, option], index) => {
+  return [...optionsByElement].slice(0, 100).flatMap(([element, option], index) => {
     const names = quotes.filter(q => ticketMatchesOption(q, option) && q.priceVnd === option.displayedPriceVnd);
     const quote = names.length === 1 ? names[0] : undefined;
-    return { element, option: { id: `option-${index}`, ...option,
-      ...(quote && option.kind === 'ZONE' ? { label: quote.name, ticketTypeId: quote.id } : {}),
-    } };
+    const physical = quote && (ticketZoneForLabel(quote, option.zoneLabel ?? '') ?? ticketZoneForLabel(quote, option.label));
+    const physicalIds = [...new Set([element, ...element.querySelectorAll('[data-zone-id]')].map(e => e.getAttribute('data-zone-id')).filter(Boolean))];
+    if (physicalIds.length > 1 || (physicalIds.length === 1 && physicalIds[0] !== physical?.id)) return [];
+    const automaticZone = !!physical && quote?.seatMode === 'AUTO';
+    return [{ element, option: { id: `option-${index}`, ...option,
+      ...(quote && (option.kind === 'ZONE' || automaticZone) ? { kind: 'ZONE' as const, label: quote.name, ticketTypeId: quote.id, zoneLabel: physical?.name } : {}),
+    } }];
   });
 }

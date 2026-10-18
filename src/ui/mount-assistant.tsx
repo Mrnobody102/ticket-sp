@@ -91,7 +91,7 @@ export function mountAssistant(options: MountOptions) {
     drawHighlights();
     host.style.display = config.panelVisible ? '' : 'none';
     root.render(<Panel config={config} snapshot={snapshot} recommendations={recommendations} error={error} onRescan={scan}
-      rehearsal={options.rehearsal} autoRun={runner?.run} onStartAuto={runner && !options.rehearsal ? () => void runAction(() => runner.start()) : undefined}
+      rehearsal={options.rehearsal} background={document.visibilityState === 'hidden'} autoRun={runner?.run} autoBusy={runner?.pendingControl} onStartAuto={runner && !options.rehearsal ? () => void runAction(() => runner.start()) : undefined}
       onStopAuto={runner ? () => void runAction(() => runner.stop()) : undefined}
       onStop={() => void runAction(options.onStop)} onHide={() => void runAction(options.onHide)} onOpen={() => void runAction(options.onOpen)} />);
   }

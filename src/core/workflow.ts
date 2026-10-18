@@ -24,7 +24,7 @@ export function recommend(snapshot: PageSnapshot, p: EventPreferences): Recommen
     const total = option.displayedPriceVnd === undefined ? undefined : option.displayedPriceVnd * p.quantity;
     if (p.maxTotalVnd !== undefined && (total === undefined || total > p.maxTotalVnd)) return [];
     return [{ option, rank: priority === -1 ? p.preferredZoneLabels.length : priority, estimatedTotalVnd: total }];
-  }).sort((a, b) => a.rank - b.rank || (a.estimatedTotalVnd ?? Infinity) - (b.estimatedTotalVnd ?? Infinity));
+  }).sort((a, b) => a.rank - b.rank || (a.estimatedTotalVnd ?? Infinity) - (b.estimatedTotalVnd ?? Infinity) || Number(!!b.option.zoneLabel) - Number(!!a.option.zoneLabel));
 }
 
 export function effectiveSnapshot(snapshot: PageSnapshot, config: TaskConfig): PageSnapshot {

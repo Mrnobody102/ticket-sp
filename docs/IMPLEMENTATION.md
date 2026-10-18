@@ -1,4 +1,4 @@
-# Quyết định triển khai · 0.5.0
+# Quyết định triển khai · 0.5.1
 
 Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp và đi tới checkout nhanh, trên phiên trình duyệt của người dùng. Đã tìm được metadata và hạng vé Vương Bình Hà Nội; người dùng xác nhận 12h ngày 19/10 làm mặc định có thể sửa. Chưa xác minh độc lập giờ bán từ API hoặc DOM booking đăng nhập. TP.HCM và Lavender chỉ dùng tham khảo. Không dùng ước tính 100–200 vé làm tồn kho.
 
@@ -29,6 +29,12 @@ Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp 
 23. Đổi performance reset ngay giá trị giờ bán/số vé/budget/fallback cũ; lỗi tải hạng không làm lộ cấu hình cũ như cấu hình của suất mới. Reload cùng suất giữ chỉnh sửa giờ của người dùng.
 24. Diễn tập có hai luồng tương tác, một nút Chạy thử, Làm lại và số lượng. Fixtures kiểm tra trạng thái đặt riêng; không trộn chúng với bài thử đặt vé. Bộ tạo dữ liệu tách khỏi React entrypoint.
 25. Gói bạn bè có BAT-DAU.html và tien-ich; gói Store giữ manifest ở gốc. Workflow chạy kiểm tra rồi tạo artifact, không tự publish. Chưa có server nên không thêm khóa key cục bộ giả; quyết định triển khai cấp quyền ghi trong PHAT_HANH.md.
+26. Queue chỉ reset OPENING → READY để xử lý admission trả về event; không reset một ADVANCING chưa xác nhận. START/STOP có control revision và chống response/broadcast cũ; lệnh dừng hủy hành động local trước khi chờ worker.
+27. Kiểm tra vòng đời MV3 bằng CDP ServiceWorker.stopWorker, xác nhận worker dừng rồi detach debugger trước khi đợi browser tự đánh thức. Target.closeTarget không mô phỏng chính xác worker suspension. Kiểm tra đóng popup, giữ nguyên ID phiên và tự hết hạn bằng bài riêng.
+28. verify-output.mjs kiểm tra gói đã build: MV3/version, resource ở trong extension, cú pháp JS và không có script HTML inline/remote hoặc file phát triển. Kiểm tra này là điều kiện đóng gói bản chia sẻ; không thay thế xét duyệt Web Store.
+29. Khi bật từ popup, CONTENT_READY kiểm tra bản content script trên frame chính trước khi tạo phiên. Chờ tối đa khoảng 8 giây cho tab mới; listener treo bị timeout. Listener đăng ký sau handshake worker nhưng trước AUTO_GET để không khóa chéo với hàng đợi AUTO_START.
+30. Với seatmap_zone, ghép endpoint zones theo ticketClassId, xác minh event/calendar/ID/tên và lưu cả tập khu. Không coi zoneName summary là toàn bộ khu. Card/modal giữ tên khu cụ thể; một hạng chưa chọn khu có thể chuyển tới khu thuộc tập đã xác minh.
+31. Diễn tập giữ ba tình huống tương tác dùng cùng runner/adapter: bình thường, queue, xác minh. Website và transport vẫn là local; không sửa cấu hình/session thật hoặc dùng kết quả làm chứng nhận giữ vé.
 
 ## Phạm vi bàn giao
 

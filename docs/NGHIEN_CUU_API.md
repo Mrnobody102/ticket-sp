@@ -64,6 +64,14 @@ Component SelectTicketModal công khai dùng `btn-sub`, `btn-add`, số lượng
 
 ## 5. Vì sao chưa gửi thẳng API đặt vé?
 
+### Bổ sung 0.5.1: một hạng có nhiều khu
+
+`GET https://prod.1zone.vn/ticketing/api/v4/ticket-summary/get-summary-event/aAq6NT/zones?calendarId=8h0YGm` trả 12 khu thuộc đúng event/suất. Ghép `ticketClassId` với ID hạng trong summary: HAI QUÝ có 2 khu, BA THƯƠNG 2, TƯ MẾN 2, ÚT CƯNG 6. `zoneName` của summary chỉ là một tên đại diện; không đủ để nhận các khu còn lại.
+
+Tool lưu danh sách `{id, name}` khu theo từng hạng, kiểm tra lại trước khi bật camp, rồi đối chiếu tên/giá/ID trên card và modal. Nếu người dùng chọn hạng, có thể chọn bất kỳ khu đã xác minh thuộc hạng đó. Nếu đã chọn một khu cụ thể, modal phải khớp đúng khu ấy. Bản cấu hình cũ thiếu danh sách khu phải tải lại hạng vé và lưu lại.
+
+Public GET `/ticketing/api/v4/event/aAq6NT/tickets?calendarId=8h0YGm` và `/ticketing/api/v4/event/aAq6NT/seatmap/8h0YGm` trả HTTP 200 nhưng mã nghiệp vụ lần lượt 600001 và 600010, không có dữ liệu sử dụng được trong phiên ẩn danh. Không tự gán ý nghĩa các mã này hoặc coi chúng là API booking đã hoạt động.
+
 Đọc lại ngày 18/10/2026 cho suất `aAq6NT / 8h0YGm`: summary có `ticketType: seatmap_zone`, `seatType: auto`, `isCaptchaEnable: true`; các cặp name/zoneName gồm HAI QUÝ - EB / HAI QUÝ 2, BA THƯƠNG - EB / BA THƯƠNG 2, TƯ MẾN - EB / TƯ MẾN 2, ÚT CƯNG - EB / ÚT CƯNG 4. Client public `TicketDetailModal` gọi `getTicketDisplayName(ticket, {preferZoneName: isBookingPage})`. Đây là bằng chứng cần giữ alias từ API, không đoán bằng cách bỏ hậu tố - EB. 0.5.0 đã bổ sung và kiểm thử đối chiếu này.
 
 Metadata vẫn `status: CLOSE`, `saleConfig: []`; `venueMap` là URL PNG SeatMap_VB_HN. Ảnh PNG là minh họa, không phải hợp đồng chọn ghế. Client còn có các nhánh SEATMAP/SEATMAP_ZONE/MIXED, preview và booking; có callbacks chọn/bỏ ghế/category. Các nhánh này không chứng minh thao tác map truy cập được từ content script. Không gọi renderer nội bộ, không lấy secret/signature của client, không tạo giữ chỗ trong khảo sát.

@@ -1,4 +1,19 @@
-# Rà soát source và cơ chế tham khảo · 0.5.0
+# Rà soát source và cơ chế tham khảo · 0.5.1
+
+## Review bổ sung cho ngày mở bán
+
+- Tab cũ sau cập nhật có thể không còn runner nhưng popup vẫn tạo phiên. CONTENT_READY xác nhận version/protocol ở tab chính trước AUTO_START từ popup; không trả lời/lệch bản thì không tạo phiên. Không thêm request vào từng click; nội dung lỗi có bước tải lại tab.
+- Summary chỉ cung cấp một zoneName đại diện. Endpoint zones được ghép theo ticketClassId, kiểm tra đúng event/suất và ID/tên; HAI QUÝ/BA THƯƠNG/TƯ MẾN có 2 khu mỗi hạng, ÚT CƯNG có 6. Không tự đoán tên bằng prefix. Cấu hình cũ thiếu tập khu yêu cầu tải lại và lưu.
+- UI bỏ tam giác mặc định, dùng hàng cài đặt có dấu +/−, chữ và vùng bấm lớn hơn. Câu chữ mô tả trực tiếp hành động. Diễn tập bổ sung queue/xác minh có bước tiếp tục rõ ràng, vẫn dùng transport local và không ghi phiên thật.
+
+- Queue có thể trả về trang event sau khi đã bấm mua, không chỉ đi thẳng tới chọn vé. Reset riêng bước OPENING; không gửi lại bước ADVANCING. Unit mô phỏng queue lâu hơn timeout và E2E qua queue → event → booking.
+- Phản hồi START có thể tới sau AUTO_UPDATED hoặc STOP. Runner không ghi đè tiến trình mới, bỏ broadcast của phiên vừa hủy và ngắt local ngay khi dừng. Thêm unit cho START lặp, trả lời muộn, STOP trong lúc START chờ và mất kết nối lúc STOP.
+- Kiểm tra rõ thời hạn: bật hôm trước cho sale 12:00 ngày 19/10 thì hết phiên 13:00 ngày 19/10. Popup đóng không phải lệnh dừng; browser restart/extension Reload hủy session.
+- Bản phát hành được kiểm tra manifest MV3/version, đường dẫn file, cú pháp JavaScript, script HTML chỉ dùng file cục bộ và không có source map/.env. Đây là kiểm tra kỹ thuật, không phải bảo đảm Web Store sẽ duyệt.
+
+Đã tham khảo thêm [Tickets Hunter](https://github.com/bouob/tickets_hunter), cụ thể [guide ưu tiên/fallback](https://github.com/bouob/tickets_hunter/blob/main/guide/keyword-mechanism.md) và [thư mục adapter theo nền tảng](https://github.com/bouob/tickets_hunter/tree/main/src/platforms). Bài học dùng được là chuẩn bị ưu tiên/số lượng trước, có điều kiện chuyển bước và phần riêng cho từng website. Không sao chép mã; repo này không có bằng chứng tương thích 1Zone. Tool giữ ID/tên/giá chính xác từ nguồn thay vì dựa vào substring hoặc fallback ngẫu nhiên. Cách chờ điều kiện có thể đối chiếu với [Automa](https://github.com/AutomaApp/documentation/blob/main/docs/workflow/element-selector.md) và [Playwright auto-waiting](https://playwright.dev/docs/actionability); các thư viện này không chạy thay booking adapter trong extension.
+
+[Vòng đời Queue-it](https://www.queue-it.com/developers/how-queue-it-works/) chỉ là nguồn tham khảo cơ chế chuyển qua phòng chờ/cookie; chưa xác nhận 1Zone sử dụng nhà cung cấp này. [Chrome timer throttling](https://developer.chrome.com/blog/timer-throttling-in-chrome-88) là lý do hướng dẫn giữ tab vé phía trước, không hứa tốc độ như nhau ở tab nền hoặc mobile.
 
 ## Review 0.5.0
 

@@ -21,7 +21,11 @@ export function verifyCatalogSelection(p: EventPreferences, detail: ConcertDetai
   for (const preference of selected.tickets) {
     const ticket = tickets.tickets.find(t => t.id === preference.id);
     if (!ticket || ticket.name !== preference.name || ticket.priceVnd !== preference.priceVnd) throw new Error('Hạng vé hoặc giá đã đổi. Tải lại danh sách hạng vé rồi lưu lại.');
-    if (preference.zoneName !== undefined && ticket.zoneName !== preference.zoneName) throw new Error('Tên zone đã đổi. Tải lại hạng vé rồi lưu lại.');
+    if (ticket.zones?.length && !preference.zones?.length) throw new Error('Sơ đồ có nhiều khu trong một hạng. Tải lại hạng vé, chọn ưu tiên rồi lưu cấu hình.');
+    if (preference.zones) {
+      const zones = ticket.zones;
+      if (!zones || preference.zones.length !== zones.length || preference.zones.some(old => !zones.some(next => next.id === old.id && next.name === old.name))) throw new Error('Danh sách zone đã đổi. Tải lại hạng vé rồi lưu lại.');
+    } else if (preference.zoneName !== undefined && ticket.zoneName !== preference.zoneName) throw new Error('Tên zone đã đổi. Tải lại hạng vé rồi lưu lại.');
     if (preference.seatMode && preference.seatMode !== ticket.seatMode) throw new Error('Cách chọn ghế đã đổi. Tải lại hạng vé rồi lưu lại.');
     if (ticket.maxQuantity !== undefined && p.quantity > ticket.maxQuantity) throw new Error(`Hạng ${ticket.name} chỉ cho phép tối đa ${ticket.maxQuantity} vé.`);
   }

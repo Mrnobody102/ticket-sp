@@ -7,7 +7,7 @@ import { autoCommand, watchAutoRun } from '../infrastructure/automation-messages
 import { chromeAutomationTransport } from '../infrastructure/automation-transport';
 import type { AutoRun } from '../core/automation';
 import { loadAssistantState } from '../application/assistant-bootstrap';
-import { verifyExtensionRuntime } from '../infrastructure/extension-runtime';
+import { RUNTIME_INFO, verifyExtensionRuntime } from '../infrastructure/extension-runtime';
 
 export default defineContentScript({
   matches: [...contentMatches],
@@ -24,6 +24,13 @@ export default defineContentScript({
     ctx.onInvalidated(watchAutoRun(run => { latestRun = run; mounted?.updateAuto(run); }));
     const initial = await loadAssistantState(() => repository.load(), async () => {
       await verifyExtensionRuntime();
+      // Register before AUTO_GET: popup START can be waiting for this tab while
+      // the background serializes run mutations. No DOM action occurs here.
+      const ready = (message: unknown, sender: chrome.runtime.MessageSender, respond: (reply: unknown) => void) => {
+        if (!disposed && sender.id === chrome.runtime.id && message && typeof message === 'object' && 'type' in message && message.type === 'CONTENT_READY') respond({ info: RUNTIME_INFO });
+      };
+      chrome.runtime.onMessage.addListener(ready);
+      ctx.onInvalidated(() => chrome.runtime.onMessage.removeListener(ready));
       return autoCommand({ type: 'AUTO_GET' });
     });
     if (disposed) return;
