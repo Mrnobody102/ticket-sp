@@ -2,9 +2,9 @@
 
 ## Bản thử hiện tại
 
-Người nhận dùng `Camp-ve-0.5.3.zip`: giải nén, mở `BAT-DAU.html`, nạp thư mục `tien-ich` vào Chrome. Không cần source, Node.js hay npm. Mỗi người tự đăng nhập website bán vé; ZIP không chứa cấu hình hoặc phiên tài khoản của người tạo gói.
+Người nhận dùng `Camp-ve-0.5.4.zip`: giải nén, mở `BAT-DAU.html`, nạp thư mục `tien-ich` vào Chrome. Không cần source, Node.js hay npm. Mỗi người tự đăng nhập website bán vé; ZIP không chứa cấu hình hoặc phiên tài khoản của người tạo gói.
 
-Gói `ticket-sp-0.5.3-chrome.zip` là extension ở thư mục gốc, dùng để tải lên Web Store. Hai gói có cùng nội dung extension; `release.json` lưu hash từng file và `SHA256SUMS.txt` lưu hash hai ZIP.
+Gói `ticket-sp-0.5.4-chrome.zip` là extension ở thư mục gốc, dùng để tải lên Web Store. Hai gói có cùng nội dung extension; `release.json` lưu hash từng file và `SHA256SUMS.txt` lưu hash hai ZIP.
 
 Người phát triển có thể tạo gói bằng `npm run release`, hoặc mở GitHub → Actions → **Build tested extension** → **Run workflow** và tải artifact **Camp-ve** khi kiểm tra thành công. Workflow chưa tự đăng Web Store hay tạo release công khai. Người dùng cuối chỉ nhận ZIP hoặc link cài.
 
@@ -19,7 +19,7 @@ Người phát triển có thể tạo gói bằng `npm run release`, hoặc m�
 
 ## Bản thương mại: phần cần xây tiếp
 
-**0.5.3 vẫn miễn phí, không có khóa chống chia sẻ.** Không nhúng “mã bí mật” trong extension hoặc dùng một cờ localStorage để giả làm cấp quyền. Bản ZIP đã phát hành có thể bị sao chép; không thể thu hồi từ xa một bản offline không có máy chủ kiểm soát. Đặt `license: UNLICENSED` chỉ mô tả trạng thái cấp phép source, không phải biện pháp bảo vệ kỹ thuật.
+**0.5.4 vẫn miễn phí, không có khóa chống chia sẻ.** Không nhúng “mã bí mật” trong extension hoặc dùng một cờ localStorage để giả làm cấp quyền. Bản ZIP đã phát hành có thể bị sao chép; không thể thu hồi từ xa một bản offline không có máy chủ kiểm soát. Đặt `license: UNLICENSED` chỉ mô tả trạng thái cấp phép source, không phải biện pháp bảo vệ kỹ thuật.
 
 Khi triển khai thương mại, cần một dịch vụ tài khoản/quyền dùng thật:
 

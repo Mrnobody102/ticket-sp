@@ -2,7 +2,7 @@
 
 Đã đính chính theo người dùng: mở bán **12:00 hôm nay, 18/10/2026 UTC+7**. Bản 0.5.2 sửa cấu hình đúng suất còn mang mốc cũ 19/10 khi cập nhật, giữ nguyên hạng/số vé. Sau Reload, kiểm tra giờ trên bảng camp rồi bấm Bắt đầu camp lại; cập nhật không tự bật phiên mua.
 
-Bản 0.5.3 bổ sung chặn tên/ID mâu thuẫn và nhiều khu cùng được chọn. Cập nhật trước giờ bán bằng Reload tiện ích rồi tải lại tab vé, kiểm tra lại 1 vé/ÚT CƯNG/12:00 và bật camp. Gửi bạn bè gói 0.5.3; mỗi người tự đăng nhập và lưu cấu hình của mình.
+Bản hiện tại **0.5.4** chặn tên/ID mâu thuẫn, nhiều khu cùng được chọn và FAQ bị nhận nhầm thành checkout. Cập nhật trước giờ bán bằng Reload tiện ích rồi tải lại tab vé, kiểm tra lại 1 vé/ÚT CƯNG/12:00 và bật camp. Gửi bạn bè gói 0.5.4; mỗi người tự đăng nhập và lưu cấu hình của mình.
 
 ## Bấm camp rồi không dừng thì sao?
 
@@ -16,7 +16,7 @@ Phiên hết hạn sau một giờ tính từ mốc muộn hơn giữa lúc bậ
 
 Mở sẵn trang sự kiện hoặc trang chọn vé rồi vào popup Bắt đầu camp được hỗ trợ. Tool tìm tab khớp cả sự kiện và calendarId, xác nhận content script cùng bản rồi dùng lại tab đó; chỉ tạo tab khi chưa có tab khớp. Hai E2E mở website trước cả lúc lưu cấu hình đã kiểm tra đúng tab/suất, không mở trùng, mua/chọn/tiếp tục đúng một lần và không bấm thanh toán cuối.
 
-Nếu bảng đang ghi Đã bật camp, đúng 12:00 ngày 18/10 và đúng hạng/số vé thì giữ phiên đó, không cần dừng hoặc Reload để bắt đầu lại. Sau khi vừa cập nhật extension, tab cũ cần tải lại trước khi bật; handshake sẽ báo nếu tab chưa có bản tương thích. Nên chỉ giữ một tab của suất đang camp để dễ theo dõi.
+Nếu đang dùng cùng bản và bảng ghi Đang camp, đúng 12:00 ngày 18/10 và đúng hạng/số vé thì giữ phiên đó, không cần dừng hoặc Reload để bắt đầu lại. Sau khi vừa cập nhật extension, tab cũ cần tải lại trước khi bật; handshake sẽ báo nếu tab chưa có bản tương thích. Nên chỉ giữ một tab của suất đang camp để dễ theo dõi.
 
 Dùng Chrome trên máy tính; bản hiện tại được kiểm thử trên Windows/Chromium. Chrome điện thoại không cài extension này, kể cả bật giao diện desktop. [Google xác nhận giới hạn mobile](https://support.google.com/chrome_webstore/answer/1698338?hl=en).
 
@@ -24,7 +24,7 @@ Giữ tab vé ở phía trước, máy cắm điện/không ngủ và mạng ổ
 
 ## Các bước cho buổi bán
 
-1. Hôm nay: cài **0.5.3**, Reload extension tại `chrome://extensions` rồi tải lại tab vé. Kiểm tra cùng phiên bản ở cửa sổ cấu hình và bảng camp. Tải lại hạng vé, chọn ưu tiên và lưu lại để có đủ các khu của mỗi hạng. Chạy diễn tập 1 và 2 vé, thử cả phòng chờ/xác minh để hiểu trạng thái và kết quả.
+1. Hôm nay: cài **0.5.4**, Reload extension tại `chrome://extensions` rồi tải lại tab vé. Kiểm tra cùng phiên bản ở cửa sổ cấu hình và bảng camp. Tải lại hạng vé, chọn ưu tiên và lưu lại để có đủ các khu của mỗi hạng. Chạy diễn tập 1 và 2 vé, thử cả phòng chờ/xác minh để hiểu trạng thái và kết quả.
 2. Khoảng **11:50–11:55 ngày 18/10**: mở Chrome máy tính, đăng nhập 1Zone, kiểm tra đúng URL Hà Nội `calendarId=8h0YGm`, đúng hạng ưu tiên, số vé và **12:00 ngày 18/10/2026 UTC+7**. 11:00 ngày 21/11 là giờ diễn, không phải giờ bán.
 3. Tải lại hạng vé nếu đã chuẩn bị từ hôm trước, chọn thứ tự rồi Lưu. Bắt đầu camp để preflight đọc dữ liệu mới hoàn tất trước 12:00; giữ tab vé ở phía trước. Bật từ hôm trước có thể chờ được nếu browser không gián đoạn, nhưng không thay thế kiểm tra lại đăng nhập/catalog gần giờ bán.
 4. Không tự reload/đổi tab/cấu hình trong khi đang queue hoặc đang giữ chỗ. Nếu tool báo cần xác minh/đăng nhập thì xử lý trên website và bắt đầu lại theo trạng thái thực tế của giỏ. Nếu đã có vé/ghế được chọn, kiểm tra giỏ trước khi chạy lại.

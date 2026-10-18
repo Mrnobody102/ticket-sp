@@ -1,4 +1,4 @@
-# Cơ chế camp vé · bản 0.5.3
+# Cơ chế camp vé · bản 0.5.4
 
 0.5.2 sửa ngày bán Hà Nội thành 12:00 ngày 18/10/2026 UTC+7. Khi cài/cập nhật, chỉ sửa cấu hình đúng suất còn dùng chính xác mốc cũ 12:00 ngày 19/10; giữ hạng/số lượng và dừng phiên cũ, không tự bật mua. Giờ tùy chỉnh khác và sự kiện khác được giữ nguyên.
 
@@ -21,6 +21,10 @@ Bản hiện tại kết nối **tìm sự kiện → chọn đúng suất/hạn
 0.4.2 bắt lỗi đọc phiên lúc khởi tạo content bằng `Promise.allSettled`. Nếu không đọc được cấu hình hoặc phiên, panel hiển thị lỗi và không tạo runner. Lỗi quyền kiểu worker cũ chỉ được đổi thành hướng dẫn Reload với các lệnh AUTO hợp lệ; quyền SAVE từ content vẫn bị chặn. UI gom thông tin sự kiện, đặt hạng/số lượng/giờ trước, giữ Lưu/Bắt đầu ở footer. `public/huong-dan.html` là hướng dẫn tĩnh, dùng được trong extension và mở trực tiếp sau giải nén.
 
 ## 1. Đầu vào và đầu ra
+
+`snapshot.state` là trạng thái nội bộ có kiểu `WorkflowState`, được adapter website tạo ra. Ví dụ `snapshot.state === 'CHECKOUT'` nghĩa là bộ đọc đã phân loại màn hiện tại là thanh toán, nên core dừng tự động hóa. Đây không phải phép so sánh chữ trên website với từ CHECKOUT. Phần nhận diện 1Zone đọc HTML/ARIA, nhãn ảnh/SVG, ID điều khiển, giá, số lượng và trạng thái hiển thị/disabled; câu chữ được chuẩn hóa dấu, hoa/thường và khoảng trắng.
+
+1Zone vẫn cần mapping nút và cấu trúc riêng. Không có một bộ text button chuẩn dùng được cho mọi nền tảng. Nhãn mới hoặc DOM không đủ bằng chứng có thể khiến adapter dừng. 0.5.4 yêu cầu tiêu đề checkout đúng ngữ nghĩa đã hỗ trợ kèm form/điều khiển thanh toán; FAQ “Thanh toán thế nào?” và form nhận email không đủ. Classifier này nhận diện trang, không xác nhận server đã giữ vé.
 
 Bản 0.5.2 còn kiểm tra phiên bản content script trong tab vé trước khi bật từ popup. Tab chưa nạp mã mới không được báo là đã camp. Kiểm tra kết nối này chỉ chạy khi bắt đầu, không nằm trên đường chọn vé. API `/zones` bổ sung đủ 12 khu của 4 hạng cho suất Hà Nội; khi đã chọn khu cụ thể, modal phải khớp khu ấy.
 

@@ -86,7 +86,7 @@ for (const state of ['event', 'booking'] as const) test(`mở sẵn ${state} tr�
   const target = catalogUrl + '?calendarId=HN';
   const booking = target.replace('/events/', '/booking/');
   const bookingBody = readFileSync('fixtures/booking.html', 'utf8') + `<script>(${installBookingDemo.toString()})(document)</script>`;
-  const eventBody = '<!doctype html><html lang="vi"><head><meta charset="utf-8"></head><body><main><h1>Sắp mở bán</h1><button data-id="btn-by-ticket" disabled>Sắp mở bán</button></main></body></html>';
+  const eventBody = '<!doctype html><html lang="vi"><head><meta charset="utf-8"></head><body><main><h1>Sắp mở bán</h1><button data-id="btn-by-ticket" disabled>Sắp mở bán</button><h2>Thanh toán thế nào?</h2><form><input aria-label="Email nhận tin"></form></main></body></html>';
   await context.route(/^https:\/\/ticket\.1zone\.vn\//, route => route.fulfill({ contentType: 'text/html', body: new URL(route.request().url()).pathname.startsWith('/booking/') ? bookingBody : eventBody }));
   // A tab of the same event but another calendar must never receive this run.
   const other = await context.newPage(); await other.goto(catalogUrl + '?calendarId=OTHER');

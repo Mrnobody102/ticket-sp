@@ -27,9 +27,10 @@ export function inspectOnezonePage(document: Document, url: URL, p?: EventPrefer
   if (!matches(url) || !document.body) return finish(base);
   const { isVisible, text: visibleText } = reader;
   const text = normalize(visibleText(document.body));
-  const headings = [...document.querySelectorAll('h1, h2, h3, [role="heading"], [role="alert"], [role="status"]')]
+  const headingTexts = [...document.querySelectorAll('h1, h2, h3, [role="heading"], [role="alert"], [role="status"]')]
     .filter(isVisible).map(e => normalize(visibleText(e)))
-    .filter(t => t.length < 200 && !/huong dan|quy dinh|dieu khoan|gioi thieu/.test(t)).join(' | ');
+    .filter(t => t.length < 200 && !/huong dan|quy dinh|dieu khoan|gioi thieu/.test(t));
+  const headings = headingTexts.join(' | ');
   const controls = [...document.querySelectorAll('button, a[href], input[type="submit"]')].filter(isVisible);
   const controlText = controls.map(e => normalize(e.getAttribute('aria-label') ?? visibleText(e))).join(' | ');
   const blocked = (state: 'CHALLENGE' | 'WAITING_ROOM' | 'CHECKOUT', reason: string) => finish({ ...base, state, reason });
@@ -41,7 +42,8 @@ export function inspectOnezonePage(document: Document, url: URL, p?: EventPrefer
     return blocked('WAITING_ROOM', 'Đang ở phòng chờ. Giữ nguyên tab và làm theo hướng dẫn của 1Zone.');
   }
   const visibleForm = [...document.querySelectorAll('form')].some(isVisible);
-  if (/thanh toan|checkout|xac nhan don hang/.test(headings) &&
+  // A question or description mentioning payment is not the checkout screen.
+  if (headingTexts.some(t => /^(thanh toan|checkout|xac nhan don hang)$/.test(t)) &&
       (visibleForm || /thanh toan|xac nhan don hang/.test(controlText))) {
     return blocked('CHECKOUT', 'Kiểm tra vé, tổng tiền và hoàn tất thanh toán trên website.');
   }

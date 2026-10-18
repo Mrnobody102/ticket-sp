@@ -80,7 +80,9 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
   if (!autoActive(run)) return { type: 'WAIT' };
   if (run.preferencesKey !== preferencesKey(p)) return pause(progress, 'Cấu hình đã đổi. Bắt đầu lại sau khi kiểm tra.');
   if (now >= run.expiresAt) return pause(progress, 'Phiên camp đã hết thời gian. Kiểm tra trang trước khi bắt đầu lại.');
-  // Checkout is the destination, including a route that no longer retains the event slug.
+  // CHECKOUT is an internal state classified by the platform adapter from DOM
+  // evidence, not a literal website label. Stop here; do not submit final payment.
+  // Its route may no longer retain the event slug; this is not proof of a server hold.
   if (snapshot.state === 'CHECKOUT') return { type: 'STEP', progress: { ...progress, phase: 'CHECKOUT', message: 'Đã tới bước thanh toán. Kiểm tra đơn và thanh toán.', checkoutReachedAt: now } };
   if (page.problem) return pause(progress, page.problem);
   if (snapshot.state === 'CHALLENGE') return pause(progress, 'Hoàn thành xác minh trên website rồi bắt đầu lại.');

@@ -34,6 +34,7 @@ try {
   await page.goto(clean.href, { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.locator('.status-line').waitFor({ timeout: 15000 });
   // Explicit rescan after hydration; no click on any website control.
+  await page.locator('.panel-tools > summary').click();
   await page.getByRole('button', { name: 'Nhận diện lại' }).click();
   const result = {
     url: clean.href,

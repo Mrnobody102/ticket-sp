@@ -85,7 +85,8 @@ test('popup → lưu → khôi phục → content panel → DOM/SPA → dừng �
   await expect(event.locator('.highlight')).toHaveCount(0);
   await event.goto(target.replace('/events/', '/booking/'));
   await expect(event.locator('.recommendation')).toHaveCount(2);
-  await event.getByRole('button', { name: 'Dừng', exact: true }).click();
+  await event.locator('.panel-tools > summary').click();
+  await event.getByRole('button', { name: 'Tắt công cụ', exact: true }).click();
   await expect(event.locator('.status-line')).toContainText('Đã dừng');
   await expect(event.locator('.highlight')).toHaveCount(0);
   await event.getByRole('button', { name: 'Ẩn panel' }).click();
@@ -338,7 +339,7 @@ test('bắt đầu từ popup: chờ giờ, tự vào booking và tiếp tục p
   const booking = target.replace('/events/', '/booking/');
   await context.route(target, route => route.fulfill({ contentType: 'text/html', body: `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Event mô phỏng</title></head><body><main><h1>Fan meeting</h1><p>Giới thiệu sự kiện</p><a href="${booking}">Mua vé</a></main></body></html>` }));
   const event = await context.newPage(); await event.goto(target);
-  await expect(event.locator('.status-line')).toContainText('Trang concert');
+  await expect(event.locator('.status-line')).toContainText('Trang sự kiện');
   const worker = context.serviceWorkers()[0]!;
   await worker.evaluate(async () => {
     const key = 'ticket-assistant.config.v1';

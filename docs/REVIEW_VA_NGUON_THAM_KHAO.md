@@ -1,6 +1,8 @@
-# Rà soát source và cơ chế tham khảo · 0.5.3
+# Rà soát source và cơ chế tham khảo · 0.5.4
 
 ## Review bổ sung cho ngày mở bán
+
+0.5.4 làm rõ hai lớp: adapter đọc DOM/ARIA/ID và chuẩn hóa nhãn; core chỉ so sánh state nội bộ. Kiểm tra === với CHECKOUT là có chủ ý. Classifier checkout được siết để tiêu đề FAQ có chữ thanh toán cộng form nhận email không tạo trạng thái thành công giả. Unit kiểm tra nhãn tiếng Việt/Anh, hoa/thường/khoảng trắng, nhãn chưa hỗ trợ và checkout thiếu bằng chứng. UI phân biệt website Chưa mở bán với tool Đang camp, bỏ câu chờ/nhận diện lặp, gom thao tác phụ; nút Dừng camp vẫn trực tiếp khi đang chạy.
 
 Rà soát 0.5.3 phát hiện hai khe hở nội bộ: ID đúng có thể làm mất nhãn hạng mâu thuẫn khi canonical hóa; và một lựa chọn hạng chung có thể chấp nhận nhiều khu cùng selected. Đã yêu cầu nhãn hạng/khu khớp cùng ID, đối chiếu ID trong modal, chặn generic advance khi modal chưa xác minh, và tạm dừng khi có nhiều lựa chọn selected. Nhãn ghế A1 vẫn được phân biệt với tên hạng: class ID và zone cha nếu có phải khớp. Các kiểm tra không gọi mạng hoặc thêm delay; unit/E2E gồm trường hợp bất thường và luồng hợp lệ.
 

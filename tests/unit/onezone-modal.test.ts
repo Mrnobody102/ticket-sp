@@ -16,6 +16,29 @@ beforeEach(() => {
   installOnezoneDemo(document);
 });
 describe('component modal 1Zone theo dấu hiệu công khai', () => {
+  it.each(['MUA VÉ', '  Mua   vé  ', 'BUY TICKETS'])('nhận diện nhãn nút đã chuẩn hóa: %s', name => {
+    document.body.innerHTML = '<h1>Giới thiệu sự kiện</h1><button data-id="btn-by-ticket"></button>';
+    document.querySelector('button')!.setAttribute('aria-label', name);
+    expect(inspect().automation!.page.enterCount).toBe(1);
+  });
+  it('nút đổi sang nhãn chưa hỗ trợ không được tự đoán theo ID', () => {
+    document.body.innerHTML = '<h1>Giới thiệu sự kiện</h1><button data-id="btn-by-ticket">Chốt đơn</button>';
+    expect(inspect().automation!.page.enterCount).toBe(0);
+  });
+  it.each(['THANH TOÁN', '  Thanh   toán  ', 'Checkout'])('checkout cần tiêu đề chuẩn hóa và dấu hiệu form: %s', title => {
+    document.body.innerHTML = '<main><h1></h1><form><button>Xác nhận đơn hàng</button></form></main>';
+    document.querySelector('h1')!.textContent = title;
+    expect(inspect().snapshot.state).toBe('CHECKOUT');
+  });
+  it.each(['Thanh toán thế nào?', 'Thông tin về thanh toán'])('FAQ kèm form không được hiểu thành checkout: %s', title => {
+    document.body.innerHTML = '<main><h1></h1><form><input aria-label="Email nhận tin"></form><button data-id="btn-by-ticket">Mua vé</button></main>';
+    document.querySelector('h1')!.textContent = title;
+    expect(inspect().snapshot.state).not.toBe('CHECKOUT');
+  });
+  it('tiêu đề Thanh toán đứng một mình chưa đủ để kết luận checkout', () => {
+    document.body.innerHTML = '<main><h1>Thanh toán</h1></main>';
+    expect(inspect().snapshot.state).not.toBe('CHECKOUT');
+  });
   it.each(['data-ticket-class-id', 'data-ticket-type-id', 'data-zone-id'])('modal tên/giá đúng nhưng %s mâu thuẫn: chặn generic advance', attribute => {
     document.querySelector('#ticket-list button')!.dispatchEvent(new MouseEvent('click'));
     document.querySelector('[role="dialog"]')!.setAttribute(attribute, 'wrong-id');

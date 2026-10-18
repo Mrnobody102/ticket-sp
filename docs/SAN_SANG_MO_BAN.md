@@ -1,4 +1,4 @@
-# Kiểm tra và chuẩn bị camp Vương Bình Hà Nội · 0.5.3
+# Kiểm tra và chuẩn bị camp Vương Bình Hà Nội · 0.5.4
 
 Hướng dẫn ngắn cho người lần đầu camp, hành vi khi đóng popup/không bấm dừng và giới hạn điện thoại: [CHUAN_BI_18_10.md](CHUAN_BI_18_10.md).
 
@@ -8,14 +8,14 @@ Mục tiêu là vào chọn đúng hạng/số lượng rồi tới checkout s�
 
 Người dùng đã cung cấp [đúng suất Hà Nội](https://ticket.1zone.vn/events/vuong-binh-tiec-thanh-than-mam-2?calendarId=8h0YGm) và xác nhận **12:00 ngày 18/10/2026, UTC+7** làm mặc định. Đây là mốc người dùng cung cấp, chưa phải thời điểm được xác minh độc lập từ API. Có thể sửa trực tiếp ô giờ trước khi lưu; không lấy giờ diễn 21/11 làm giờ bán.
 
-1. Trong `chrome://extensions`, bấm Reload ở Camp vé rồi **tải lại tab 1Zone**. Mở lại popup và kiểm tra **v0.5.3** ở cả cửa sổ cấu hình lẫn bảng camp trên tab vé. Đăng nhập trước bằng tài khoản dùng để mua. Nếu đang nạp `.output/chrome-mv3` của project thì không cần tải ZIP; file build đã nằm ở đó. Lỗi cũ có thể còn trong danh sách Lỗi của Chrome: Xóa tất cả, tải lại tab rồi kiểm tra có lỗi mới hay không.
+1. Trong `chrome://extensions`, bấm Reload ở Camp vé rồi **tải lại tab 1Zone**. Mở lại popup và kiểm tra **v0.5.4** ở cả cửa sổ cấu hình lẫn bảng camp trên tab vé. Đăng nhập trước bằng tài khoản dùng để mua. Nếu đang nạp `.output/chrome-mv3` của project thì không cần tải ZIP; file build đã nằm ở đó. Lỗi cũ có thể còn trong danh sách Lỗi của Chrome: Xóa tất cả, tải lại tab rồi kiểm tra có lỗi mới hay không.
 2. Trong tiện ích chọn thẻ **TIỆC THÀNH-THÂN (MÂM 2): VƯƠNG BÌNH 💘 VOI CON** có nhãn **Chuẩn bị sự kiện →**. Tool điền link, suất, 12h ngày 18/10, 1 vé, ngân sách trống và tự tải hạng/giá. **Chọn và sắp thứ tự hạng bằng danh sách**, sửa số vé/giờ nếu cần; không gõ lại tên/giá. Tải lỗi thì bấm thử lại; ô nhập thủ công chỉ có khi chủ động bật trong Ngân sách và cách chọn vé. Cập nhật từ bản cũ cần tải lại hạng rồi lưu để bổ sung đủ các khu.
 3. Lưu rồi **Bắt đầu camp trước 12h**, để việc tải lại catalog/kiểm tra ban đầu hoàn tất trước giờ bán. Giữ tab và máy hoạt động, đồng hồ máy đúng giờ.
 4. Khi website cho mua, tool thao tác trên giao diện đã nhận diện. CAPTCHA/đăng nhập/lỗi không rõ cần xử lý trên website. Đến checkout thì kiểm tra đơn và thanh toán cuối.
 
 Preset chỉ điền bản nháp; không tự lưu/arm, không tự chọn hạng hoặc mở phiên giữ vé.
 
-Gửi bạn bè file `.output/Camp-ve-0.5.3.zip` đã tạo sẵn. Người nhận giải nén, mở `BAT-DAU.html`, nạp thư mục `tien-ich`; không chạy npm. Hướng dẫn ngắn cũng có trong menu tool. Phân phối bằng Web Store và quyền dùng xem [PHAT_HANH.md](PHAT_HANH.md).
+Gửi bạn bè file `.output/Camp-ve-0.5.4.zip` đã tạo sẵn. Người nhận giải nén, mở `BAT-DAU.html`, nạp thư mục `tien-ich`; không chạy npm. Hướng dẫn ngắn cũng có trong menu tool. Phân phối bằng Web Store và quyền dùng xem [PHAT_HANH.md](PHAT_HANH.md).
 
 Nếu hiện **Cần tải lại tiện ích**, giao diện chưa xác nhận được worker cùng bản. Hãy làm lại bước 1. Bản cũ có thể trả “Lệnh không được hỗ trợ” dù popup đã đọc file mới. Nút Mở rộng ở 0.4.1 dùng link trực tiếp nên vẫn mở trang cấu hình trong trường hợp này; camp được khóa đến khi kiểm tra phiên bản thành công.
 
@@ -65,12 +65,12 @@ Benchmark dùng Chromium và background/content script thật; website/API là f
 
 Kết quả p50/p95 và từng mẫu nằm ở `artifacts/camp-benchmark.json`. Các con số phản ánh browser/máy tại lần chạy, **không đại diện tốc độ sale thật, tải server hoặc xác suất mua được**. Một lần “0,1 giây” trên fixture không chứng minh nhanh nhất thị trường.
 
-Lần chạy bản 0.5.3, 24 mẫu đo đều tới checkout đúng luồng, có mapping nhiều khu và modal xác nhận cùng khu:
+Lần chạy bản 0.5.4, 24 mẫu đo đều tới checkout đúng luồng, có mapping nhiều khu và modal xác nhận cùng khu:
 
 | Phản hồi website mô phỏng | CTA mở → click mua, p50 / p95 | CTA mở → checkout, p50 / p95 |
 |---|---:|---:|
-| Ngay lập tức | 23,7 / 53,6 ms | 67,0 / 130,8 ms |
-| 100 ms ở mỗi bước mở danh sách và checkout | 17,7 / 34,5 ms | 285,8 / 324,0 ms |
+| Ngay lập tức | 6,7 / 33,4 ms | 37,2 / 76,1 ms |
+| 100 ms ở mỗi bước mở danh sách và checkout | 8,8 / 33,3 ms | 267,0 / 299,1 ms |
 
 Lượt smoke đọc DOM của 0.4.0 trên trang Hà Nội đo 20 mẫu: p50 12,4 ms, p95 16,9 ms; lượt lạnh đầu tiên 214,4 ms. Đây là chi phí đọc DOM ở lượt cũ, **không phải thời gian đặt vé**. 0.5.0 đã chạy lại smoke catalog bằng API thật, không bật camp hoặc bấm mua.
 

@@ -1,4 +1,4 @@
-# Kiểm thử · 0.5.3 · 18/10/2026
+# Kiểm thử · 0.5.4 · 18/10/2026
 
 Windows, Node.js 22.11.0, npm 10.9.0; WXT 0.21.4, Vite 6.4.4, Vitest 4.1.12; Chromium 156 qua Playwright. Các bài mua vé dùng dữ liệu tổng hợp và profile tạm, không dùng tài khoản hoặc tạo đơn thật.
 
@@ -6,19 +6,21 @@ Windows, Node.js 22.11.0, npm 10.9.0; WXT 0.21.4, Vite 6.4.4, Vitest 4.1.12; Chr
 
 | Lệnh | Kết quả |
 |---|---|
-| `npm run check` | PASS: TypeScript strict/noUnused, 197 unit tests / 17 files, build production |
+| `npm run check` | PASS: TypeScript strict/noUnused, 207 unit tests / 17 files, build production |
 | `npm run test:e2e` | PASS trọn bộ 39 ca: 13 catalog, 19 extension/diễn tập, 7 runtime |
+| UI cuối sau khi rút gọn | PASS TypeScript và chạy lại 6 E2E trên output cuối: popup/panel, chọn 2 vé, CAPTCHA, diễn tập thường/queue/xác minh |
+| Phân loại checkout và nhãn nút | PASS nhãn Việt/Anh, hoa/thường, khoảng trắng và ARIA; nhãn chưa hỗ trợ không được đoán; FAQ nhắc thanh toán kèm form nhận email không tạo CHECKOUT giả. Hai E2E mở sẵn trang cũng có FAQ/form này |
 | Mở trang trước khi bật từ popup | PASS cả event còn khóa và booking đã hiện vé: khớp calendarId dù có tab cùng event/suất khác, session giữ đúng tab ID, không tạo tab trùng, tới checkout 1 vé; mỗi bước chỉ click một lần và không bấm thanh toán cuối |
-| `npm run release` | PASS: ZIP bạn bè 214.700 byte, ZIP Store 210.342 byte; manifest/tài nguyên/cú pháp JS qua validator; 15 file production trong mỗi gói khớp SHA-256 output |
-| `node scripts/prepare-store.mjs --extension=artifacts/share-install-0.5.3-555fb886/tien-ich` | PASS từ chính ZIP cuối: diễn tập 2 vé tới checkout, 0 pageerror, 0 HTTP request; 2 ảnh 1280×800 |
+| `npm run release` | PASS: ZIP bạn bè 215.079 byte, ZIP Store 210.716 byte; manifest/tài nguyên/cú pháp JS qua validator; 15 file production trong mỗi gói khớp SHA-256 output |
+| `node scripts/prepare-store.mjs --extension=artifacts/share-install-0.5.4-f03b4e4f/tien-ich` | PASS từ chính ZIP cuối: diễn tập 2 vé tới checkout, 0 pageerror, 0 HTTP request; 2 ảnh 1280×800 |
 | Đính chính ngày bán | Unit giữ giờ tùy chỉnh/suất khác; E2E nâng phiên bản bằng profile lưu thật xác nhận 19/10 → 18/10 12:00, giữ ÚT CƯNG và 2 vé, không tự tạo phiên camp |
 | Runtime lỗi cũ | PASS lúc khởi tạo và bấm camp: lỗi được bắt, không Uncaught/click vé. Worker mới + content cũ không có handshake thì không tạo phiên camp |
-| `npm run bench:camp` | PASS 24 mẫu trên 0.5.3, 2 tình huống; 0 pageerror, đúng một click mỗi bước, không bấm thanh toán cuối |
+| `npm run bench:camp` | PASS 24 mẫu trên 0.5.4, 2 tình huống; 0 pageerror, đúng một click mỗi bước, không bấm thanh toán cuối |
 | Mâu thuẫn sau khi chọn | PASS E2E modal sai class ID và hai khu cùng selected: tạm dừng trước ADVANCE, 0 click Tiếp tục; unit giữ đúng trường hợp ghế A1 có class/zone hợp lệ |
-| `npm run smoke:catalog` ở 0.5.2 | Tham chiếu API thật 1Zone Hà Nội 4 hạng, HAI QUÝ 2 khu, ÚT CƯNG 6 khu và max=2; Ticketbox 11 hạng; không lưu cấu hình/bật camp. Parser catalog không thay trong 0.5.3 |
+| `npm run smoke:catalog` ở 0.5.2 | Tham chiếu API thật 1Zone Hà Nội 4 hạng, HAI QUÝ 2 khu, ÚT CƯNG 6 khu và max=2; Ticketbox 11 hạng; không lưu cấu hình/bật camp. Parser catalog không thay trong 0.5.3–0.5.4 |
 | `node scripts/smoke-live.mjs <link-Hà-Nội>` | PASS trên đúng trang công khai `8h0YGm`: chưa mở bán, đúng 1 bảng camp, 0 pageerror; không bật camp hoặc bấm mua |
 
-SHA-256 ZIP bạn bè: `555fb886add9f16726e91bc1ae182f44781324c8f59333d337c734eee796cafd`. Báo cáo từng file ở `.output/release.json`. 0.5.3 thêm kiểm tra khớp tên/ID, modal hợp lệ và chỉ một lựa chọn selected; không thêm network request hoặc sleep vào các bước chọn vé.
+SHA-256 ZIP bạn bè: `f03b4e4fa0adae037cf166f7d6ab098e63ffedd6646ec9ed5725e1ef613294b9`. Báo cáo từng file ở `.output/release.json`. 0.5.3 thêm kiểm tra khớp tên/ID, modal hợp lệ và chỉ một lựa chọn selected; 0.5.4 siết phân loại checkout và rút gọn UI. Không thêm network request hoặc sleep vào các bước chọn vé.
 
 Lượt E2E 0.5.2 đầu có một bài treo ở harness khi gọi runtime.reload trong worker đang được Playwright debug. Đổi harness thành đóng/mở profile tạm với manifest nâng 0.5.1 → 0.5.2, xác nhận onInstalled sửa cấu hình đã lưu. Chạy lại cả 7 bài runtime đạt; không thay migration production để làm bài qua.
 
@@ -53,14 +55,14 @@ Workflow GitHub đã chuẩn bị để chạy cùng các bước kiểm tra và
 
 ## Tốc độ
 
-Các số đo trong mục này được chạy lại trên extension production 0.5.3.
+Các số đo trong mục này được chạy lại trên extension production 0.5.4.
 
 `npm run bench:camp` dùng extension production, summary + zones tổng hợp, khu HAI QUÝ 1 và modal xác nhận cùng khu. Hai phản hồi website mô phỏng: ngay lập tức hoặc 100 ms tại mỗi bước mở vé và checkout. Mỗi tình huống làm nóng một lượt, đo 12 lượt. Đo từ lúc CTA thực sự mở, kiểm tra không bấm sớm, không click lặp, đúng CTA chính và không bấm thanh toán cuối. Báo cáo cục bộ: `artifacts/camp-benchmark.json`.
 
 | Độ trễ website mô phỏng mỗi bước | CTA mở → click mua, p50 / p95 | CTA mở → checkout, p50 / p95 |
 |---|---:|---:|
-| 0 ms | 23,7 / 53,6 ms | 67,0 / 130,8 ms |
-| 100 ms | 17,7 / 34,5 ms | 285,8 / 324,0 ms |
+| 0 ms | 6,7 / 33,4 ms | 37,2 / 76,1 ms |
+| 100 ms | 8,8 / 33,3 ms | 267,0 / 299,1 ms |
 
 Catalog/preflight và handshake nằm trước lúc chạy; không thêm GET vào từng bước chọn vé. Tốc độ ngoài fixture còn phụ thuộc browser, website, mạng, queue và tồn kho. Không dùng số đo cục bộ để cam kết nhanh nhất hoặc mua được vé.
 
