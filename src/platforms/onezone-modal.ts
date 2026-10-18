@@ -31,8 +31,15 @@ export function readOnezoneModal(document: Document, p: EventPreferences, reader
     const names = p.catalog.tickets.filter(q => [...root.querySelectorAll('p,h3,span')].some(e => reader.isVisible(e) && ticketHasLabel(q, reader.text(e))));
     if (names.length !== 1) return;
     const quote = names[0]!;
-    const physical = quote.zones?.filter(z => [...root.querySelectorAll('p,h3,span')].some(e => reader.isVisible(e) && normalize(reader.text(e)) === normalize(z.name))) ?? [];
-    if (physical.length > 1) return;
+    const namedZones = quote.zones?.filter(z => [...root.querySelectorAll('p,h3,span')].some(e => reader.isVisible(e) && normalize(reader.text(e)) === normalize(z.name))) ?? [];
+    if (namedZones.length > 1) return;
+    const identified = [root, ...root.querySelectorAll('[data-ticket-class-id],[data-ticket-type-id],[data-zone-id]')];
+    const classIds = [...new Set(identified.flatMap(e => [e.getAttribute('data-ticket-class-id'), e.getAttribute('data-ticket-type-id')]).filter(Boolean))];
+    if (classIds.length > 1 || (classIds.length === 1 && classIds[0] !== quote.id)) return;
+    const zoneIds = [...new Set(identified.map(e => e.getAttribute('data-zone-id')).filter(Boolean))];
+    const identifiedZone = zoneIds.length === 1 ? quote.zones?.find(z => z.id === zoneIds[0]) : undefined;
+    if (zoneIds.length > 1 || (zoneIds.length === 1 && (!identifiedZone || (namedZones.length && namedZones[0]!.id !== identifiedZone.id)))) return;
+    const physical = namedZones[0] ?? identifiedZone;
     const stepper = plus[0]!.parentElement!;
     const valueNodes = [...stepper.children].filter(e => e.tagName === 'SPAN' && /^\d{1,3}$/.test(reader.text(e)));
     if (valueNodes.length !== 1) return;
@@ -43,7 +50,7 @@ export function readOnezoneModal(document: Document, p: EventPreferences, reader
     if (new Set(amounts).size !== 1 || amounts[0] !== quote.priceVnd) return;
     const disabled = (e: HTMLElement) => e.matches(':disabled,[aria-disabled="true"]');
     return {
-      entry: { element: root, option: { id: `onezone-modal-${quote.id}`, kind: 'ZONE', label: quote.name, ticketTypeId: quote.id, zoneLabel: physical[0]?.name, displayedPriceVnd: quote.priceVnd, displayedAvailability: 'AVAILABLE', selected: true } },
+      entry: { element: root, option: { id: `onezone-modal-${quote.id}`, kind: 'ZONE', label: quote.name, ticketTypeId: quote.id, zoneLabel: physical?.name, displayedPriceVnd: quote.priceVnd, displayedAvailability: 'AVAILABLE', selected: true } },
       quantity: { value, min: 1, max: disabled(plus[0]!) ? value : 100, writable: !disabled(plus[0]!) || !disabled(minus[0]!), stepper: true },
       valueElement: valueNodes[0]! as HTMLElement, increase: plus[0]!, decrease: minus[0]!, advance,
     };

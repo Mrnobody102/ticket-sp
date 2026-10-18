@@ -16,6 +16,19 @@ function preferences(): EventPreferences {
 }
 beforeEach(() => { vi.spyOn(Element.prototype, 'getClientRects').mockReturnValue([{}] as unknown as DOMRectList); });
 describe('một hạng có nhiều khu trên sơ đồ', () => {
+  it.each([undefined, 'VIP 1', 'VVIP'])('ghế A1 có class ID: giữ nhãn ghế, đối chiếu zone cha %s nếu có', zone => {
+    const p = preferences(); p.catalog!.tickets[0]!.seatMode = 'PICK';
+    const button = '<button data-ticket-class-id="vip-test" aria-label="A1 · 1.200.000 ₫">Chọn</button>';
+    document.body.innerHTML = '<h1>Chọn ghế</h1>' + (zone ? `<div role="group" aria-label="${zone}">${button}</div>` : button);
+    const options = inspectPlatform(document, new URL(p.eventUrl), { preferences: p, progress: { phase: 'READY', message: '' } }).snapshot.visibleOptions;
+    if (zone === 'VVIP') expect(options).toEqual([]);
+    else expect(options).toMatchObject([{ kind: 'SEAT', label: 'A1', ticketTypeId: 'vip-test' }]);
+  });
+  it('ID đúng nhưng nhãn hạng trái catalog vẫn bị loại, kể cả khi cho phép hạng ngoài ưu tiên', () => {
+    const p = { ...preferences(), allowAlternatives: true };
+    document.body.innerHTML = '<h1>Chọn khu vực</h1><button data-ticket-class-id="vip-test" aria-label="VVIP · 1.200.000 ₫">Chọn</button>';
+    expect(inspectPlatform(document, new URL(p.eventUrl), { preferences: p, progress: { phase: 'READY', message: '' } }).snapshot.visibleOptions).toEqual([]);
+  });
   it('GET summary + zones và ghép theo class ID, giữ đủ khu thay vì zone đại diện', async () => {
     const read = vi.fn(async (url: string) => url.includes('/zones?') ? { errorCode: 0, data: zones } : ticketReply([{ ...ticketData, ticketType: 'seatmap_zone', zoneName: 'VIP 2' }]));
     const result = await createOnezoneCatalog(read).tickets('event-test', 'HN');

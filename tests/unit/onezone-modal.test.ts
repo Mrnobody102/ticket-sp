@@ -16,6 +16,25 @@ beforeEach(() => {
   installOnezoneDemo(document);
 });
 describe('component modal 1Zone theo dấu hiệu công khai', () => {
+  it.each(['data-ticket-class-id', 'data-ticket-type-id', 'data-zone-id'])('modal tên/giá đúng nhưng %s mâu thuẫn: chặn generic advance', attribute => {
+    document.querySelector('#ticket-list button')!.dispatchEvent(new MouseEvent('click'));
+    document.querySelector('[role="dialog"]')!.setAttribute(attribute, 'wrong-id');
+    expect(inspect().automation!.page.problem).toContain('Chưa xác minh');
+  });
+  it('modal chỉ hiện tên hạng, có zone ID hợp lệ: giữ khu cụ thể theo map đã xác minh', () => {
+    document.querySelector('#ticket-list button')!.dispatchEvent(new MouseEvent('click'));
+    document.querySelector('[role="dialog"]')!.setAttribute('data-zone-id', 'zone-1');
+    document.querySelector('[role="dialog"]')!.setAttribute('data-ticket-class-id', 'hai-quy');
+    const mapped = { ...p, catalog: { ...p.catalog!, tickets: [{ ...p.catalog!.tickets[0]!, zones: [{ id: 'zone-1', name: 'HAI QUÝ 1' }] }] } };
+    expect(inspectPlatform(document, new URL(p.eventUrl), { preferences: mapped, progress }).snapshot.visibleOptions[0]?.zoneLabel).toBe('HAI QUÝ 1');
+  });
+  it('tên khu và zone ID đều thuộc hạng nhưng trỏ hai khu khác nhau: dừng', () => {
+    document.querySelector('#ticket-list button')!.dispatchEvent(new MouseEvent('click'));
+    document.querySelector('[role="dialog"] > p')!.textContent = 'HAI QUÝ 1';
+    document.querySelector('[role="dialog"]')!.setAttribute('data-zone-id', 'zone-2');
+    const mapped = { ...p, catalog: { ...p.catalog!, tickets: [{ ...p.catalog!.tickets[0]!, zones: [1, 2].map(index => ({ id: `zone-${index}`, name: `HAI QUÝ ${index}` })) }] } };
+    expect(inspectPlatform(document, new URL(p.eventUrl), { preferences: mapped, progress }).automation!.page.problem).toContain('Chưa xác minh');
+  });
   it('đọc thẻ dùng p, xác nhận modal thay cho selected ARIA và đặt stepper span', () => {
     const first = inspect();
     expect(first.snapshot).toMatchObject({ state: 'SELECTING', selectionMode: 'ASSIGNED_SEAT', visibleOptions: [{ label: 'HAI QUÝ - EB', displayedPriceVnd: 2996000 }] });

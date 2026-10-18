@@ -137,6 +137,7 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
       ...progress, phase: 'CHOOSING', chosen: choice.option, message: `Đang chọn ${choice.option.label}…`, actionAt: now, selectionStartedAt: now,
     } };
   }
+  if (selected.length > 1) return pause(progress, 'Website báo nhiều lựa chọn cùng được chọn. Kiểm tra giỏ trước khi tiếp tục.');
   const chosen = progress.chosen && snapshot.visibleOptions.find(o => sameOption(progress.chosen!, o));
   if (selected.some(o => !progress.chosen || !sameOption(progress.chosen, o))) return pause(progress, 'Có lựa chọn khác trong giỏ. Dừng để tránh đặt sai vé.');
   if (!chosen?.selected) {

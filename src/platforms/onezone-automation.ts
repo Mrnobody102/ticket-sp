@@ -97,13 +97,15 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
   const chosen = progress.chosen && optionElements.find(entry => sameOption(progress.chosen!, entry.option));
   let quantity = findQuantity(document, chosen?.element, reader);
   const modal = readOnezoneModal(document, p, reader);
+  const invalidModal = !modal && [...document.querySelectorAll('button[data-id="btn-continue"]')].some(reader.isVisible);
   if (modal) {
     quantity = { element: modal.valueElement, model: modal.quantity, increase: modal.increase, decrease: modal.decrease };
     advance.splice(0, advance.length, ...(enabled(modal.advance, reader) ? [modal.advance] : []));
   }
   const headings = [...document.querySelectorAll('h1,h2,h3,[role="alert"]')].filter(reader.isVisible).map(e => normalize(reader.text(e))).filter(t => t.length < 200).join(' | ');
   const password = [...document.querySelectorAll('input[type="password"]')].some(reader.isVisible);
-  const problem = password || /(?:^|\|\s*)(dang nhap|login|sign in)(\s*\||$)/.test(headings)
+  const problem = invalidModal ? 'Chưa xác minh được hạng, khu hoặc giá trong hộp chọn vé. Kiểm tra trực tiếp trước khi tiếp tục.'
+    : password || /(?:^|\|\s*)(dang nhap|login|sign in)(\s*\||$)/.test(headings)
     ? 'Đăng nhập trên website rồi bắt đầu camp lại.'
     : /het thoi gian (giu cho|dat ve)|phien (dat ve )?(da )?het han|reservation expired|khong the giu ve|khong the giu cho/.test(headings)
       ? 'Phiên giữ chỗ đã hết hạn hoặc giữ vé thất bại. Kiểm tra trên website.' : undefined;

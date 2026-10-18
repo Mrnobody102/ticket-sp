@@ -208,6 +208,29 @@ test('một hạng gồm nhiều zone: chọn khu đúng ID/giá, modal xác nh�
   expect(log.filter(request => request.url.includes('/zones?'))).toHaveLength(2); // Setup and preflight only.
 });
 
+for (const fault of ['modal-id', 'multiple-zones'] as const) test(`chọn xong gặp ${fault}: tạm dừng trước khi bấm đi thanh toán`, async () => {
+  const mocks = defaults();
+  mocks[2]!.body = ticketReply([{ ...ticketData, name: 'HAI QUÝ - EB', zoneName: 'HAI QUÝ 2', ticketType: 'seatmap_zone', finalPriceVn: 2996000 }]);
+  mocks.unshift({ path: '/get-summary-event/event-test/zones?', body: { errorCode: 0, data: [1, 2].map(index => ({ id: `zone-${index}`, name: `HAI QUÝ ${index}`, ticketClassId: 'vip-test', eventId: 'event-test', calendarId: 'HN' })) } });
+  await mockCatalog(mocks);
+  const conflicting = '<main><h1>Chọn khu vực</h1>' + [1, 2].map(index => `<article><h3>HAI QUÝ ${index}</h3><p>2.996.000 ₫</p><button aria-pressed="true">Chọn</button></article>`).join('') + '<input type="number" aria-label="Số lượng" min="1" max="2" value="1"><button>Tiếp tục</button></main>';
+  const body = readFileSync('fixtures/onezone-modal.html', 'utf8') + `<script>(${installOnezoneDemo.toString()})(document);
+    window.advanceClicks = 0;
+    document.addEventListener('click', e => { if (e.target.closest('button')?.textContent === 'Tiếp tục') window.advanceClicks++; }, true);
+    document.querySelector('#ticket-list button').addEventListener('click', () => {
+      if (${JSON.stringify(fault)} === 'modal-id') document.querySelector('[role="dialog"]').setAttribute('data-ticket-class-id', 'wrong-class');
+      else document.querySelector('main').outerHTML = ${JSON.stringify(conflicting)};
+    });</script>`;
+  await context.route('https://ticket.1zone.vn/**', route => route.fulfill({ contentType: 'text/html', body }));
+  const page = await workspace(); await selectEvent(page);
+  const event = await context.newPage(); await event.goto(catalogUrl + '?calendarId=HN');
+  await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'PAUSED');
+  await expect(event.locator('.auto-status')).toContainText(fault === 'modal-id' ? 'Chưa xác minh' : 'nhiều lựa chọn');
+  expect(await event.evaluate(() => (window as unknown as { advanceClicks: number }).advanceClicks)).toBe(0);
+  await expect(event.locator('main form')).toHaveCount(0);
+});
+
 test('tải catalog lỗi: báo lỗi và thử lại để có select, không đưa ô nhập thủ công ra mặc định', async () => {
   const mocks = defaults(); mocks[1]!.status = 503; await mockCatalog(mocks);
   const page = await workspace();

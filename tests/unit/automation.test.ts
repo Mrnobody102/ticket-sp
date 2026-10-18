@@ -12,6 +12,13 @@ function page(patch: Partial<AutoPage> = {}): AutoPage {
   return { snapshot: { url: p.eventUrl, state: 'SELECTING', selectionMode: 'ZONE_ONLY', supported: true, reason: '', visibleOptions: [vip], maxQuantity: 2 }, enterCount: 0, advanceCount: 1, selectable: ['vip'], quantity: { value: 1, min: 1, max: 2, writable: true, stepper: false }, ...patch };
 }
 describe('máy trạng thái camp dùng chung', () => {
+  it.each(['CHOOSING', 'QUANTITY', 'SETTING_QUANTITY'] as const)('nhiều khu cùng class được đánh dấu selected ở %s: dừng trước số lượng/checkout', phase => {
+    const view = page();
+    view.snapshot.visibleOptions = [1, 2].map(index => ({ ...vip, id: `zone-${index}`, zoneLabel: `VIP ${index}`, selected: true }));
+    const decision = decideAutomation(run({ phase, chosen: vip, quantityAfterAction: 1 }), view, p, now);
+    expect(decision).toMatchObject({ type: 'STEP', progress: { phase: 'PAUSED' } });
+    expect(decision).not.toHaveProperty('action');
+  });
   it('đã bấm mua → queue lâu → trang sự kiện: cho phép vào mua sau khi được cấp lượt', () => {
     const queued = page(); queued.snapshot.state = 'WAITING_ROOM';
     const waiting = decideAutomation(run({ phase: 'OPENING', actionAt: now - 60000 }), queued, p, now);

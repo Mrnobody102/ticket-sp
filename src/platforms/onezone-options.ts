@@ -103,6 +103,8 @@ export function readOptionElements(document: Document, mode: SeatSelectionMode =
   }
   // Apply the display limit after resolving groups, keeping DOM order and unique IDs.
   return [...optionsByElement].slice(0, 100).flatMap(([element, option], index) => {
+    const identified = option.ticketTypeId && quotes.find(q => q.id === option.ticketTypeId);
+    if (identified && !ticketMatchesOption(identified, option)) return [];
     const names = quotes.filter(q => ticketMatchesOption(q, option) && q.priceVnd === option.displayedPriceVnd);
     const quote = names.length === 1 ? names[0] : undefined;
     const physical = quote && (ticketZoneForLabel(quote, option.zoneLabel ?? '') ?? ticketZoneForLabel(quote, option.label));

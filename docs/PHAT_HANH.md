@@ -2,9 +2,9 @@
 
 ## Bản thử hiện tại
 
-Người nhận dùng `Camp-ve-0.5.2.zip`: giải nén, mở `BAT-DAU.html`, nạp thư mục `tien-ich` vào Chrome. Không cần source, Node.js hay npm. Mỗi người tự đăng nhập website bán vé; ZIP không chứa cấu hình hoặc phiên tài khoản của người tạo gói.
+Người nhận dùng `Camp-ve-0.5.3.zip`: giải nén, mở `BAT-DAU.html`, nạp thư mục `tien-ich` vào Chrome. Không cần source, Node.js hay npm. Mỗi người tự đăng nhập website bán vé; ZIP không chứa cấu hình hoặc phiên tài khoản của người tạo gói.
 
-Gói `ticket-sp-0.5.2-chrome.zip` là extension ở thư mục gốc, dùng để tải lên Web Store. Hai gói có cùng nội dung extension; `release.json` lưu hash từng file và `SHA256SUMS.txt` lưu hash hai ZIP.
+Gói `ticket-sp-0.5.3-chrome.zip` là extension ở thư mục gốc, dùng để tải lên Web Store. Hai gói có cùng nội dung extension; `release.json` lưu hash từng file và `SHA256SUMS.txt` lưu hash hai ZIP.
 
 Người phát triển có thể tạo gói bằng `npm run release`, hoặc mở GitHub → Actions → **Build tested extension** → **Run workflow** và tải artifact **Camp-ve** khi kiểm tra thành công. Workflow chưa tự đăng Web Store hay tạo release công khai. Người dùng cuối chỉ nhận ZIP hoặc link cài.
 
@@ -14,12 +14,12 @@ Người phát triển có thể tạo gói bằng `npm run release`, hoặc m�
 
 1. Dùng tài khoản Google để [đăng ký nhà phát triển](https://developer.chrome.com/docs/webstore/register), trả phí đăng ký một lần, hoàn thành thông tin tài khoản và bảo mật mà dashboard yêu cầu. Không cần Google Workspace. Chưa đăng ký hoặc trả phí thay người dùng.
 2. Upload gói Web Store, dùng nội dung trong [WEB_STORE.md](WEB_STORE.md), bổ sung email hỗ trợ, URL chính sách quyền riêng tư do chủ tool quản lý và ảnh đúng kích thước. `public/quyen-rieng-tu.html` là bản chính sách phù hợp với bản hiện tại, chưa có tài khoản/server riêng.
-3. Lần đầu chọn **Private** và thêm Google Account của bạn bè vào trusted testers. Khi được duyệt, mỗi người cài từ link bằng tài khoản của họ. **Unlisted** chỉ ẩn tìm kiếm: bất cứ ai có link đều có thể cài. Cả hai chế độ vẫn phải qua xét duyệt, không bảo đảm kịp buổi bán vé ngày mai. [Quy định phân phối](https://developer.chrome.com/docs/webstore/cws-dashboard-distribution).
+3. Lần đầu chọn **Private** và thêm Google Account của bạn bè vào trusted testers. Khi được duyệt, mỗi người cài từ link bằng tài khoản của họ. **Unlisted** chỉ ẩn tìm kiếm: bất cứ ai có link đều có thể cài. Cả hai chế độ vẫn phải qua xét duyệt, không bảo đảm kịp buổi bán vé 12:00 ngày 18/10/2026. [Quy định phân phối](https://developer.chrome.com/docs/webstore/cws-dashboard-distribution).
 4. Những bản cập nhật sau giữ cùng item ID, tăng version và upload bản đã kiểm thử. Người cài qua Store nhận cập nhật qua Chrome. Bản Load unpacked vẫn cần thay file, Reload extension và tải lại tab bán vé.
 
 ## Bản thương mại: phần cần xây tiếp
 
-**0.5.2 vẫn miễn phí, không có khóa chống chia sẻ.** Không nhúng “mã bí mật” trong extension hoặc dùng một cờ localStorage để giả làm cấp quyền. Bản ZIP đã phát hành có thể bị sao chép; không thể thu hồi từ xa một bản offline không có máy chủ kiểm soát. Đặt `license: UNLICENSED` chỉ mô tả trạng thái cấp phép source, không phải biện pháp bảo vệ kỹ thuật.
+**0.5.3 vẫn miễn phí, không có khóa chống chia sẻ.** Không nhúng “mã bí mật” trong extension hoặc dùng một cờ localStorage để giả làm cấp quyền. Bản ZIP đã phát hành có thể bị sao chép; không thể thu hồi từ xa một bản offline không có máy chủ kiểm soát. Đặt `license: UNLICENSED` chỉ mô tả trạng thái cấp phép source, không phải biện pháp bảo vệ kỹ thuật.
 
 Khi triển khai thương mại, cần một dịch vụ tài khoản/quyền dùng thật:
 

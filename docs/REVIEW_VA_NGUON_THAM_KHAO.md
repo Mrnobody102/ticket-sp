@@ -1,6 +1,10 @@
-# Rà soát source và cơ chế tham khảo · 0.5.2
+# Rà soát source và cơ chế tham khảo · 0.5.3
 
 ## Review bổ sung cho ngày mở bán
+
+Rà soát 0.5.3 phát hiện hai khe hở nội bộ: ID đúng có thể làm mất nhãn hạng mâu thuẫn khi canonical hóa; và một lựa chọn hạng chung có thể chấp nhận nhiều khu cùng selected. Đã yêu cầu nhãn hạng/khu khớp cùng ID, đối chiếu ID trong modal, chặn generic advance khi modal chưa xác minh, và tạm dừng khi có nhiều lựa chọn selected. Nhãn ghế A1 vẫn được phân biệt với tên hạng: class ID và zone cha nếu có phải khớp. Các kiểm tra không gọi mạng hoặc thêm delay; unit/E2E gồm trường hợp bất thường và luồng hợp lệ.
+
+Không thể kết luận đã loại hết mọi lỗi nội bộ: chưa có DOM booking đăng nhập của suất mục tiêu để chứng minh mọi giả định của adapter. Giao diện chưa hỗ trợ hoặc bằng chứng mâu thuẫn sẽ dừng; điều đó có thể mất lượt mua nhưng tránh bấm tiếp dựa trên suy đoán. Trang checkout được nhận diện từ DOM, chưa xác nhận giỏ/đơn trên server. Multi-seat, canvas/iframe thiếu nhãn và API POST chưa được công bố là đã hỗ trợ.
 
 - Tab cũ sau cập nhật có thể không còn runner nhưng popup vẫn tạo phiên. CONTENT_READY xác nhận version/protocol ở tab chính trước AUTO_START từ popup; không trả lời/lệch bản thì không tạo phiên. Không thêm request vào từng click; nội dung lỗi có bước tải lại tab.
 - Summary chỉ cung cấp một zoneName đại diện. Endpoint zones được ghép theo ticketClassId, kiểm tra đúng event/suất và ID/tên; HAI QUÝ/BA THƯƠNG/TƯ MẾN có 2 khu mỗi hạng, ÚT CƯNG có 6. Không tự đoán tên bằng prefix. Cấu hình cũ thiếu tập khu yêu cầu tải lại và lưu.
