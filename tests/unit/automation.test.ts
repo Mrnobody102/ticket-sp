@@ -12,6 +12,32 @@ function page(patch: Partial<AutoPage> = {}): AutoPage {
   return { snapshot: { url: p.eventUrl, state: 'SELECTING', selectionMode: 'ZONE_ONLY', supported: true, reason: '', visibleOptions: [vip], maxQuantity: 2 }, enterCount: 0, advanceCount: 1, selectable: ['vip'], quantity: { value: 1, min: 1, max: 2, writable: true, stepper: false }, ...patch };
 }
 describe('máy trạng thái camp dùng chung', () => {
+  it('modal đã xác minh đúng lựa chọn được tiếp tục; selected thông thường vẫn chặn', () => {
+    const quoted = { ...p, catalog: { eventId: 'test', performanceId: 'HN', title: 'Demo', venue: 'HN', startsAt: '2030-01-01T00:00:00Z', verifiedAt: 1,
+      tickets: [{ id: 'vip', name: 'VIP', priceVnd: 1200000 }] } };
+    const session = { ...run(), preferencesKey: preferencesKey(quoted) };
+    const view = page(); view.snapshot.visibleOptions = [{ ...vip, selected: true }];
+    expect(decideAutomation(session, view, quoted, now)).toMatchObject({ progress: { phase: 'PAUSED' } });
+    view.resumeSelection = vip.id;
+    expect(decideAutomation(session, view, quoted, now)).toMatchObject({ type: 'STEP', progress: { phase: 'QUANTITY', chosen: { label: 'VIP' } } });
+    view.snapshot.visibleOptions[0]!.displayedPriceVnd = 1300000;
+    expect(decideAutomation(session, view, quoted, now)).toMatchObject({ progress: { phase: 'PAUSED' } });
+  });
+  it('chỉ chờ xác minh tự hoàn tất khi adapter xác nhận được modal hợp lệ', () => {
+    const view = page(); view.snapshot.state = 'CHALLENGE';
+    expect(decideAutomation(run(), view, p, now)).toMatchObject({ progress: { phase: 'PAUSED' } });
+    view.verificationPending = true;
+    expect(decideAutomation(run({ phase: 'CHOOSING', actionAt: now - 20000 }), view, p, now)).toMatchObject({ type: 'WAIT' });
+    view.problem = 'Hạng không khớp';
+    expect(decideAutomation(run(), view, p, now)).toMatchObject({ progress: { phase: 'PAUSED' } });
+  });
+  it('camp ngay bỏ lịch cũ trong tương lai, nhưng không reload trang còn khóa', () => {
+    const immediate = { ...p, startMode: 'IMMEDIATE' as const, saleStartAt: '2030-01-01T00:00:00Z', refreshAtSale: true };
+    const session = { ...run(), preferencesKey: preferencesKey(immediate) };
+    expect(decideAutomation(session, page(), immediate, now)).toMatchObject({ type: 'STEP', action: { kind: 'CHOOSE' } });
+    const closed = page(); closed.snapshot.state = 'NOT_READY';
+    expect(decideAutomation(session, closed, immediate, now)).toMatchObject({ type: 'WAIT' });
+  });
   it.each(['CHOOSING', 'QUANTITY', 'SETTING_QUANTITY'] as const)('nhiều khu cùng class được đánh dấu selected ở %s: dừng trước số lượng/checkout', phase => {
     const view = page();
     view.snapshot.visibleOptions = [1, 2].map(index => ({ ...vip, id: `zone-${index}`, zoneLabel: `VIP ${index}`, selected: true }));

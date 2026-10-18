@@ -6,6 +6,10 @@ import { normalize } from '../core/preferences';
 import { currentPriceValues } from './onezone-options';
 import { ticketHasLabel } from '../core/ticket-identity';
 
+export function hasOnezoneVerification(document: Document, reader: PageReader): boolean {
+  return [...document.querySelectorAll('iframe')].some(e => reader.isVisible(e) && /captcha|challenge/i.test(e.title + ' ' + e.src));
+}
+
 export interface OnezoneModal {
   entry: OptionElement;
   quantity: AutoQuantity;
@@ -27,7 +31,7 @@ export function readOnezoneModal(document: Document, p: EventPreferences, reader
     const plus = [...root.querySelectorAll<HTMLElement>('button[data-id="btn-add"]')].filter(reader.isVisible);
     const minus = [...root.querySelectorAll<HTMLElement>('button[data-id="btn-sub"]')].filter(reader.isVisible);
     if (plus.length !== 1 || minus.length !== 1 || plus[0]!.parentElement !== minus[0]!.parentElement) continue;
-    if (![...root.querySelectorAll('h2')].some(e => reader.isVisible(e) && /chon ve|chon so luong/.test(normalize(reader.text(e))))) continue;
+    if (![...root.querySelectorAll('h2,[role="heading"]')].some(e => reader.isVisible(e) && /chon ve|chon so luong/.test(normalize(reader.text(e))))) continue;
     const names = p.catalog.tickets.filter(q => [...root.querySelectorAll('p,h3,span')].some(e => reader.isVisible(e) && ticketHasLabel(q, reader.text(e))));
     if (names.length !== 1) return;
     const quote = names[0]!;

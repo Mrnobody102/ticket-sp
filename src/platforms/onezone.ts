@@ -4,7 +4,8 @@ import { normalize } from '../core/preferences';
 import { createPageReader, type PageReader } from './onezone-dom';
 import { readOptionElements, type OptionElement } from './onezone-options';
 import { readSelectionMode } from './onezone-selection';
-import { readOnezoneModal } from './onezone-modal';
+import { hasOnezoneVerification, readOnezoneModal } from './onezone-modal';
+import { readOnezoneMap } from './onezone-map';
 
 export { readOptionElements } from './onezone-options';
 
@@ -34,8 +35,10 @@ export function inspectOnezonePage(document: Document, url: URL, p?: EventPrefer
   const controls = [...document.querySelectorAll('button, a[href], input[type="submit"]')].filter(isVisible);
   const controlText = controls.map(e => normalize(e.getAttribute('aria-label') ?? visibleText(e))).join(' | ');
   const blocked = (state: 'CHALLENGE' | 'WAITING_ROOM' | 'CHECKOUT', reason: string) => finish({ ...base, state, reason });
-  const challengeFrame = [...document.querySelectorAll('iframe')].some(e => isVisible(e) && /captcha|challenge/i.test(e.title));
-  if (challengeFrame || /xac minh ban la con nguoi|verify you are human|security verification|kiem tra bao mat|hoan thanh captcha/.test(headings)) {
+  const modal = p && readOnezoneModal(document, p, reader);
+  const challengeFrame = hasOnezoneVerification(document, reader);
+  const verifiedModal = modal && !modal.advance.matches(':disabled,[aria-disabled="true"]');
+  if ((challengeFrame && !verifiedModal) || /xac minh ban la con nguoi|verify you are human|security verification|kiem tra bao mat|hoan thanh captcha/.test(headings)) {
     return blocked('CHALLENGE', 'Hoàn thành xác minh trực tiếp trên website.');
   }
   if (/phong cho|waiting room|ban dang (o |trong )?hang (doi|cho)|you are in (the |a )?queue/.test(headings)) {
@@ -47,7 +50,6 @@ export function inspectOnezonePage(document: Document, url: URL, p?: EventPrefer
       (visibleForm || /thanh toan|xac nhan don hang/.test(controlText))) {
     return blocked('CHECKOUT', 'Kiểm tra vé, tổng tiền và hoàn tất thanh toán trên website.');
   }
-  const modal = p && readOnezoneModal(document, p, reader);
   if (modal) return finish({ ...base, selectionMode: 'ZONE_ONLY', supported: true, state: 'SELECTING', visibleOptions: [modal.entry.option], reason: 'Đã đọc modal chọn hạng và số lượng của 1Zone.' }, [modal.entry]);
   let selectionMode = readSelectionMode(text);
   const maxMatch = text.match(/(?:toi da|maximum|max\.)\s*0*(\d{1,3})\s*(?:ve|tickets)/);
@@ -55,12 +57,15 @@ export function inspectOnezonePage(document: Document, url: URL, p?: EventPrefer
   if (/chua (den gio |mo )?ban|sap mo ban|sale has not started/.test(headings + ' | ' + controlText)) {
     return finish({ ...base, selectionMode, maxQuantity, state: 'NOT_READY', supported: true, reason: 'Website hiển thị chưa mở bán.' });
   }
-  const entries = readOptionElements(document, selectionMode, reader, p?.catalog?.tickets);
+  const mapEntries = p ? readOnezoneMap(document, p, reader) : [];
+  const entries = mapEntries.length ? mapEntries : readOptionElements(document, selectionMode, reader, p?.catalog?.tickets);
+  if (mapEntries.length) selectionMode = 'ZONE_ONLY';
   if (entries.length && entries.every(e => e.option.kind === 'ZONE' && p?.catalog?.tickets.some(q => q.id === e.option.ticketTypeId && q.seatMode === 'AUTO'))) selectionMode = 'ASSIGNED_SEAT';
   const details = { ...base, selectionMode, maxQuantity, visibleOptions: entries.map(e => e.option) };
   const unreadableMap = [...document.querySelectorAll('canvas, iframe')].some(isVisible);
   if (unreadableMap && (selectionMode === 'PICK_SEAT' || selectionMode === 'MIXED' || !entries.length)) {
-    return finish({ ...details, reason: 'UNSUPPORTED_VARIANT: sơ đồ canvas/iframe không đọc được chắc chắn. Chọn vé trực tiếp trên website.' });
+    const knownContainer = p?.catalog && [...document.querySelectorAll('[id^="seatmap-container-"]')].some(e => e.id.startsWith(`seatmap-container-${p.catalog!.eventId}-`));
+    return finish({ ...details, unsupportedVariant: !knownContainer, reason: knownContainer ? 'Đang chờ sơ đồ và giá vé hiển thị đầy đủ.' : 'Chưa đọc được các khu trên sơ đồ này. Chọn khu trên website; tool chỉ tiếp tục nếu xác minh được hạng và giá.' });
   }
   if (entries.length) return finish({
     ...details, state: 'SELECTING', supported: true,

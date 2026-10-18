@@ -1,4 +1,10 @@
-# Cơ chế camp vé · bản 0.5.5
+# Cơ chế camp vé · bản 0.5.6
+
+0.5.6 bổ sung adapter cho sơ đồ Konva đang dùng trên Trúc Nhân và cấu hình map công khai của Vương Bình Hà Nội. Content script MAIN-world chỉ đọc Stage/Node qua API Konva, xuất zoneId/classId/tên/disabled và phát click trên đúng đối tượng đã kiểm tra. Content isolated ghép API zones theo class ID, đọc giá từ thẻ cùng tên khu hoặc tên hạng chung, rồi core mới quyết định. Không đọc React state, token, CAPTCHA hoặc gửi booking API. Không dùng vị trí pixel. Canvas/iframe khác vẫn cần adapter riêng.
+
+Modal chọn vé được xác minh bằng tên khu, class/zone ID nếu có, đơn giá và stepper. Khi modal hợp lệ còn xác minh và nút Tiếp tục disabled, runner chờ; khi nút khả dụng thì đọc lại rồi tiếp tục mà không bấm CAPTCHA. Modal đã được chọn tay chỉ được nhận lại nếu khớp ưu tiên/giá/số lượng; không nhận giỏ/ghế bất kỳ. Chọn sai hạng vẫn dừng.
+
+Show một suất có status OPEN và canPurchase=true mặc định Ngay khi bật camp. Suất chưa rõ vẫn dùng lịch do người dùng chọn; saleConfig rỗng không được suy thành giờ diễn. IMMEDIATE không có countdown, alarm hay reload theo lịch. Bản nháp tìm kiếm/form lưu riêng trong Chrome local ở từng lần sửa, khôi phục sau đóng popup nhưng không đổi config/run. Bản nháp có baseKey để không khôi phục trên cấu hình đã đổi; SAVE vẫn xác minh dữ liệu rồi dừng phiên cũ như trước.
 
 0.5.2 sửa ngày bán Hà Nội thành 12:00 ngày 18/10/2026 UTC+7. Khi cài/cập nhật, chỉ sửa cấu hình đúng suất còn dùng chính xác mốc cũ 12:00 ngày 19/10; giữ hạng/số lượng và dừng phiên cũ, không tự bật mua. Giờ tùy chỉnh khác và sự kiện khác được giữ nguyên.
 
@@ -141,7 +147,7 @@ Quy tắc ưu tiên:
 7. Sau click, phải thấy dấu đã chọn; sau đổi số lượng, phải đọc được giá trị mục tiêu.
 8. Chỉ ADVANCE khi đúng lựa chọn, đủ số lượng và có đúng một nút đi tiếp khả dụng.
 
-Thời gian chờ xác nhận lựa chọn/số lượng khoảng 5 giây; điều hướng khoảng 15 giây. Quá thời gian sẽ dừng, không tự lặp click. Lúc khởi tạo cho phép tối đa 15 giây để giao diện chưa nhận diện được hoàn tất render; canvas/iframe không đọc được không được coi là đang tải.
+Thời gian chờ xác nhận lựa chọn/số lượng khoảng 5 giây; điều hướng khoảng 15 giây. Quá thời gian sẽ dừng, không tự lặp click. Lúc khởi tạo cho phép tối đa 15 giây để giao diện chưa nhận diện được hoàn tất render; sơ đồ Konva đúng container được chờ hoàn tất dữ liệu trong khoảng này; canvas/iframe chưa có adapter không được coi là đang tải. Modal hợp lệ đang chờ xác minh không dùng timeout chọn khu; khi website mở nút thì tiếp tục, trong thời hạn phiên camp.
 
 ## 5. Vì sao ghi trạng thái trước khi click?
 

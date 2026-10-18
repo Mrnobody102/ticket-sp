@@ -1,57 +1,60 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CatalogSelection, ConcertDetail, ConcertSearchResult, Performance, TicketCatalog } from '../core/catalog';
+import type { CatalogSelection, ConcertDetail, LoadedConcert } from '../core/catalog';
 import type { Platform } from '../core/models';
 import { catalogClient } from '../infrastructure/catalog-client';
 import { money } from '../core/preferences';
 import { PLATFORM_CATALOG, platformForCatalogUrl, platformForUrl } from '../core/platform-catalog';
+import { emptyFinder, type FinderDraft } from '../core/booking-draft';
 
-export interface LoadedConcert { detail: ConcertDetail; performance: Performance; catalog: TicketCatalog }
+export type { LoadedConcert } from '../core/catalog';
 export const eventDate = (value?: string) => value ? new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(value)) : 'Chưa có lịch';
 
-export function EventFinder({ onLoad, onReset, requestedUrl, shortcut, saved }: {
+export function EventFinder({ onLoad, onReset, requestedUrl, shortcut, saved, initialDraft, onDraftChange }: {
   onLoad(value: LoadedConcert): void; onReset(targetUrl?: string): void;
   requestedUrl?: { url: string; requestId: number };
   shortcut?: { title: string; description: string; onChoose(): void };
   saved?: CatalogSelection;
+  initialDraft?: FinderDraft;
+  onDraftChange?(next: FinderDraft): void;
 }) {
-  const [query, setQuery] = useState('');
-  const [platform, setPlatform] = useState<Platform>('onezone');
-  const [result, setResult] = useState<ConcertSearchResult | null>(null);
-  const [showResults, setShowResults] = useState(true);
-  const [detail, setDetail] = useState<ConcertDetail | null>(null);
-  const [performanceId, setPerformanceId] = useState('');
-  const [tickets, setTickets] = useState<TicketCatalog | null>(null);
+  const [draft, setDraft] = useState(initialDraft ?? emptyFinder);
+  const draftRef = useRef(draft);
+  const { query, platform, result, showResults, detail, performanceId, tickets } = draft;
+  function change(patch: Partial<FinderDraft>) {
+    const next = { ...draftRef.current, ...patch }; draftRef.current = next; setDraft(next); onDraftChange?.(next);
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const version = useRef(0);
   useEffect(() => () => { version.current++; }, []);
-  useEffect(() => { if (saved) setShowResults(false); }, [saved]);
+  useEffect(() => { if (saved && draftRef.current.showResults) change({ showResults: false }); }, [saved]);
 
   async function search(page = 1) {
     if (/^https?:\/\//i.test(query.trim())) { await load(query.trim(), platformForCatalogUrl(query.trim())?.id ?? platform); return; }
     const request = ++version.current; setBusy(true); setError('');
     try {
       const data = await catalogClient.search(query, page, platform);
-      if (request === version.current) { setResult(data); setShowResults(true); }
+      if (request === version.current) change({ result: data, showResults: true });
     } catch (e) { if (request === version.current) setError(e instanceof Error ? e.message : 'Không tìm được sự kiện.'); }
     finally { if (request === version.current) setBusy(false); }
   }
   async function choosePerformance(value: ConcertDetail, id: string, request: number) {
-    setPerformanceId(id); setTickets(null);
+    change({ performanceId: id, tickets: null });
     const integration = platformForUrl(value.url)?.integration;
     if (integration) onReset(id ? integration.withPerformance(new URL(value.url), id).href : undefined);
     const performance = value.performances.find(p => p.id === id); if (!performance) return;
     const catalog = await catalogClient.tickets(value.id, id, value.platform);
     if (request !== version.current) return;
-    setTickets(catalog); onLoad({ detail: value, performance, catalog });
+    change({ tickets: catalog }); onLoad({ detail: value, performance, catalog });
   }
   async function load(url: string, source: Platform = platform) {
-    if (source !== platform) { setPlatform(source); setResult(null); }
-    const request = ++version.current; setBusy(true); setError(''); setShowResults(false); setDetail(null); setTickets(null); setPerformanceId(''); if (PLATFORM_CATALOG.find(p => p.id === source)?.integration) onReset();
+    const request = ++version.current; setBusy(true); setError('');
+    change({ ...(source !== platform ? { platform: source, result: null } : {}), showResults: false, detail: null, tickets: null, performanceId: '' });
+    if (PLATFORM_CATALOG.find(p => p.id === source)?.integration) onReset();
     try {
       const value = await catalogClient.detail(url, source);
       if (request !== version.current) return;
-      setDetail(value);
+      change({ detail: value });
       const explicit = platformForUrl(url)?.integration?.performanceId(new URL(url));
       if (explicit && !value.performances.some(p => p.id === explicit)) throw new Error('Suất trong link không thuộc sự kiện này. Chọn lại đúng ngày và địa điểm.');
       const selected = explicit || (value.performances.length === 1 ? value.performances[0]!.id : '');
@@ -63,7 +66,7 @@ export function EventFinder({ onLoad, onReset, requestedUrl, shortcut, saved }: 
     if (requestedUrl) void load(requestedUrl.url, platformForCatalogUrl(requestedUrl.url)?.id ?? platform);
   }, [requestedUrl]);
   function changeEvent() {
-    version.current++; setDetail(null); setTickets(null); setPerformanceId(''); setShowResults(true); setBusy(false); setError(''); onReset();
+    version.current++; change({ detail: null, tickets: null, performanceId: '', showResults: true }); setBusy(false); setError(''); onReset();
   }
   const showSaved = saved && !detail && !showResults;
   return <section className="event-finder" aria-labelledby="finder-title">
@@ -72,10 +75,10 @@ export function EventFinder({ onLoad, onReset, requestedUrl, shortcut, saved }: 
     {(!detail || showResults) && !showSaved && <>
     {shortcut && !detail && <button className="target-shortcut" type="button" aria-label={`Chuẩn bị ${shortcut.title}`} onClick={shortcut.onChoose}><strong>{shortcut.title}</strong><small>{shortcut.description}</small><span>Chuẩn bị sự kiện →</span></button>}
     <label className="sr-only" htmlFor="source">Nguồn sự kiện</label>
-    <select id="source" value={platform} onChange={e => { version.current++; setPlatform(e.target.value as Platform); setResult(null); setDetail(null); setTickets(null); setPerformanceId(''); setError(''); setBusy(false); onReset(); }}>
+    <select id="source" value={platform} onChange={e => { version.current++; change({ platform: e.target.value as Platform, result: null, detail: null, tickets: null, performanceId: '' }); setError(''); setBusy(false); onReset(); }}>
       {PLATFORM_CATALOG.map(p => <option key={p.id} value={p.id} disabled={!p.catalogOrigin}>{p.name} · {p.integration ? 'tìm và camp' : p.catalogOrigin ? 'tra cứu vé' : 'chưa kết nối'}</option>)}
     </select>
-    {(!detail || showResults) && <div className="search-row"><input aria-label="Tìm concert" value={query} maxLength={500} placeholder="Tên sự kiện hoặc link bán vé" onChange={e => { version.current++; setBusy(false); setResult(null); setError(''); setQuery(e.target.value); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void search(); } }} />
+    {(!detail || showResults) && <div className="search-row"><input aria-label="Tìm concert" value={query} maxLength={500} placeholder="Tên sự kiện hoặc link bán vé" onChange={e => { version.current++; setBusy(false); setError(''); change({ result: null, query: e.target.value }); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void search(); } }} />
       <button type="button" disabled={busy} onClick={() => void search()}>Tìm</button></div>}
     {result && <div className="result-meta">{result.items.length} kết quả{query && ` cho “${query}”`}</div>}
     {result && showResults && <><div className="event-results">

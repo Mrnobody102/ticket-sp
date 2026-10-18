@@ -31,6 +31,7 @@ export function validatePreferences(value: unknown): EventPreferences {
   try { cleanUrl = eventUrl(String(p.eventUrl ?? '')); }
   catch { throw new Error('Nhập link concert trên nền tảng đã được hỗ trợ.'); }
   const platform = platformForUrl(cleanUrl.href)!;
+  if (p.startMode !== undefined && p.startMode !== 'IMMEDIATE') throw new Error('Cách bắt đầu camp không hợp lệ.');
   if (p.platform !== platform.id) throw new Error('Nền tảng không khớp link concert hoặc chưa có adapter.');
   if (typeof p.saleStartAt !== 'string' || !/(Z|[+-]\d{2}:\d{2})$/.test(p.saleStartAt) ||
       !Number.isFinite(Date.parse(p.saleStartAt))) throw new Error('Giờ mở bán phải có múi giờ rõ ràng.');
@@ -67,6 +68,7 @@ export function validatePreferences(value: unknown): EventPreferences {
   }
   return {
     platform: platform.id, eventUrl: cleanUrl.href, saleStartAt: new Date(p.saleStartAt).toISOString(),
+    ...(p.startMode === 'IMMEDIATE' ? { startMode: 'IMMEDIATE' as const } : {}),
     quantity: p.quantity, maxTotalVnd: p.maxTotalVnd as number | undefined,
     preferredZoneLabels: catalog ? catalog.tickets.map(t => t.name) : [...new Set((p.preferredZoneLabels as string[]).map(v => v.trim()))],
     allowAlternatives: p.allowAlternatives === true,

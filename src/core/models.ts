@@ -8,6 +8,7 @@ export interface EventPreferences {
   platform: Platform;
   eventUrl: string;
   saleStartAt: string;
+  startMode?: 'IMMEDIATE';
   quantity: number;
   maxTotalVnd?: number;
   preferredZoneLabels: string[];
@@ -33,6 +34,7 @@ export interface PageSnapshot {
   selectionMode: SeatSelectionMode;
   visibleOptions: VisibleOption[];
   supported: boolean;
+  unsupportedVariant?: boolean;
   reason: string;
   maxQuantity?: number;
 }

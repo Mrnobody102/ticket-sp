@@ -17,6 +17,7 @@ export interface Performance {
   startsAt: string;
   endsAt?: string;
   maxQuantity?: number;
+  saleStatus?: 'OPEN' | 'CLOSED';
 }
 export interface ConcertDetail extends ConcertSummary {
   performances: Performance[];
@@ -51,6 +52,7 @@ export interface CatalogSelection {
   maxQuantity?: number;
   tickets: (Pick<TicketType, 'id' | 'name' | 'priceVnd'> & Partial<Pick<TicketType, 'seatMode' | 'maxQuantity' | 'zoneName' | 'zones'>>)[];
 }
+export interface LoadedConcert { detail: ConcertDetail; performance: Performance; catalog: TicketCatalog }
 export interface ConcertSearchResult {
   items: ConcertSummary[];
   totalItems: number;

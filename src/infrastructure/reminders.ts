@@ -6,7 +6,7 @@ export const SALE_ALARM = 'ticket-assistant.sale';
 
 export async function reconcileReminder(): Promise<void> {
   const config = await repository.load();
-  if (!config.enabled || !config.preferences) { await chrome.alarms.clear(SALE_ALARM); return; }
+  if (!config.enabled || !config.preferences || config.preferences.startMode === 'IMMEDIATE') { await chrome.alarms.clear(SALE_ALARM); return; }
   const at = Date.parse(config.preferences.saleStartAt);
   if (at > Date.now()) { await chrome.alarms.create(SALE_ALARM, { when: at }); return; }
   await chrome.alarms.clear(SALE_ALARM);

@@ -4,7 +4,8 @@ import { isSameEvent, normalize } from '../core/preferences';
 import type { EventPreferences } from '../core/models';
 import type { OnezoneInspection } from './onezone';
 import type { PageReader } from './onezone-dom';
-import { readOnezoneModal } from './onezone-modal';
+import { hasOnezoneVerification, readOnezoneModal } from './onezone-modal';
+import { chooseOnezoneMap, hasMapChoice } from './onezone-map';
 
 interface QuantityBinding {
   model: AutoQuantity;
@@ -19,6 +20,7 @@ export interface AutoBindings {
   quantity?: QuantityBinding;
   reader: PageReader;
   reload(): void;
+  chooseMap?(element: Element, optionId: string): void;
 }
 export interface AutoInspection { page: AutoPage; bindings: AutoBindings }
 
@@ -87,6 +89,7 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
   const advance = controls.filter(e => nextLabel.test(label(e, reader)) && safeLink(e, p, false) && !optionElements.some(entry => entry.element.contains(e)));
   const choices = new Map<string, Element>();
   for (const { element, option } of optionElements) {
+    if (hasMapChoice(element, option.id)) { choices.set(option.id, element); continue; }
     if (element.matches('button, [role="button"], [role="option"], [role="radio"]') && enabled(element, reader)) {
       choices.set(option.id, element); continue;
     }
@@ -109,13 +112,19 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
     ? 'Đăng nhập trên website rồi bắt đầu camp lại.'
     : /het thoi gian (giu cho|dat ve)|phien (dat ve )?(da )?het han|reservation expired|khong the giu ve|khong the giu cho/.test(headings)
       ? 'Phiên giữ chỗ đã hết hạn hoặc giữ vé thất bại. Kiểm tra trên website.' : undefined;
-  return { page: { snapshot, enterCount: enter.length, advanceCount: advance.length, selectable: [...choices.keys()], quantity: quantity?.model, problem }, bindings: { enter, advance, choices, quantity, reader, reload: () => document.defaultView!.location.reload() } };
+  return { page: { snapshot, enterCount: enter.length, advanceCount: advance.length, selectable: [...choices.keys()], quantity: quantity?.model, problem,
+    ...(modal ? { resumeSelection: modal.entry.option.id, verificationPending: hasOnezoneVerification(document, reader) && !enabled(modal.advance, reader) } : {}) },
+    bindings: { enter, advance, choices, quantity, reader, reload: () => document.defaultView!.location.reload(), chooseMap: (element, optionId) => chooseOnezoneMap(element, optionId, p) } };
 }
 
 export function executeAutoAction(action: AutoAction, bindings: AutoBindings): void {
   if (action.kind === 'RELOAD') { bindings.reload(); return; }
   const target = action.kind === 'ENTER' ? bindings.enter[0] : action.kind === 'ADVANCE' ? bindings.advance[0] :
     action.kind === 'CHOOSE' ? bindings.choices.get(action.optionId) : undefined;
+  if (action.kind === 'CHOOSE' && target && hasMapChoice(target, action.optionId)) {
+    if (!bindings.chooseMap) throw new Error('Chưa kết nối được sơ đồ khu vực.');
+    bindings.chooseMap(target, action.optionId); return;
+  }
   if (action.kind !== 'QUANTITY') {
     if (!target?.isConnected || !enabled(target, bindings.reader)) throw new Error('Điều khiển đã thay đổi trước khi bấm.');
     // SVGElement has no .click(). Dispatch the same bubbling click to a semantic

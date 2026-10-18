@@ -1,4 +1,4 @@
-# Quyết định triển khai · 0.5.5
+# Quyết định triển khai · 0.5.6
 
 Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp và đi tới checkout nhanh, trên phiên trình duyệt của người dùng. Đã tìm được metadata và hạng vé Vương Bình Hà Nội; người dùng xác nhận 12h ngày 18/10 làm mặc định có thể sửa. Chưa xác minh độc lập giờ bán từ API hoặc DOM booking đăng nhập. TP.HCM và Lavender chỉ dùng tham khảo. Không dùng ước tính 100–200 vé làm tồn kho.
 
@@ -40,6 +40,11 @@ Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp 
 34. 0.5.4 giữ so sánh state nội bộ chính xác, siết classifier checkout từ substring thành tiêu đề chuẩn hóa đã hỗ trợ kèm bằng chứng form/nút. Không coi FAQ nhắc thanh toán là checkout. UI phân biệt Chưa mở bán / Đang camp, bỏ lặp câu chờ, gom thao tác phụ và bỏ nút tắt trùng khi camp đang chạy.
 
 35. 0.5.5 tạo báo cáo theo yêu cầu từ snapshot đọc mới và AutoRun hiện có; xuất dữ liệu theo danh sách trường cho phép, bỏ query token và cấu hình thô. Không thêm logging/persistence trong runner. Observer bổ sung alt/title, readonly/aria-readonly và data-zone-id để thay đổi riêng các thuộc tính mà adapter sử dụng vẫn kích hoạt đọc lại.
+
+36. 0.5.6 dùng startMode IMMEDIATE để bỏ lịch/notification/reload cho camp ngay. Chỉ mặc định khi có đúng một suất OPEN và canPurchase=true. Giữ saleStartAt nội bộ để tương thích schema cũ; chế độ IMMEDIATE không dùng trường này làm giờ bán.
+37. BookingDraft và FinderDraft lưu riêng mỗi lần sửa, không debounce chờ đóng popup; restore giữ dữ liệu tìm kiếm, danh mục, thứ tự, số vé và trường nhập dở. baseKey gắn cấu hình đã lưu; SAVE mới đổi config/run. Tránh log hoặc storage thêm trong hot path chọn vé.
+38. onezone-map MAIN-world chỉ dùng Konva public API, truyền danh tính khu qua custom event đồng bộ. isolated kiểm tra class/zone/name và giá DOM trước chọn. Có kiểm tra lại sau persistence và bridge kiểm tra đối tượng chưa khóa ngay trước fire. Không truy cập DOM cross-origin hay token. auto_send_ticket/type=zone cũng tải zones.
+39. Xác minh trong modal hợp lệ chờ nút khả dụng, không timeout chọn vé 5 giây khi đang CAPTCHA và không giải CAPTCHA. Có resumeSelection riêng cho modal chưa gửi; selected giỏ/ghế khác vẫn dừng. Không gửi lại ADVANCE chưa rõ kết quả.
 
 ## Phạm vi bàn giao
 

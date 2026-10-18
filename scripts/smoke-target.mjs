@@ -31,7 +31,10 @@ try {
   const sorted = [...samples].sort((a, b) => a - b);
   const run = await worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1']);
   if (run) throw new Error('Smoke inspection must never create an automation session.');
-  const result = { observedAt: new Date().toISOString(), url: page.url(), state: await page.locator('.status-line').innerText(), reason: await page.locator('.reason').innerText(), domElements: await page.locator('body *').count(), rescanP50Ms: sorted[9], rescanP95Ms: sorted[18], samples, campStarted: false, limitation: 'Read-only public page; no account, queue, purchase, reservation or checkout verification.' };
+  const config = await worker.evaluate(async () => (await chrome.storage.local.get('ticket-assistant.config.v1'))['ticket-assistant.config.v1']);
+  const result = { observedAt: new Date().toISOString(), url: page.url(), state: await page.locator('.status-line').innerText(), reason: await page.locator('.reason').innerText(),
+    savedTier: config.preferences.catalog.tickets.map(t => ({ name: t.name, priceVnd: t.priceVnd, zones: t.zones?.length })), saleStartAt: config.preferences.saleStartAt,
+    domElements: await page.locator('body *').count(), rescanP50Ms: sorted[9], rescanP95Ms: sorted[18], samples, campStarted: false, limitation: 'Read-only public page; no account, queue, purchase, reservation or checkout verification.' };
   mkdirSync('artifacts', { recursive: true });
   await page.screenshot({ path: 'artifacts/target-readiness.png' });
   writeFileSync('artifacts/target-readiness.json', JSON.stringify(result, null, 2));

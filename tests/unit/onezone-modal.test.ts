@@ -16,6 +16,18 @@ beforeEach(() => {
   installOnezoneDemo(document);
 });
 describe('component modal 1Zone theo dấu hiệu công khai', () => {
+  it('iframe xác minh còn hiện: chỉ coi đang chờ khi nút tiếp tục chưa khả dụng', () => {
+    document.querySelector('#ticket-list button')!.dispatchEvent(new MouseEvent('click'));
+    const modal = document.querySelector('[role="dialog"]')!;
+    const frame = document.createElement('iframe'); frame.title = 'Widget containing a Cloudflare security challenge'; modal.append(frame);
+    const advance = modal.querySelector<HTMLButtonElement>('[data-id="btn-continue"]')!;
+    advance.disabled = true;
+    expect(inspect().snapshot.state).toBe('CHALLENGE');
+    expect(inspect().automation!.page.verificationPending).toBe(true);
+    advance.disabled = false;
+    expect(inspect().snapshot.state).toBe('SELECTING');
+    expect(inspect().automation!.page.resumeSelection).toContain('onezone-modal-');
+  });
   it.each(['MUA VÉ', '  Mua   vé  ', 'BUY TICKETS'])('nhận diện nhãn nút đã chuẩn hóa: %s', name => {
     document.body.innerHTML = '<h1>Giới thiệu sự kiện</h1><button data-id="btn-by-ticket"></button>';
     document.querySelector('button')!.setAttribute('aria-label', name);

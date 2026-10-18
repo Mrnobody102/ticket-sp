@@ -29,8 +29,8 @@ describe('một hạng có nhiều khu trên sơ đồ', () => {
     document.body.innerHTML = '<h1>Chọn khu vực</h1><button data-ticket-class-id="vip-test" aria-label="VVIP · 1.200.000 ₫">Chọn</button>';
     expect(inspectPlatform(document, new URL(p.eventUrl), { preferences: p, progress: { phase: 'READY', message: '' } }).snapshot.visibleOptions).toEqual([]);
   });
-  it('GET summary + zones và ghép theo class ID, giữ đủ khu thay vì zone đại diện', async () => {
-    const read = vi.fn(async (url: string) => url.includes('/zones?') ? { errorCode: 0, data: zones } : ticketReply([{ ...ticketData, ticketType: 'seatmap_zone', zoneName: 'VIP 2' }]));
+  it.each([{ ticketType: 'seatmap_zone' }, { ticketType: 'auto_send_ticket', type: 'zone' }])('GET summary + zones theo class ID với %j', async variant => {
+    const read = vi.fn(async (url: string) => url.includes('/zones?') ? { errorCode: 0, data: zones } : ticketReply([{ ...ticketData, ...variant, zoneName: 'VIP 2' }]));
     const result = await createOnezoneCatalog(read).tickets('event-test', 'HN');
     expect(result.tickets[0]?.zones).toEqual([{ id: 'zone-1', name: 'VIP 1' }, { id: 'zone-2', name: 'VIP 2' }]);
     expect(read).toHaveBeenCalledTimes(2);

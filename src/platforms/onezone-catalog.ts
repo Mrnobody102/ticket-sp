@@ -46,7 +46,9 @@ export function parseOnezoneDetail(html: string, url: string): ConcertDetail {
       const startsAt = date(calendar.startDate);
       if (!startsAt || (calendar.eventId && calendar.eventId !== event.id)) throw new Error('Suất diễn không khớp sự kiện.');
       return { id: id(calendar.calendarId), venue: string(calendar.location) || string(event.address), startsAt,
-        endsAt: date(calendar.endDate), maxQuantity: count(calendar.maxTicketPerUser) };
+        endsAt: date(calendar.endDate), maxQuantity: count(calendar.maxTicketPerUser),
+        ...(calendars.length === 1 && event.status === 'OPEN' && event.canPurchase === true ? { saleStatus: 'OPEN' as const }
+          : calendars.length === 1 && event.status === 'CLOSE' ? { saleStatus: 'CLOSED' as const } : {}) };
     });
     if (new Set(performances.map(p => p.id)).size !== performances.length) throw new Error('Danh sách suất bị trùng ID.');
     return { platform: 'onezone', id: id(event.id), title: string(event.name), url: canonical.href, venue: string(event.address),
@@ -129,7 +131,7 @@ export function createOnezoneCatalog(read: CatalogReadResource): CatalogProvider
       const base = `https://prod.1zone.vn/ticketing/api/v4/ticket-summary/get-summary-event/${eventId}`;
       const summary = await read(`${base}?type=group&calendarId=${performanceId}`, 'json');
       const catalog = parseOnezoneTickets(summary, eventId, performanceId);
-      const required = (envelope(summary) as unknown[]).map(record).filter(t => t.ticketType === 'seatmap_zone' && t.isShowInBooking !== false).map(t => id(t.ticketClassId));
+      const required = (envelope(summary) as unknown[]).map(record).filter(t => (t.ticketType === 'seatmap_zone' || t.type === 'zone') && t.isShowInBooking !== false).map(t => id(t.ticketClassId));
       if (!required.length) return catalog;
       return attachOnezoneZones(await read(`${base}/zones?calendarId=${performanceId}`, 'json'), catalog, required);
     },

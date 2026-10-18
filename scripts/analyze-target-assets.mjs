@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 // Inspect only public assets already observed in scripts/research-target.mjs.
 // Print UI snippets, never auth/signing modules or full bundles.
-const terms = process.argv.slice(2).filter(term => !term.startsWith('--file='));
+const terms = process.argv.slice(2).filter(term => !term.startsWith('--'));
 if (!terms.length) throw new Error('Pass UI markers to inspect, for example: btn-add btn-continue');
 const observed = JSON.parse(readFileSync('artifacts/target-research/event.json', 'utf8'));
 const files = [...new Set(observed.assets.map(asset => asset.src)
@@ -13,6 +15,10 @@ for (const src of files.filter(src => !chosen || src.endsWith(`/${chosen}.js`)))
   const response = await fetch(src, { signal: AbortSignal.timeout(10000), credentials: 'omit', redirect: 'error' });
   if (!response.ok) continue;
   const code = await response.text();
+  if (process.argv.includes('--save-public')) {
+    const directory = resolve('artifacts/public-assets'); mkdirSync(directory, { recursive: true });
+    writeFileSync(resolve(directory, file), code);
+  }
   for (const term of terms) {
     let start = 0, count = 0;
     while ((start = code.indexOf(term, start)) >= 0 && count++ < 3) {

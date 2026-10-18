@@ -47,6 +47,7 @@ export function reminderKey(p: EventPreferences): string {
 }
 
 export function reminderIsDue(config: TaskConfig, notifiedKey: unknown, now: number): boolean {
+  if (config.preferences?.startMode === 'IMMEDIATE') return false;
   const p = config.preferences;
   if (!config.enabled || !p || notifiedKey === reminderKey(p)) return false;
   const elapsed = now - Date.parse(p.saleStartAt);

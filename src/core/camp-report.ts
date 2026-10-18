@@ -16,7 +16,7 @@ export function createCampReport(version: string, p: EventPreferences | null, sn
   return {
     schemaVersion: 1, version, capturedAt: new Date(now).toISOString(),
     scope: 'DOM observation; not a server reservation confirmation or a complete click history',
-    requested: p ? { platform: p.platform, eventUrl: publicUrl(p.eventUrl), saleStartAt: p.saleStartAt, quantity: p.quantity,
+    requested: p ? { platform: p.platform, eventUrl: publicUrl(p.eventUrl), startMode: p.startMode ?? 'SCHEDULED', saleStartAt: p.startMode === 'IMMEDIATE' ? undefined : p.saleStartAt, quantity: p.quantity,
       priorities: p.preferredZoneLabels, maxTotalVnd: p.maxTotalVnd } : null,
     page: { url: publicUrl(snapshot.url), state: snapshot.state, supported: snapshot.supported, reason: snapshot.reason,
       selectionMode: snapshot.selectionMode, maxQuantity: snapshot.maxQuantity, observedQuantity,

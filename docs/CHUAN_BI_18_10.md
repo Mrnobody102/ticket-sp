@@ -2,7 +2,7 @@
 
 Đã đính chính theo người dùng: mở bán **12:00 hôm nay, 18/10/2026 UTC+7**. Bản 0.5.2 sửa cấu hình đúng suất còn mang mốc cũ 19/10 khi cập nhật, giữ nguyên hạng/số vé. Sau Reload, kiểm tra giờ trên bảng camp rồi bấm Bắt đầu camp lại; cập nhật không tự bật phiên mua.
 
-Bản hiện tại **0.5.5** chặn tên/ID mâu thuẫn, nhiều khu cùng được chọn và FAQ bị nhận nhầm thành checkout. Cập nhật trước giờ bán bằng Reload tiện ích rồi tải lại tab vé, kiểm tra lại 1 vé/ÚT CƯNG/12:00 và bật camp. Gửi bạn bè gói 0.5.5; mỗi người tự đăng nhập và lưu cấu hình của mình.
+Bản hiện tại **0.5.6** bổ sung chọn khu trên sơ đồ Konva, chờ xác minh trong modal và tự tiếp tục khi nút mở. Cập nhật trước giờ bán bằng Reload tiện ích rồi tải lại tab vé, tải lại hạng và lưu để có đủ khu; kiểm tra lại 1 vé/ÚT CƯNG/12:00 và bật camp. Gửi bạn bè gói 0.5.6; mỗi người tự đăng nhập và lưu cấu hình của mình.
 
 ## Bấm camp rồi không dừng thì sao?
 
@@ -24,7 +24,7 @@ Giữ tab vé ở phía trước, máy cắm điện/không ngủ và mạng ổ
 
 ## Các bước cho buổi bán
 
-1. Hôm nay: cài **0.5.5**, Reload extension tại `chrome://extensions` rồi tải lại tab vé. Kiểm tra cùng phiên bản ở cửa sổ cấu hình và bảng camp. Tải lại hạng vé, chọn ưu tiên và lưu lại để có đủ các khu của mỗi hạng. Chạy diễn tập 1 và 2 vé, thử cả phòng chờ/xác minh để hiểu trạng thái và kết quả.
+1. Hôm nay: cài **0.5.6**, Reload extension tại `chrome://extensions` rồi tải lại tab vé. Kiểm tra cùng phiên bản ở cửa sổ cấu hình và bảng camp. Tải lại hạng vé, chọn ưu tiên và lưu lại để có đủ các khu của mỗi hạng. Chạy diễn tập 1 và 2 vé, thử cả phòng chờ/xác minh để hiểu trạng thái và kết quả.
 2. Khoảng **11:50–11:55 ngày 18/10**: mở Chrome máy tính, đăng nhập 1Zone, kiểm tra đúng URL Hà Nội `calendarId=8h0YGm`, đúng hạng ưu tiên, số vé và **12:00 ngày 18/10/2026 UTC+7**. 11:00 ngày 21/11 là giờ diễn, không phải giờ bán.
 3. Tải lại hạng vé nếu đã chuẩn bị từ hôm trước, chọn thứ tự rồi Lưu. Bắt đầu camp để preflight đọc dữ liệu mới hoàn tất trước 12:00; giữ tab vé ở phía trước. Bật từ hôm trước có thể chờ được nếu browser không gián đoạn, nhưng không thay thế kiểm tra lại đăng nhập/catalog gần giờ bán.
 4. Không tự reload/đổi tab/cấu hình trong khi đang queue hoặc đang giữ chỗ. Nếu tool báo cần xác minh/đăng nhập thì xử lý trên website và bắt đầu lại theo trạng thái thực tế của giỏ. Nếu đã có vé/ghế được chọn, kiểm tra giỏ trước khi chạy lại.
@@ -34,4 +34,4 @@ Giữ tab vé ở phía trước, máy cắm điện/không ngủ và mạng ổ
 
 Core dùng trạng thái, chờ bằng chứng DOM thay vì sleep cố định, revision trước click và đọc lại sau await; mỗi website có adapter riêng. Đã kiểm thử API catalog và nhiều luồng tổng hợp. Đây là các nguyên tắc automation có thể đối chiếu với [Automa](https://github.com/AutomaApp/documentation/blob/main/docs/workflow/element-selector.md), [Playwright](https://playwright.dev/docs/actionability), và cách tách nền tảng/ưu tiên của [Tickets Hunter](https://github.com/bouob/tickets_hunter/tree/main/src/platforms). Không chép mã bot hoặc gắn tên công cụ khác làm chứng nhận cho 1Zone.
 
-Chưa có lượt giữ vé/checkout thật bằng tài khoản đăng nhập trên suất này, vì vậy chưa thể cam kết chắc chắn mua được hoặc nhanh nhất. Sơ đồ pixel/canvas/iframe và phòng chờ khác domain chưa có adapter xác minh riêng. Queue-it chỉ được tham khảo về vòng đời chuyển trang/cookie, không phải kết luận 1Zone dùng Queue-it. [Kết quả kiểm thử](VALIDATION.md) phân biệt đo fixture và kiểm tra website thật.
+Chưa có lượt giữ vé/checkout thật bằng tài khoản đăng nhập trên suất này, vì vậy chưa thể cam kết chắc chắn mua được hoặc nhanh nhất. Konva zone-map được hỗ trợ theo ID/class/tên/giá đã xác minh; canvas/iframe khác và phòng chờ khác domain chưa có adapter riêng. Queue-it chỉ được tham khảo về vòng đời chuyển trang/cookie, không phải kết luận 1Zone dùng Queue-it. [Kết quả kiểm thử](VALIDATION.md) phân biệt đo fixture và kiểm tra website thật.

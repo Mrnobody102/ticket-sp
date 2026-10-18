@@ -22,7 +22,7 @@ export function allowsAutoTransition(from: AutoPhase, to: AutoPhase): boolean {
   if (from === 'PAUSED' || from === 'CHECKOUT') return false;
   if (to === 'CHECKOUT') return true;
   const next: Record<AutoPhase, readonly AutoPhase[]> = {
-    READY: ['READY', 'OPENING', 'CHOOSING'], OPENING: ['READY'], CHOOSING: ['QUANTITY'],
+    READY: ['READY', 'OPENING', 'CHOOSING', 'QUANTITY'], OPENING: ['READY'], CHOOSING: ['QUANTITY'],
     QUANTITY: ['SETTING_QUANTITY', 'ADVANCING'], SETTING_QUANTITY: ['QUANTITY'], ADVANCING: [], CHECKOUT: [], PAUSED: [],
   };
   return next[from].includes(to);
@@ -60,6 +60,8 @@ export interface AutoPage {
   selectable: string[];
   quantity?: AutoQuantity;
   problem?: string;
+  resumeSelection?: string;
+  verificationPending?: boolean;
 }
 export type AutoAction = { kind: 'ENTER' | 'ADVANCE' | 'RELOAD' } | { kind: 'CHOOSE'; optionId: string } | { kind: 'QUANTITY'; value: number };
 export type AutoDecision = { type: 'WAIT'; wakeAt?: number } | { type: 'STEP'; progress: AutoProgress; action?: AutoAction };
@@ -85,7 +87,7 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
   // Its route may no longer retain the event slug; this is not proof of a server hold.
   if (snapshot.state === 'CHECKOUT') return { type: 'STEP', progress: { ...progress, phase: 'CHECKOUT', message: 'Đã tới bước thanh toán. Kiểm tra đơn và thanh toán.', checkoutReachedAt: now } };
   if (page.problem) return pause(progress, page.problem);
-  if (snapshot.state === 'CHALLENGE') return pause(progress, 'Hoàn thành xác minh trên website rồi bắt đầu lại.');
+  if (snapshot.state === 'CHALLENGE') return page.verificationPending ? wait() : pause(progress, 'Hoàn thành xác minh trên website rồi bắt đầu lại.');
   if (snapshot.state === 'WAITING_ROOM') {
     // Admission can return to the event page, requiring a new navigation click.
     // Only an entry navigation is reset; never repeat an uncertain cart request.
@@ -98,7 +100,7 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
     if (['OPENING', 'ADVANCING'].includes(progress.phase) && now - (progress.actionAt ?? 0) < AUTO_TIMING.navigationMs) return wait((progress.actionAt ?? now) + AUTO_TIMING.navigationMs);
     return pause(progress, 'URL không còn khớp concert/suất đã lưu.');
   }
-  const saleAt = Date.parse(p.saleStartAt);
+  const saleAt = p.startMode === 'IMMEDIATE' ? run.startedAt : Date.parse(p.saleStartAt);
   if (now < saleAt) return wait(saleAt);
   if (snapshot.maxQuantity !== undefined && p.quantity > snapshot.maxQuantity) return pause(progress, 'Số vé vượt giới hạn hiển thị của sự kiện.');
   const timedOut = (ms: number) => now - (progress.actionAt ?? now) >= ms;
@@ -106,10 +108,11 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
   if (progress.phase === 'ADVANCING') return pending(AUTO_TIMING.navigationMs, 'Chưa xác nhận đã tới checkout. Không bấm lại để tránh lặp giữ vé.');
   if (progress.phase === 'OPENING') {
     if (snapshot.state === 'SELECTING') return { type: 'STEP', progress: { ...progress, phase: 'READY', message: 'Đã vào bước chọn vé.' } };
+    if (snapshot.unsupportedVariant) return pending(AUTO_TIMING.navigationMs, snapshot.reason);
     return pending(AUTO_TIMING.navigationMs, 'Chưa vào được bước chọn vé sau khi bấm mua. Kiểm tra trang.');
   }
   if (snapshot.state === 'NOT_READY' && progress.phase === 'READY') {
-    if (p.refreshAtSale && progress.releaseReloadedAt === undefined && now - saleAt < AUTO_TIMING.navigationMs) {
+    if (p.startMode !== 'IMMEDIATE' && p.refreshAtSale && progress.releaseReloadedAt === undefined && now - saleAt < AUTO_TIMING.navigationMs) {
       return { type: 'STEP', action: { kind: 'RELOAD' }, progress: { ...progress, releaseReloadedAt: now, message: 'Cập nhật trang một lần tại giờ bán vì website vẫn đang khóa.' } };
     }
     return wait();
@@ -119,7 +122,7 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
     return page.enterCount === 1 ? { type: 'STEP', action: { kind: 'ENTER' }, progress: { ...progress, phase: 'OPENING', message: 'Đang vào bước chọn vé…', actionAt: now } } : wait();
   }
   if (!snapshot.supported || snapshot.state !== 'SELECTING') {
-    if (snapshot.state === 'UNKNOWN' && !snapshot.reason.includes('UNSUPPORTED_VARIANT')) {
+    if (snapshot.state === 'UNKNOWN' && !snapshot.unsupportedVariant && !snapshot.reason.includes('UNSUPPORTED_VARIANT')) {
       const hydrationAt = Math.max(run.startedAt, progress.releaseReloadedAt ?? 0);
       if (progress.phase === 'READY' && now < hydrationAt + AUTO_TIMING.navigationMs) return wait(hydrationAt + AUTO_TIMING.navigationMs);
       if (['CHOOSING', 'SETTING_QUANTITY'].includes(progress.phase)) return pending(AUTO_TIMING.confirmationMs, 'Giao diện chưa xác nhận thao tác chọn vé.');
@@ -128,7 +131,13 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
   }
   const selected = snapshot.visibleOptions.filter(o => o.selected);
   if (progress.phase === 'READY') {
-    if (selected.length) return pause(progress, 'Trang đã có vé/ghế được chọn. Kiểm tra giỏ trước khi camp lại.');
+    if (selected.length) {
+      const existing = selected.length === 1 && selected[0];
+      const permitted = existing && page.resumeSelection === existing.id && existing.kind === 'ZONE' &&
+        recommend({ ...snapshot, visibleOptions: [{ ...existing, selected: false }] }, p).length === 1;
+      return permitted ? { type: 'STEP', progress: { ...progress, phase: 'QUANTITY', chosen: existing, actionAt: now, message: `Kiểm tra số lượng ${existing.label}.` } }
+        : pause(progress, 'Trang đã có vé/ghế được chọn. Kiểm tra giỏ trước khi camp lại.');
+    }
     const choice = recommend(snapshot, p).find(r => page.selectable.includes(r.option.id));
     if (!choice) return snapshot.visibleOptions.some(o => o.displayedAvailability === 'AVAILABLE')
       ? pause(progress, 'Chưa có lựa chọn có thể tự chọn đúng ưu tiên, giá và số lượng.') : wait();

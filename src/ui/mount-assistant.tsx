@@ -10,6 +10,7 @@ import style from './styles.css?inline';
 import { createCampReport } from '../core/camp-report';
 import { saveCampReport } from './save-camp-report';
 import { EXTENSION_VERSION } from '../infrastructure/extension-runtime';
+import { MAP_CHANGED } from '../platforms/onezone-map-bridge';
 
 interface MountOptions {
   document: Document;
@@ -131,6 +132,7 @@ export function mountAssistant(options: MountOptions) {
   document.addEventListener('visibilitychange', scheduleEvent);
   document.addEventListener('input', scheduleEvent, true);
   document.addEventListener('change', scheduleEvent, true);
+  document.addEventListener(MAP_CHANGED, scheduleEvent);
   scan();
   return {
     update(next: TaskConfig) { config = next; scan(); },
@@ -145,6 +147,7 @@ export function mountAssistant(options: MountOptions) {
       view.removeEventListener('popstate', scheduleEvent); view.removeEventListener('hashchange', scheduleEvent);
       document.removeEventListener('visibilitychange', scheduleEvent);
       document.removeEventListener('input', scheduleEvent, true); document.removeEventListener('change', scheduleEvent, true);
+      document.removeEventListener(MAP_CHANGED, scheduleEvent);
       root.unmount(); host.remove();
     },
   };

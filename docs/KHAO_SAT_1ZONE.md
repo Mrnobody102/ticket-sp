@@ -2,6 +2,8 @@
 
 ## Kiểm tra show đang mở bán · 18/10/2026
 
+**Bổ sung sau ảnh booking Trúc Nhân:** 0.5.6 hỗ trợ zone-map Konva bằng Node attrs zoneId/ticketClassId/text/disabled. Cấu hình static map công khai chứa cả event fikmaG và aAq6NT. Endpoint summary/zones trả 4 hạng/8 khu Trúc Nhân; tại lần đọc GA A/B đều 0 khả dụng. ticketType là auto_send_ticket, type=zone; sửa provider để không bỏ qua zones của kiểu này. FANZONE seatType=standing_ticket khác AUTO nhưng vẫn mua theo khu, không phải ghế chỉ định. Không đổi nó thành seatType AUTO trong catalog.
+
 `node scripts/audit-open-shows.mjs` dùng profile Chromium mới, catalog parser và bộ đọc DOM của production. Đọc API bằng GET ẩn danh, nhận diện CTA và bấm nút chính vào mua đúng một lần. Chặn các request khác GET/HEAD/OPTIONS; không bật runner, chọn hạng hoặc bấm Tiếp tục. Không thay cấu hình Hà Nội của người dùng.
 
 | Show | API tại lần kiểm tra | Bộ đọc DOM trước khi vào mua | Sau khi bấm CTA chính |

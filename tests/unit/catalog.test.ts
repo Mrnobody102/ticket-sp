@@ -13,6 +13,14 @@ const preferences = (): EventPreferences => ({ platform: 'onezone', eventUrl: ca
   catalog: { eventId: 'event-test', performanceId: 'HN', title: eventData.name, venue: calendar().location, startsAt: calendar().startDate, verifiedAt: 100, tickets: [{ id: 'vip-test', name: 'VIP', priceVnd: 1200000 }] } });
 
 describe('đọc nguồn 1Zone', () => {
+  it('chỉ gợi ý camp ngay khi trạng thái OPEN, cho mua và có đúng một suất', () => {
+    const open = { ...eventData, status: 'OPEN', canPurchase: true };
+    expect(parseOnezoneDetail(flightHtml(open), catalogUrl).performances[0]?.saleStatus).toBe('OPEN');
+    expect(parseOnezoneDetail(flightHtml({ ...open, canPurchase: false }), catalogUrl).performances[0]?.saleStatus).toBeUndefined();
+    expect(parseOnezoneDetail(flightHtml({ ...open, eventCalendar: [calendar(), calendar('HCM')] }), catalogUrl).performances.every(p => !p.saleStatus)).toBe(true);
+    expect(detail().performances[0]?.saleStatus).toBe('CLOSED');
+    expect(parseOnezoneDetail(flightHtml(open), catalogUrl)).not.toHaveProperty('saleStartAt');
+  });
   it('đọc JSON flight, giữ ID suất và phân biệt giờ diễn với giờ bán', () => {
     expect(detail()).toMatchObject({ id: 'event-test', performances: [{ id: 'HN', startsAt: calendar().startDate, venue: calendar().location, maxQuantity: 2 }] });
     expect(detail()).not.toHaveProperty('saleStartAt');

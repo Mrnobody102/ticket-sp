@@ -8,6 +8,10 @@ export const preferences = {
 };
 
 describe('cấu hình và đúng sự kiện', () => {
+  it('giữ chế độ camp ngay và từ chối chế độ không hợp lệ', () => {
+    expect(validatePreferences({ ...preferences, startMode: 'IMMEDIATE' }).startMode).toBe('IMMEDIATE');
+    expect(() => validatePreferences({ ...preferences, startMode: 'SOMETHING' })).toThrow('bắt đầu');
+  });
   it.each(['http://ticket.1zone.vn/events/demo', 'https://ticket.1zone.vn.evil.test/events/demo', 'https://shop.1zone.vn/events/demo', 'javascript:alert(1)', 'https://ticket.1zone.vn/', 'https://u:p@ticket.1zone.vn/events/demo', 'https://ticket.1zone.vn:444/events/demo'])('từ chối URL không phù hợp: %s', value => {
     expect(() => eventUrl(value)).toThrow();
   });

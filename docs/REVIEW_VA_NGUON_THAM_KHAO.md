@@ -1,6 +1,10 @@
-# Rà soát source và cơ chế tham khảo · 0.5.5
+# Rà soát source và cơ chế tham khảo · 0.5.6
 
 ## Review bổ sung cho ngày mở bán
+
+0.5.6 sửa lỗi thực tế từ ảnh Trúc Nhân: các thẻ chỉ giới thiệu, điều khiển mua nằm trên sơ đồ Konva. Mã công khai `cc25791d2dfcef4d.js` có Stage và Path tên seat, attrs zoneId/ticketClassId/text/disabled, click bubble gọi onZoneSelected; có cấu hình cả fikmaG và aAq6NT. Chỉ tích hợp hợp đồng này bằng [API Konva Node](https://konvajs.org/api/Konva.Node.html), không chép renderer hoặc gọi handler React. Bridge MAIN-world chỉ nhận event/suất đúng và đối tượng duy nhất, không có Chrome API/quyền bổ sung. Test Chromium dùng Konva 10.3.0 thật với fixture tổng hợp, không phải booking đăng nhập. Giá đổi, khu khóa, modal hạng khác phải chặn.
+
+Catalog trước đây chỉ tải zones với ticketType seatmap_zone, bỏ sót type=zone/auto_send_ticket của Trúc Nhân. Đã bổ sung: 4 hạng/8 khu; GA A/B tại lần đọc API ghi 0 khả dụng. FANZONE A là hạng khác GA, không phải fallback mặc định. Không suy tồn kho hay hạng bằng màu/prefix ảnh.
 
 0.5.5 không đổi quyết định chọn vé hoặc thêm ghi log vào runner. Báo cáo lấy snapshot mới khi người dùng bấm và chỉ xuất các trường cho phép; giữ riêng số vé yêu cầu với số lượng hiện đọc được. Không có dữ liệu thì để trống. Observer bổ sung thuộc tính ảnh/khu/readonly mà adapter đã đọc để không bỏ lỡ thay đổi chỉ qua attribute; E2E đổi riêng alt xác nhận danh sách gợi ý cập nhật.
 

@@ -5,6 +5,11 @@ import { resolve } from 'node:path';
 const output = resolve('artifacts/network-research');
 mkdirSync(output, { recursive: true });
 const urls = [
+  ['onezone-truc-summary', 'https://prod.1zone.vn/ticketing/api/v4/ticket-summary/get-summary-event/fikmaG?type=group&calendarId=3xDSM4'],
+  ['onezone-truc-zones', 'https://prod.1zone.vn/ticketing/api/v4/ticket-summary/get-summary-event/fikmaG/zones?calendarId=3xDSM4'],
+  ['onezone-truc-seatmap', 'https://prod.1zone.vn/ticketing/api/v4/event/fikmaG/seatmap/3xDSM4'],
+  ['onezone-lavender-html', 'https://ticket.1zone.vn/events/lavender-flower-50-nam-cuoc-doi?calendarId=UlSY5H'],
+  ['onezone-truc-nhan-html', 'https://ticket.1zone.vn/events/truc-nhan-tan-mui'],
   ['onezone-list-direct', 'https://marketplace.1zone.vn/v2/marketplace/ticket-events?limit=24&page=1'],
   ['onezone-summary-direct', 'https://prod.1zone.vn/ticketing/api/v4/ticket-summary/get-summary-event/14DH0C?type=group&calendarId=SEsc9b'],
   ['onezone-search-direct', 'https://marketplace.1zone.vn/v2/marketplace/search?keyword=V%C6%B0%C6%A1ng%20B%C3%ACnh&limit=10'],

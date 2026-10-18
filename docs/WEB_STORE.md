@@ -18,13 +18,15 @@ Hỗ trợ camp trên một số giao diện 1Zone; Ticketbox hiện chỉ tra c
 
 | Quyền | Mục đích trong bản hiện tại |
 |---|---|
-| storage | Cấu hình cục bộ; một phiên camp tạm thời trong session |
+| storage | Cấu hình và bản nháp cục bộ; một phiên camp tạm thời trong session |
 | alarms, notifications | Thông báo tới giờ mở bán đã lưu |
 | ticket.1zone.vn | Đọc metadata sự kiện; content script đọc và thao tác giao diện đặt vé |
 | marketplace.1zone.vn, prod.1zone.vn | GET tìm sự kiện và hạng/giá/số lượng tối đa |
 | api-v2.ticketbox.vn | GET tìm sự kiện, suất và hạng vé |
 
 Không có server riêng, analytics, quảng cáo hay bán dữ liệu trong bản này. Từ khóa và ID sự kiện được gửi tới nền tảng tương ứng để lấy dữ liệu. Phiên mua do website quản lý; extension không xuất cookie, mật khẩu hoặc thông tin thẻ. Không khai báo “không truyền bất kỳ dữ liệu nào” vì các yêu cầu tra cứu vẫn đi tới website bán vé.
+
+Content script MAIN world trên 1Zone đọc thuộc tính khu của renderer Konva và phát click lên Node đã đối chiếu. Cầu nối chỉ trao đổi ID khu/hạng, tên và trạng thái khả dụng; không dùng Chrome API, dữ liệu tài khoản hay request đặt vé trực tiếp. Content script isolated world kiểm tra catalog/giá rồi quyết định hành động.
 
 ## Hướng dẫn reviewer
 

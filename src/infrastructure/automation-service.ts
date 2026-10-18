@@ -58,7 +58,7 @@ export async function handleAutoCommand(message: AutoCommand, sender: chrome.run
     if (!config.enabled || !config.panelVisible) await repository.save({ ...config, enabled: true, panelVisible: true });
     const next: AutoRun = {
       id: crypto.randomUUID(), tabId, revision: 0, preferencesKey: preferencesKey(p), startedAt: Date.now(),
-      expiresAt: Math.max(Date.now(), Date.parse(p.saleStartAt)) + AUTO_TIMING.runMs,
+      expiresAt: Math.max(Date.now(), p.startMode === 'IMMEDIATE' ? 0 : Date.parse(p.saleStartAt)) + AUTO_TIMING.runMs,
       progress: { phase: 'READY', message: 'Đã bật camp. Chờ giờ bán/giao diện chọn vé.' },
     };
     await writeAutoRun(next); return next;
