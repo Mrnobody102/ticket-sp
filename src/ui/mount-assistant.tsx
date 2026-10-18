@@ -7,6 +7,9 @@ import type { PlatformInspection } from '../platforms/contracts';
 import { effectiveSnapshot, recommend } from '../core/workflow';
 import { Panel } from './Panel';
 import style from './styles.css?inline';
+import { createCampReport } from '../core/camp-report';
+import { saveCampReport } from './save-camp-report';
+import { EXTENSION_VERSION } from '../infrastructure/extension-runtime';
 
 interface MountOptions {
   document: Document;
@@ -93,6 +96,12 @@ export function mountAssistant(options: MountOptions) {
     root.render(<Panel config={config} snapshot={snapshot} recommendations={recommendations} error={error} onRescan={scan}
       rehearsal={options.rehearsal} background={document.visibilityState === 'hidden'} autoRun={runner?.run} autoBusy={runner?.pendingControl} onStartAuto={runner && !options.rehearsal ? () => void runAction(() => runner.start()) : undefined}
       onStopAuto={runner ? () => void runAction(() => runner.stop()) : undefined}
+      onSaveReport={() => {
+        try {
+          const current = inspect();
+          saveCampReport(document, createCampReport(EXTENSION_VERSION, config.preferences, current.snapshot, runner?.run ?? null, current.automation?.page.quantity?.value, error));
+        } catch (e) { error = e instanceof Error ? e.message : 'Không lưu được báo cáo.'; scan(); }
+      }}
       onStop={() => void runAction(options.onStop)} onHide={() => void runAction(options.onHide)} onOpen={() => void runAction(options.onOpen)} />);
   }
   // Active automation runs at the next microtask; passive UI scans remain throttled.
@@ -114,7 +123,7 @@ export function mountAssistant(options: MountOptions) {
     if (records.some(r => r.target !== host && !host.contains(r.target))) schedule();
   });
   observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true,
-    attributeFilter: ['hidden', 'style', 'class', 'aria-hidden', 'aria-disabled', 'disabled', 'aria-label', 'aria-labelledby', 'inert', 'role', 'href', 'min', 'max', 'aria-valuemin', 'aria-valuemax', 'aria-selected', 'aria-checked', 'aria-pressed', 'aria-valuenow', 'checked', 'value', 'data-ticket-class-id', 'data-ticket-type-id', 'data-id'] });
+    attributeFilter: ['hidden', 'style', 'class', 'aria-hidden', 'aria-disabled', 'disabled', 'readonly', 'aria-readonly', 'aria-label', 'aria-labelledby', 'alt', 'title', 'inert', 'role', 'href', 'min', 'max', 'aria-valuemin', 'aria-valuemax', 'aria-selected', 'aria-checked', 'aria-pressed', 'aria-valuenow', 'checked', 'value', 'data-ticket-class-id', 'data-ticket-type-id', 'data-zone-id', 'data-id'] });
   view.addEventListener('scroll', drawSoon, true);
   view.addEventListener('resize', scheduleEvent);
   view.addEventListener('popstate', scheduleEvent);

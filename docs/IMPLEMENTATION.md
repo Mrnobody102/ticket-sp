@@ -1,4 +1,4 @@
-# Quyết định triển khai · 0.5.4
+# Quyết định triển khai · 0.5.5
 
 Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp và đi tới checkout nhanh, trên phiên trình duyệt của người dùng. Đã tìm được metadata và hạng vé Vương Bình Hà Nội; người dùng xác nhận 12h ngày 18/10 làm mặc định có thể sửa. Chưa xác minh độc lập giờ bán từ API hoặc DOM booking đăng nhập. TP.HCM và Lavender chỉ dùng tham khảo. Không dùng ước tính 100–200 vé làm tồn kho.
 
@@ -38,6 +38,8 @@ Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp 
 32. 0.5.2 đính chính giờ bán thành 12:00 ngày 18/10/2026 UTC+7 theo thông tin mới của người dùng. Migration chỉ chạy khi cài/cập nhật: đúng URL/suất Hà Nội và đúng timestamp cũ 19/10 thì sửa ngày, giữ các lựa chọn, dừng phiên trước khi lưu và không tự bật camp. Không sửa giờ tùy chỉnh khác hoặc sự kiện khác; không thêm kiểm tra vào mỗi bước chọn vé.
 33. 0.5.3 xác minh đồng thời nhãn hạng/khu và class ID trước canonical hóa; nhãn ghế riêng vẫn dùng class ID với zone cha nếu có. Modal phải khớp class/zone ID nếu xuất hiện. Có dấu hiệu modal nhưng không xác minh được thì báo problem để không rơi xuống generic advance. Nhiều selected sau một lần chọn dừng trước quantity/checkout. Không thêm network I/O hoặc timer vào đường thực thi.
 34. 0.5.4 giữ so sánh state nội bộ chính xác, siết classifier checkout từ substring thành tiêu đề chuẩn hóa đã hỗ trợ kèm bằng chứng form/nút. Không coi FAQ nhắc thanh toán là checkout. UI phân biệt Chưa mở bán / Đang camp, bỏ lặp câu chờ, gom thao tác phụ và bỏ nút tắt trùng khi camp đang chạy.
+
+35. 0.5.5 tạo báo cáo theo yêu cầu từ snapshot đọc mới và AutoRun hiện có; xuất dữ liệu theo danh sách trường cho phép, bỏ query token và cấu hình thô. Không thêm logging/persistence trong runner. Observer bổ sung alt/title, readonly/aria-readonly và data-zone-id để thay đổi riêng các thuộc tính mà adapter sử dụng vẫn kích hoạt đọc lại.
 
 ## Phạm vi bàn giao
 

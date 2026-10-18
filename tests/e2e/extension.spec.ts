@@ -97,6 +97,18 @@ test('popup → lưu → khôi phục → content panel → DOM/SPA → dừng �
   expect(bookingRequests).toBe(0);
 });
 
+test('nhãn ảnh thay đổi riêng thuộc tính alt được nhận diện lại', async () => {
+  const popup = await context.newPage(); await configure(popup);
+  await context.route('https://ticket.1zone.vn/booking/**', route => route.fulfill({ contentType: 'text/html', body:
+    '<!doctype html><html lang="vi"><head><meta charset="utf-8"></head><body><main><h1>Chọn khu vực</h1><button><img alt="VIP" width="16" height="16" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E">1.200.000 ₫</button></main></body></html>' }));
+  const event = await context.newPage(); await event.goto(target.replace('/events/', '/booking/'));
+  await expect(event.locator('.recommendation')).toHaveCount(1);
+  await event.locator('main img').evaluate(image => image.setAttribute('alt', 'GOLD'));
+  await expect(event.locator('.recommendation')).toHaveCount(0);
+  await event.locator('main img').evaluate(image => image.setAttribute('alt', 'VIP'));
+  await expect(event.locator('.recommendation')).toHaveCount(1);
+});
+
 test('demo chuyển đủ trạng thái; không ghi đè concert thật', async () => {
   const popup = await context.newPage();
   await configure(popup);
@@ -227,6 +239,21 @@ test('camp tự chọn zone, đặt 2 vé và tới checkout; không bấm thanh
   const selectionToCheckoutMs = run.progress.checkoutReachedAt - run.progress.selectionStartedAt;
   writeFileSync('artifacts/auto-timing.json', JSON.stringify({ fixture: true, startToObservedCheckoutMs: Date.now() - started, selectionToCheckoutMs, actions }, null, 2));
   expect(selectionToCheckoutMs).toBeLessThan(5000);
+  await event.locator('.panel-tools > summary').click();
+  const downloadReady = event.waitForEvent('download');
+  await event.getByRole('button', { name: 'Lưu báo cáo', exact: true }).click();
+  const download = await downloadReady;
+  const report = JSON.parse(readFileSync((await download.path())!, 'utf8'));
+  expect(report.version).toBe(JSON.parse(readFileSync('package.json', 'utf8')).version);
+  expect(report.requested.quantity).toBe(2);
+  expect(report.run).toMatchObject({ phase: 'CHECKOUT', preferencesMatch: true, selectionToCheckoutMs });
+  expect(report.run.chosen.label).toBe('VIP');
+  expect(report.page.state).toBe('CHECKOUT');
+  await expect(event.locator('.countdown-card')).toHaveCount(0);
+  await expect(event.getByText('Đã chọn: VIP', { exact: true })).toBeVisible();
+  await expect(event.locator('.footnote')).toHaveCount(0);
+  expect(JSON.stringify(report)).not.toContain('preferencesKey');
+  expect(actions).toEqual(['Chọn', 'Tiếp tục']); // Download must not click a booking control.
   await event.screenshot({ path: 'artifacts/auto-checkout.png' });
   expect(errors).toEqual([]);
 });

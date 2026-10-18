@@ -24,6 +24,7 @@ interface Props {
   onStop: () => void;
   onHide: () => void;
   onOpen: () => void;
+  onSaveReport?: () => void;
   autoRun?: AutoRun | null;
   onStartAuto?: () => void;
   onStopAuto?: () => void;
@@ -32,13 +33,14 @@ interface Props {
   autoBusy?: boolean;
 }
 
-export function Panel({ config, snapshot, recommendations: options, error, onRescan, onStop, onHide, onOpen, autoRun, onStartAuto, onStopAuto, rehearsal, background, autoBusy }: Props) {
+export function Panel({ config, snapshot, recommendations: options, error, onRescan, onStop, onHide, onOpen, onSaveReport, autoRun, onStartAuto, onStopAuto, rehearsal, background, autoBusy }: Props) {
   const [now, setNow] = useState(Date.now());
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
   const p = config.preferences;
   const sameEvent = p && isSameEvent(snapshot.url, p.eventUrl);
   const running = autoActive(autoRun ?? null);
+  const atCheckout = autoRun?.progress.phase === 'CHECKOUT';
   const routineScreen = sameEvent && snapshot.supported && ['NOT_READY', 'SELECTING', 'EVENT_PAGE'].includes(snapshot.state);
   return <aside className={`assistant ${collapsed ? 'collapsed' : ''}`} aria-label="Trợ lý camp vé">
     <header className="panel-header">
@@ -49,7 +51,7 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
     </header>
     {!collapsed && <>
       <div className="status-line"><span className={`status-dot ${config.enabled ? 'active' : ''}`} />{!p && snapshot.state === 'NOT_READY' ? 'Chưa cấu hình' : stateLabels[snapshot.state]}</div>
-      {p && !rehearsal && <div className="countdown-card">
+      {p && !rehearsal && !atCheckout && <div className="countdown-card">
         <span className="eyebrow">GIỜ MỞ BÁN ĐÃ ĐẶT · VIỆT NAM</span>
         <strong className="countdown" role="timer">{countdown(p.saleStartAt, now)}</strong>
         <small>{new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' }).format(new Date(p.saleStartAt))}</small>
@@ -67,7 +69,7 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
           <div className="metrics"><span><b>{p.quantity}</b> vé</span><span>{p.maxTotalVnd ? money(p.maxTotalVnd) : 'Không giới hạn ngân sách'}</span></div>
           {snapshot.selectionMode !== 'UNKNOWN' && <p className="muted">{modeLabels[snapshot.selectionMode]}</p>}
           {p.quantity > 1 && snapshot.visibleOptions.some(o => o.kind === 'SEAT') && <p className="muted">Bạn muốn nhiều vé; chưa hỗ trợ ghép ghế.</p>}
-          <p className="muted">Ưu tiên: {p.preferredZoneLabels.join(' → ') || 'Tất cả hạng vé'}</p>
+          <p className="muted">{atCheckout && autoRun?.progress.chosen ? `Đã chọn: ${autoRun.progress.chosen.label}${autoRun.progress.chosen.zoneLabel ? ` · ${autoRun.progress.chosen.zoneLabel}` : ''}` : `Ưu tiên: ${p.preferredZoneLabels.join(' → ') || 'Tất cả hạng vé'}`}</p>
           {snapshot.maxQuantity !== undefined && <p className={p.quantity > snapshot.maxQuantity ? 'error' : 'muted'}>Website ghi tối đa {snapshot.maxQuantity} vé/giao dịch.{p.quantity > snapshot.maxQuantity ? ' Giảm số vé trong cấu hình.' : ''}</p>}
         </>}
         {options.length > 0 ? <div className="recommendations">
@@ -77,8 +79,8 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
           </div>)}
         </div> : snapshot.state === 'SELECTING' && <p className="muted">Chưa có lựa chọn khớp đủ điều kiện. Kiểm tra hạng vé, giá và số lượng trực tiếp.</p>}
         {error && <p role="alert" className="error">{error}</p>}
-        {!rehearsal && <details className="panel-tools"><summary>Thao tác khác</summary><div className="panel-actions"><button onClick={onRescan}>Nhận diện lại</button><button onClick={onOpen}>Mở trang vé</button>{!autoActive(autoRun ?? null) && <button className="danger-button" disabled={!config.enabled} onClick={onStop}>Tắt công cụ</button>}</div></details>}
-        {!rehearsal && <p className="footnote">{background && autoActive(autoRun ?? null) ? 'Đưa tab vé ra phía trước để tránh chậm giờ.' : 'Giữ tab vé ở phía trước và máy thức.'}</p>}
+        {!rehearsal && <details className="panel-tools"><summary>Thao tác khác</summary><div className="panel-actions"><button onClick={onRescan}>Nhận diện lại</button><button onClick={onOpen}>Mở trang vé</button>{onSaveReport && <button onClick={onSaveReport}>Lưu báo cáo</button>}{!autoActive(autoRun ?? null) && <button className="danger-button" disabled={!config.enabled} onClick={onStop}>Tắt công cụ</button>}</div></details>}
+        {!rehearsal && !atCheckout && <p className="footnote">{background && autoActive(autoRun ?? null) ? 'Đưa tab vé ra phía trước để tránh chậm giờ.' : 'Giữ tab vé ở phía trước và máy thức.'}</p>}
       </div>
     </>}
   </aside>;

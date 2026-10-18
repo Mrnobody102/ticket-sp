@@ -1,6 +1,8 @@
-# Rà soát source và cơ chế tham khảo · 0.5.4
+# Rà soát source và cơ chế tham khảo · 0.5.5
 
 ## Review bổ sung cho ngày mở bán
+
+0.5.5 không đổi quyết định chọn vé hoặc thêm ghi log vào runner. Báo cáo lấy snapshot mới khi người dùng bấm và chỉ xuất các trường cho phép; giữ riêng số vé yêu cầu với số lượng hiện đọc được. Không có dữ liệu thì để trống. Observer bổ sung thuộc tính ảnh/khu/readonly mà adapter đã đọc để không bỏ lỡ thay đổi chỉ qua attribute; E2E đổi riêng alt xác nhận danh sách gợi ý cập nhật.
 
 0.5.4 làm rõ hai lớp: adapter đọc DOM/ARIA/ID và chuẩn hóa nhãn; core chỉ so sánh state nội bộ. Kiểm tra === với CHECKOUT là có chủ ý. Classifier checkout được siết để tiêu đề FAQ có chữ thanh toán cộng form nhận email không tạo trạng thái thành công giả. Unit kiểm tra nhãn tiếng Việt/Anh, hoa/thường/khoảng trắng, nhãn chưa hỗ trợ và checkout thiếu bằng chứng. UI phân biệt website Chưa mở bán với tool Đang camp, bỏ câu chờ/nhận diện lặp, gom thao tác phụ; nút Dừng camp vẫn trực tiếp khi đang chạy.
 

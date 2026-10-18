@@ -1,4 +1,4 @@
-# Cơ chế camp vé · bản 0.5.4
+# Cơ chế camp vé · bản 0.5.5
 
 0.5.2 sửa ngày bán Hà Nội thành 12:00 ngày 18/10/2026 UTC+7. Khi cài/cập nhật, chỉ sửa cấu hình đúng suất còn dùng chính xác mốc cũ 12:00 ngày 19/10; giữ hạng/số lượng và dừng phiên cũ, không tự bật mua. Giờ tùy chỉnh khác và sự kiện khác được giữ nguyên.
 
@@ -21,6 +21,8 @@ Bản hiện tại kết nối **tìm sự kiện → chọn đúng suất/hạn
 0.4.2 bắt lỗi đọc phiên lúc khởi tạo content bằng `Promise.allSettled`. Nếu không đọc được cấu hình hoặc phiên, panel hiển thị lỗi và không tạo runner. Lỗi quyền kiểu worker cũ chỉ được đổi thành hướng dẫn Reload với các lệnh AUTO hợp lệ; quyền SAVE từ content vẫn bị chặn. UI gom thông tin sự kiện, đặt hạng/số lượng/giờ trước, giữ Lưu/Bắt đầu ở footer. `public/huong-dan.html` là hướng dẫn tĩnh, dùng được trong extension và mở trực tiếp sau giải nén.
 
 ## 1. Đầu vào và đầu ra
+
+Từ 0.5.5, **Thao tác khác → Lưu báo cáo** xuất snapshot mới và tiến độ phiên hiện tại thành JSON. Đây là dữ liệu chẩn đoán, không phải lịch sử click hoặc xác nhận giữ vé. Không có logger hoặc request mạng mới trong đường thực thi; xem [cách đánh giá lượt thật](SAN_SANG_MO_BAN.md#đánh-giá-lượt-chạy-thật).
 
 `snapshot.state` là trạng thái nội bộ có kiểu `WorkflowState`, được adapter website tạo ra. Ví dụ `snapshot.state === 'CHECKOUT'` nghĩa là bộ đọc đã phân loại màn hiện tại là thanh toán, nên core dừng tự động hóa. Đây không phải phép so sánh chữ trên website với từ CHECKOUT. Phần nhận diện 1Zone đọc HTML/ARIA, nhãn ảnh/SVG, ID điều khiển, giá, số lượng và trạng thái hiển thị/disabled; câu chữ được chuẩn hóa dấu, hoa/thường và khoảng trắng.
 
