@@ -65,7 +65,7 @@ describe('máy trạng thái camp dùng chung', () => {
     const queued = page(); queued.snapshot.state = 'WAITING_ROOM';
     expect(decideAutomation(run({ phase: 'ADVANCING', actionAt: now - 60000 }), queued, p, now).type).toBe('WAIT');
   });
-  it('chỉ tải lại một lần tại giờ bán khi vẫn khóa; không reload queue hoặc selection', () => {
+  it('trang còn khóa sau giờ bán: thử cập nhật có giãn cách; không reload queue hoặc selection', () => {
     const configured = { ...p, refreshAtSale: true };
     const initial = { ...run(), preferencesKey: preferencesKey(configured) };
     const view = page(); view.snapshot.state = 'NOT_READY';
@@ -76,7 +76,12 @@ describe('máy trạng thái camp dùng chung', () => {
     expect(decideAutomation({ ...initial, progress: reload.progress }, view, configured, now + 10).type).toBe('WAIT');
     view.snapshot.state = 'WAITING_ROOM'; expect(decideAutomation(initial, view, configured, now).type).toBe('WAIT');
     view.snapshot.state = 'SELECTING'; expect(decideAutomation(initial, view, configured, now)).toMatchObject({ action: { kind: 'CHOOSE' } });
-    view.snapshot.state = 'NOT_READY'; expect(decideAutomation(initial, view, configured, now + 15000).type).toBe('WAIT');
+    view.snapshot.state = 'NOT_READY';
+    expect(decideAutomation({ ...initial, progress: reload.progress }, view, configured, now + 2500)).toMatchObject({ action: { kind: 'RELOAD' }, progress: { releaseReloadedAt: now, lastReleaseReloadAt: now + 2500 } });
+    expect(decideAutomation(initial, view, configured, now + 15000)).toMatchObject({ action: { kind: 'RELOAD' } });
+    expect(decideAutomation({ ...initial, progress: { ...reload.progress, lastReleaseReloadAt: now + 30000 } }, view, configured, now + 31000)).toMatchObject({ type: 'WAIT', wakeAt: now + 35000 });
+    view.snapshot.state = 'CHALLENGE'; expect(decideAutomation(initial, view, configured, now)).not.toHaveProperty('action');
+    view.snapshot.state = 'CHECKOUT'; expect(decideAutomation(initial, view, configured, now)).not.toHaveProperty('action');
   });
   it('chọn → xác nhận → số lượng → checkout; không bấm lại khi chờ', () => {
     const first = decideAutomation(run(), page(), p, now);

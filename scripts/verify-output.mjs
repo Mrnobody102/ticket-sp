@@ -4,7 +4,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 // Validate the shipped files, not TypeScript sources. No network or credentials.
-const root = resolve('.output/chrome-mv3');
+const root = resolve(process.env.CAMP_BUILD_DIR ?? '.output', 'chrome-mv3');
 const { version } = JSON.parse(await readFile('package.json', 'utf8'));
 const manifest = JSON.parse(await readFile(join(root, 'manifest.json'), 'utf8'));
 assert.equal(manifest.manifest_version, 3);

@@ -183,7 +183,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
           <label>Tổng ngân sách (VNĐ)<input type="number" min="1" step="1" value={budget} onChange={e => edit({ budget: e.target.value })} placeholder="Không giới hạn" /></label>
           <label className="checkbox-label"><input type="checkbox" checked={alternatives} onChange={e => edit({ alternatives: e.target.checked })} />Cho phép mua hạng ngoài danh sách ưu tiên</label>
           {alternatives && <small>Chỉ chọn trong ngân sách đã đặt. Để trống nghĩa là không giới hạn giá.</small>}
-          {!immediate && <label className="checkbox-label"><input type="checkbox" checked={refreshAtSale} onChange={e => edit({ refreshAtSale: e.target.checked })} />Tải lại một lần lúc mở bán nếu trang còn khóa</label>}
+          {!immediate && <label className="checkbox-label"><input type="checkbox" checked={refreshAtSale} onChange={e => edit({ refreshAtSale: e.target.checked })} />Cập nhật trang nếu đến giờ vẫn chưa mở bán</label>}
           {!loaded && !retainedCatalog && <><label className="checkbox-label"><input type="checkbox" checked={manualMode} onChange={e => edit({ manualMode: e.target.checked })} />Nhập hạng vé thủ công</label>
             {manualMode && <label>Hạng vé ưu tiên · mỗi dòng một hạng<textarea value={labels} onChange={e => edit({ labels: e.target.value })} placeholder={'VIP\nKhu A'} /><small>Chỉ dùng khi nguồn không cung cấp danh sách. Tên phải khớp hạng hiển thị trên website.</small></label>}</>}
         </details>

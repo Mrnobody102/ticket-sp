@@ -9,7 +9,7 @@ export function isAutoProgress(value: unknown): value is AutoProgress {
   if (!value || typeof value !== 'object') return false;
   const p = value as AutoProgress;
   if (!AUTO_PHASES.includes(p.phase) || typeof p.message !== 'string' || p.message.length > 500) return false;
-  if ([p.actionAt, p.quantityAfterAction, p.selectionStartedAt, p.checkoutReachedAt, p.releaseReloadedAt, p.addonsContinuedAt].some(v => v !== undefined && (typeof v !== 'number' || !Number.isFinite(v)))) return false;
+  if ([p.actionAt, p.quantityAfterAction, p.selectionStartedAt, p.checkoutReachedAt, p.releaseReloadedAt, p.lastReleaseReloadAt, p.addonsContinuedAt].some(v => v !== undefined && (typeof v !== 'number' || !Number.isFinite(v)))) return false;
   const chosen = p.chosen;
   if (chosen === undefined) return true;
   return !!chosen && typeof chosen === 'object' && (typeof chosen.label === 'string' && chosen.label.length <= 100 && ['ZONE', 'SEAT'].includes(chosen.kind) &&
@@ -36,6 +36,7 @@ export interface AutoProgress {
   selectionStartedAt?: number;
   checkoutReachedAt?: number;
   releaseReloadedAt?: number;
+  lastReleaseReloadAt?: number;
   addonsContinuedAt?: number;
 }
 export interface AutoRun {
@@ -119,8 +120,14 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
     return pending(AUTO_TIMING.navigationMs, 'Chưa vào được bước chọn vé sau khi bấm mua. Kiểm tra trang.');
   }
   if (snapshot.state === 'NOT_READY' && progress.phase === 'READY') {
-    if (p.startMode !== 'IMMEDIATE' && p.refreshAtSale && progress.releaseReloadedAt === undefined && now - saleAt < AUTO_TIMING.navigationMs) {
-      return { type: 'STEP', action: { kind: 'RELOAD' }, progress: { ...progress, releaseReloadedAt: now, message: 'Cập nhật trang một lần tại giờ bán vì website vẫn đang khóa.' } };
+    if (p.startMode !== 'IMMEDIATE' && p.refreshAtSale) {
+      // Server-rendered event status can remain stale without any DOM mutation.
+      // Retry only on this exact NOT_READY event, with decreasing frequency.
+      const interval = now - saleAt < 30000 ? 2500 : now - saleAt < 120000 ? 5000 : 15000;
+      const last = progress.lastReleaseReloadAt ?? progress.releaseReloadedAt;
+      const next = last === undefined ? saleAt : last + interval;
+      if (now < next) return wait(next);
+      return { type: 'STEP', action: { kind: 'RELOAD' }, progress: { ...progress, releaseReloadedAt: progress.releaseReloadedAt ?? now, lastReleaseReloadAt: now, message: 'Trang vẫn chưa mở bán. Đang cập nhật lại.' } };
     }
     return wait();
   }
@@ -130,7 +137,7 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
   }
   if (!snapshot.supported || snapshot.state !== 'SELECTING') {
     if (snapshot.state === 'UNKNOWN' && !snapshot.unsupportedVariant && !snapshot.reason.includes('UNSUPPORTED_VARIANT')) {
-      const hydrationAt = Math.max(run.startedAt, progress.releaseReloadedAt ?? 0);
+      const hydrationAt = Math.max(run.startedAt, progress.lastReleaseReloadAt ?? progress.releaseReloadedAt ?? 0);
       if (progress.phase === 'READY' && now < hydrationAt + AUTO_TIMING.navigationMs) return wait(hydrationAt + AUTO_TIMING.navigationMs);
       if (['CHOOSING', 'SETTING_QUANTITY'].includes(progress.phase)) return pending(AUTO_TIMING.confirmationMs, 'Giao diện chưa xác nhận thao tác chọn vé.');
     }

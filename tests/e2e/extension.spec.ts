@@ -10,7 +10,7 @@ const target = 'https://ticket.1zone.vn/events/e2e-test';
 const errors: string[] = [];
 
 test.beforeAll(async () => {
-  const path = resolve('.output/chrome-mv3');
+  const path = resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3');
   context = await chromium.launchPersistentContext('', {
     channel: 'chromium', headless: true,
     args: [`--disable-extensions-except=${path}`, `--load-extension=${path}`],
@@ -458,6 +458,50 @@ test('đóng popup và worker MV3 bị ngắt: giữ phiên, đến giờ vẫn 
   expect(restarted).toBeDefined();
   const stored = await restarted!.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1']);
   expect(stored.id).toBe(original.id); expect(stored.progress.phase).toBe('CHECKOUT');
+  expect(errors).toEqual([]);
+});
+
+test('mở bán trễ: nhiều phản hồi vẫn khóa, tự cập nhật tới khi chọn được vé', async () => {
+  const { popup, event } = await prepareAuto();
+  let requests = 0;
+  const booking = target.replace('/events/', '/booking/');
+  await context.route(booking, route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: requests++ < 3
+    ? '<!doctype html><meta charset="utf-8"><h1>Sắp mở bán</h1><button disabled>Sắp mở bán</button>'
+    : fixture('booking') + `<script>(${installBookingDemo.toString()})(document)</script>` }));
+  await event.goto(booking);
+  await context.serviceWorkers()[0]!.evaluate(async () => {
+    const key = 'ticket-assistant.config.v1', config = (await chrome.storage.local.get(key))[key];
+    config.preferences.saleStartAt = new Date(Date.now() + 1000).toISOString(); config.preferences.refreshAtSale = true;
+    await chrome.storage.local.set({ [key]: config });
+  });
+  await popup.reload(); await popup.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT', { timeout: 20000 });
+  expect(requests).toBe(4);
+  const run = await context.serviceWorkers()[0]!.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1']);
+  expect(run.progress.lastReleaseReloadAt).toBeGreaterThan(run.progress.releaseReloadedAt);
+  expect(errors).toEqual([]);
+});
+
+test('queue.1zone.vn ngoài miền: giữ phiên qua hàng chờ lâu, quay về booking tự chọn tiếp', async () => {
+  const { event } = await prepareAuto();
+  const booking = target.replace('/events/', '/booking/');
+  const queued = 'https://queue.1zone.vn/?t=' + encodeURIComponent(booking);
+  await context.route(target, route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><meta charset="utf-8"><h1>Giới thiệu sự kiện</h1><button data-id="btn-by-ticket" onclick="location.href='${queued}'">Mua vé</button>` }));
+  await context.route('https://queue.1zone.vn/**', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><meta charset="utf-8"><h1>Bạn đang trong hàng chờ</h1><button onclick="location.href='${booking}'">Cho vào · mô phỏng</button>` }));
+  await event.goto(target);
+  await event.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(event).toHaveURL(queued);
+  await expect(event.locator('[data-ticket-assistant]')).toHaveCount(0);
+  const before = await context.serviceWorkers()[0]!.evaluate(async () => {
+    const key = 'ticket-assistant.auto.session.v1', run = (await chrome.storage.session.get(key))[key];
+    run.progress.actionAt = Date.now() - 60000;
+    await chrome.storage.session.set({ [key]: run });
+    return { id: run.id, tabId: run.tabId };
+  });
+  await event.getByRole('button', { name: 'Cho vào · mô phỏng' }).click();
+  await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  const after = await context.serviceWorkers()[0]!.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1']);
+  expect(after.id).toBe(before.id); expect(after.tabId).toBe(before.tabId);
   expect(errors).toEqual([]);
 });
 
