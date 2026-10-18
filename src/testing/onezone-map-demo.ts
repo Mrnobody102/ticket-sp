@@ -1,7 +1,7 @@
 import type Konva from 'konva';
 
 /** Synthetic booking page, using the same public Konva node attributes as 1Zone. */
-export function installOnezoneMapDemo(document: Document, verification = false) {
+export function installOnezoneMapDemo(document: Document, verification = false, addons = false) {
   const view = document.defaultView!;
   const K = (view as unknown as { Konva: typeof Konva }).Konva;
   const stage = new K.Stage({ container: 'seatmap-container-event-test-fixture', width: 400, height: 220 });
@@ -38,6 +38,7 @@ export function installOnezoneMapDemo(document: Document, verification = false) 
     }
     advance.addEventListener('click', () => {
       main.setAttribute('data-advances', String(Number(main.getAttribute('data-advances') ?? 0) + 1));
+      if (addons) { view.location.assign('/checkout/add-ons?orderId=fixture-order'); return; }
       host.innerHTML = `<h1>Thanh toán</h1><form><p>${zone.name} · ${count.textContent} vé</p><button type="button">Xác nhận đơn hàng</button></form>`;
     });
   });

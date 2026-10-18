@@ -6,6 +6,7 @@ import type { OnezoneInspection } from './onezone';
 import type { PageReader } from './onezone-dom';
 import { hasOnezoneVerification, readOnezoneModal } from './onezone-modal';
 import { chooseOnezoneMap, hasMapChoice } from './onezone-map';
+import { readOnezoneAddons } from './onezone-addons';
 
 interface QuantityBinding {
   model: AutoQuantity;
@@ -87,6 +88,8 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
   const officialEnter = candidates.filter(e => e.matches('button[data-id="btn-by-ticket"]'));
   const enter = officialEnter.length === 1 && isSameEvent(snapshot.url, p.eventUrl) ? officialEnter : candidates;
   const advance = controls.filter(e => nextLabel.test(label(e, reader)) && safeLink(e, p, false) && !optionElements.some(entry => entry.element.contains(e)));
+  const addons = readOnezoneAddons(document, new URL(snapshot.url), p, progress, reader);
+  if (addons) advance.splice(0, advance.length, addons);
   const choices = new Map<string, Element>();
   for (const { element, option } of optionElements) {
     if (hasMapChoice(element, option.id)) { choices.set(option.id, element); continue; }
@@ -100,7 +103,7 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
   const chosen = progress.chosen && optionElements.find(entry => sameOption(progress.chosen!, entry.option));
   let quantity = findQuantity(document, chosen?.element, reader);
   const modal = readOnezoneModal(document, p, reader);
-  const invalidModal = !modal && [...document.querySelectorAll('button[data-id="btn-continue"]')].some(reader.isVisible);
+  const invalidModal = !modal && !addons && [...document.querySelectorAll('button[data-id="btn-continue"]')].some(reader.isVisible);
   if (modal) {
     quantity = { element: modal.valueElement, model: modal.quantity, increase: modal.increase, decrease: modal.decrease };
     advance.splice(0, advance.length, ...(enabled(modal.advance, reader) ? [modal.advance] : []));
@@ -113,6 +116,7 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
     : /het thoi gian (giu cho|dat ve)|phien (dat ve )?(da )?het han|reservation expired|khong the giu ve|khong the giu cho/.test(headings)
       ? 'Phiên giữ chỗ đã hết hạn hoặc giữ vé thất bại. Kiểm tra trên website.' : undefined;
   return { page: { snapshot, enterCount: enter.length, advanceCount: advance.length, selectable: [...choices.keys()], quantity: quantity?.model, problem,
+    ...(addons ? { verifiedAddons: true } : {}),
     ...(modal ? { resumeSelection: modal.entry.option.id, verificationPending: hasOnezoneVerification(document, reader) && !enabled(modal.advance, reader) } : {}) },
     bindings: { enter, advance, choices, quantity, reader, reload: () => document.defaultView!.location.reload(), chooseMap: (element, optionId) => chooseOnezoneMap(element, optionId, p) } };
 }

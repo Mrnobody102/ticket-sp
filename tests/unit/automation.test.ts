@@ -12,6 +12,14 @@ function page(patch: Partial<AutoPage> = {}): AutoPage {
   return { snapshot: { url: p.eventUrl, state: 'SELECTING', selectionMode: 'ZONE_ONLY', supported: true, reason: '', visibleOptions: [vip], maxQuantity: 2 }, enterCount: 0, advanceCount: 1, selectable: ['vip'], quantity: { value: 1, min: 1, max: 2, writable: true, stepper: false }, ...patch };
 }
 describe('máy trạng thái camp dùng chung', () => {
+  it('chỉ tiếp tục bước mua kèm đã xác minh một lần trong phiên đang chuyển checkout', () => {
+    const view = page({ verifiedAddons: true }); view.snapshot.url = 'https://ticket.1zone.vn/checkout/add-ons?orderId=test'; view.snapshot.state = 'UNKNOWN';
+    const decision = decideAutomation(run({ phase: 'ADVANCING', chosen: vip }), view, p, now);
+    expect(decision).toMatchObject({ type: 'STEP', action: { kind: 'ADVANCE' }, progress: { addonsContinuedAt: now } });
+    expect(decideAutomation(run({ phase: 'ADVANCING', chosen: vip, addonsContinuedAt: now }), view, p, now + 100)).toMatchObject({ type: 'WAIT' });
+    expect(decideAutomation(run({ phase: 'ADVANCING', chosen: vip, addonsContinuedAt: now }), view, p, now + 16000)).toMatchObject({ progress: { phase: 'PAUSED' } });
+    expect(decideAutomation(run(), view, p, now)).toMatchObject({ progress: { phase: 'PAUSED' } });
+  });
   it('modal đã xác minh đúng lựa chọn được tiếp tục; selected thông thường vẫn chặn', () => {
     const quoted = { ...p, catalog: { eventId: 'test', performanceId: 'HN', title: 'Demo', venue: 'HN', startsAt: '2030-01-01T00:00:00Z', verifiedAt: 1,
       tickets: [{ id: 'vip', name: 'VIP', priceVnd: 1200000 }] } };

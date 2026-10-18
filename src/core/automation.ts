@@ -9,7 +9,7 @@ export function isAutoProgress(value: unknown): value is AutoProgress {
   if (!value || typeof value !== 'object') return false;
   const p = value as AutoProgress;
   if (!AUTO_PHASES.includes(p.phase) || typeof p.message !== 'string' || p.message.length > 500) return false;
-  if ([p.actionAt, p.quantityAfterAction, p.selectionStartedAt, p.checkoutReachedAt, p.releaseReloadedAt].some(v => v !== undefined && (typeof v !== 'number' || !Number.isFinite(v)))) return false;
+  if ([p.actionAt, p.quantityAfterAction, p.selectionStartedAt, p.checkoutReachedAt, p.releaseReloadedAt, p.addonsContinuedAt].some(v => v !== undefined && (typeof v !== 'number' || !Number.isFinite(v)))) return false;
   const chosen = p.chosen;
   if (chosen === undefined) return true;
   return !!chosen && typeof chosen === 'object' && (typeof chosen.label === 'string' && chosen.label.length <= 100 && ['ZONE', 'SEAT'].includes(chosen.kind) &&
@@ -23,7 +23,7 @@ export function allowsAutoTransition(from: AutoPhase, to: AutoPhase): boolean {
   if (to === 'CHECKOUT') return true;
   const next: Record<AutoPhase, readonly AutoPhase[]> = {
     READY: ['READY', 'OPENING', 'CHOOSING', 'QUANTITY'], OPENING: ['READY'], CHOOSING: ['QUANTITY'],
-    QUANTITY: ['SETTING_QUANTITY', 'ADVANCING'], SETTING_QUANTITY: ['QUANTITY'], ADVANCING: [], CHECKOUT: [], PAUSED: [],
+    QUANTITY: ['SETTING_QUANTITY', 'ADVANCING'], SETTING_QUANTITY: ['QUANTITY'], ADVANCING: ['ADVANCING'], CHECKOUT: [], PAUSED: [],
   };
   return next[from].includes(to);
 }
@@ -36,6 +36,7 @@ export interface AutoProgress {
   selectionStartedAt?: number;
   checkoutReachedAt?: number;
   releaseReloadedAt?: number;
+  addonsContinuedAt?: number;
 }
 export interface AutoRun {
   id: string;
@@ -62,6 +63,7 @@ export interface AutoPage {
   problem?: string;
   resumeSelection?: string;
   verificationPending?: boolean;
+  verifiedAddons?: boolean;
 }
 export type AutoAction = { kind: 'ENTER' | 'ADVANCE' | 'RELOAD' } | { kind: 'CHOOSE'; optionId: string } | { kind: 'QUANTITY'; value: number };
 export type AutoDecision = { type: 'WAIT'; wakeAt?: number } | { type: 'STEP'; progress: AutoProgress; action?: AutoAction };
@@ -95,6 +97,11 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
       ...progress, phase: 'READY', message: 'Đang xếp hàng. Chờ website cho vào.',
     } };
     return wait();
+  }
+  if (page.verifiedAddons && progress.phase === 'ADVANCING') {
+    if (progress.addonsContinuedAt !== undefined) return now - progress.addonsContinuedAt < AUTO_TIMING.navigationMs
+      ? wait(progress.addonsContinuedAt + AUTO_TIMING.navigationMs) : pause(progress, 'Chưa xác nhận trang thanh toán sau bước mua kèm. Không bấm lại.');
+    return { type: 'STEP', action: { kind: 'ADVANCE' }, progress: { ...progress, addonsContinuedAt: now, actionAt: now, message: 'Bỏ qua mua kèm; chuyển tới thanh toán…' } };
   }
   if (!isSameEvent(snapshot.url, p.eventUrl)) {
     if (['OPENING', 'ADVANCING'].includes(progress.phase) && now - (progress.actionAt ?? 0) < AUTO_TIMING.navigationMs) return wait((progress.actionAt ?? now) + AUTO_TIMING.navigationMs);

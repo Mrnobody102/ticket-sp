@@ -31,12 +31,13 @@ test.beforeEach(async () => {
 });
 test.afterEach(async () => { await context.close(); expect(errors).toEqual([]); });
 
-async function booking(verification = false, groupedLegend = false) {
+async function booking(verification = false, groupedLegend = false, addons: 'correct' | 'wrong' | false = false) {
   const konva = readFileSync('node_modules/konva/konva.min.js', 'utf8');
   await context.route(/^https:\/\/ticket\.1zone\.vn\//, route => {
     if (new URL(route.request().url()).pathname === '/fixture-konva.js') return route.fulfill({ contentType: 'application/javascript', body: konva });
+    if (new URL(route.request().url()).pathname === '/checkout/add-ons') return route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><meta charset="utf-8"><h1>Vé mua kèm</h1><section><h2>Vé của bạn · Demo</h2><p>21/11/2030 · GA × 2 · đ900.000</p></section><article>Poster · đ99.000</article><footer><b>đ${addons === 'wrong' ? '1.899.000' : '1.800.000'}</b><button onclick="document.body.innerHTML='<h1>Thanh toán</h1><form><button type=button>Xác nhận đơn hàng</button></form>'">Tiếp tục</button></footer>` });
     const legend = groupedLegend ? '<div><p>GA</p><p>đ900.000</p></div>' : '<div><p>GA A</p><p>đ900.000</p></div><div><p>GA B</p><p>đ900.000</p></div>';
-    return route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><meta charset="utf-8"><main><h1>Chọn khu vực</h1><div id="seatmap-container-event-test-fixture" style="width:400px;height:220px"></div>${legend}<div><p>FANZONE A</p><p>đ1.500.000</p></div><div id="modal-host"></div></main><script src="/fixture-konva.js"></script><script>(${installOnezoneMapDemo.toString()})(document,${verification})</script>` });
+    return route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><meta charset="utf-8"><main><h1>Chọn khu vực</h1><div id="seatmap-container-event-test-fixture" style="width:400px;height:220px"></div>${legend}<div><p>FANZONE A</p><p>đ1.500.000</p></div><div id="modal-host"></div></main><script src="/fixture-konva.js"></script><script>(${installOnezoneMapDemo.toString()})(document,${verification},${!!addons})</script>` });
   });
   page = await context.newPage(); await page.goto(catalogUrl.replace('/events/', '/booking/') + '?calendarId=HN');
   await expect(page.locator('.status-line')).toContainText('Đang chọn vé');
@@ -53,6 +54,14 @@ test('Konva thật: bỏ khu khóa, chọn GA B đúng class/giá, 2 vé tới c
   await expect(page.getByRole('button', { name: 'Xác nhận đơn hàng' })).toBeVisible();
   mkdirSync('artifacts', { recursive: true });
   await page.screenshot({ path: 'artifacts/konva-checkout.png' });
+});
+
+for (const mode of ['correct', 'wrong'] as const) test(`bước mua kèm: ${mode === 'correct' ? 'tự tiếp tục tới thanh toán' : 'tổng tiền khác vé phải dừng'}`, async () => {
+  await booking(false, true, mode);
+  await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', mode === 'correct' ? 'CHECKOUT' : 'PAUSED', { timeout: 20000 });
+  if (mode === 'correct') await expect(page.getByRole('button', { name: 'Xác nhận đơn hàng' })).toBeVisible();
+  else await expect(page.locator('footer button')).toHaveText('Tiếp tục');
 });
 
 test('thẻ giá chỉ ghi tên hạng chung: chọn đúng khu khả dụng rồi xác nhận modal', async () => {
