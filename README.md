@@ -4,15 +4,17 @@ Chrome Extension MV3 trên máy tính, mặc định **1 vé**, ngân sách khô
 
 Adapter đối chiếu tên/ID/giá, khu trong modal, số lượng và lựa chọn đã được website xác nhận. Dữ liệu mâu thuẫn hoặc renderer chưa hỗ trợ thì dừng. `snapshot.state` là trạng thái nội bộ, không phải text nguyên văn trên website.
 
-**0.5.6** chọn khu trên sơ đồ Konva của 1Zone bằng ID khu/class đã đối chiếu API và giá trên trang; không đoán tọa độ. Modal hợp lệ chờ xác minh, tự tiếp tục khi nút mở. Show đang bán mặc định Camp ngay, không bắt nhập giờ; bản nháp được giữ khi đóng popup. **Lưu cấu hình** mới áp dụng cho lượt camp. [Cách đánh giá lượt chạy thật](docs/SAN_SANG_MO_BAN.md#đánh-giá-lượt-chạy-thật).
+**0.6.0** thêm chế độ **Theo giờ và khi web mở**: phản ứng với nút mua đã xác minh, kiểm tra trang chưa cập nhật trong phút trước giờ hẹn và tiếp tục khi mở bán trễ. Hỗ trợ phòng chờ queue.1zone.vn; bấm camp ở tab mới để chuyển phiên chưa chọn vé sang. Khu vừa hết vé trước giữ chỗ được thử lại có giới hạn; không gửi lại yêu cầu giữ vé chưa rõ kết quả. **Lưu cấu hình** mới áp dụng thay đổi. [Cách đánh giá lượt chạy thật](docs/SAN_SANG_MO_BAN.md#đánh-giá-lượt-chạy-thật).
 
-Đóng popup vẫn camp; giữ tab vé ở phía trước và máy thức. Không hỗ trợ Chrome điện thoại. Phiên tự dừng ở checkout, tạm dừng khi cần xử lý, hoặc hết hạn một giờ sau mốc muộn hơn giữa lúc bật và giờ bán. Xem [cách dùng cho ngày 18/10](docs/CHUAN_BI_18_10.md).
+Đóng popup vẫn camp; giữ tab vé ở phía trước và máy thức. Không hỗ trợ Chrome điện thoại. Phiên tự dừng ở checkout, tạm dừng khi cần xử lý, hoặc hết hạn một giờ sau mốc muộn hơn giữa lúc bật và giờ bán. Xem [chuẩn bị trước giờ bán](docs/SAN_SANG_MO_BAN.md).
 
-**1Zone** có nguồn dữ liệu và adapter camp; **Ticketbox** chỉ tra cứu; **CTicket** chưa kết nối. Preset [Vương Bình Hà Nội](https://ticket.1zone.vn/events/vuong-binh-tiec-thanh-than-mam-2?calendarId=8h0YGm) đặt **12:00 ngày 18/10/2026 UTC+7**, theo thời gian người dùng xác nhận. Trang hiện chưa mở bán; booking thật chưa được xác minh. Xem [chuẩn bị và cách test](docs/SAN_SANG_MO_BAN.md).
+**1Zone** có nguồn dữ liệu và adapter camp; **Ticketbox** chỉ tra cứu; **CTicket** chưa kết nối. Preset [Vương Bình Hà Nội](https://ticket.1zone.vn/events/vuong-binh-tiec-thanh-than-mam-2?calendarId=8h0YGm) chuẩn bị HAI QUÝ và 1 vé. Giờ bán lượt tiếp theo do người dùng cập nhật; không điền lại giờ đã qua. Ticketbox đã khảo sát API từng suất và luồng đăng nhập, chưa bật tự đặt vé; xem [kết quả nghiên cứu](docs/TICKETBOX.md). Xem [chuẩn bị và cách test](docs/SAN_SANG_MO_BAN.md).
 
 ## Cài bản gửi bạn bè
 
-Nhận **`Camp-ve-0.5.6.zip`**, giải nén và mở **`BAT-DAU.html`**. Trong Chrome → `chrome://extensions` → Developer mode → Load unpacked, chọn thư mục **`tien-ich`**. Không cần source, Node.js hoặc npm. Mỗi người tự đăng nhập website trên Chrome của mình.
+Nhận **`Camp-ve-0.6.0.zip`**, giải nén và mở **`BAT-DAU.html`**. Trong Chrome → `chrome://extensions` → Developer mode → Load unpacked, chọn thư mục **`tien-ich`**. Không cần source, Node.js hoặc npm. Mỗi người tự đăng nhập website trên Chrome của mình.
+
+Bản 0.6.0 của lượt rà soát này nằm ở `artifacts/release-0.6.0/Camp-ve-0.6.0.zip`. Build được tách riêng để giữ nguyên `.output/chrome-mv3` 0.5.8 đang nạp trong Chrome; chỉ Reload thư mục cũ sẽ chưa nhận bản mới. Dừng phiên cũ trước khi đổi sang bản mới.
 
 Mở tool → **Diễn tập** → chọn số vé → **Chạy thử**. Kết quả cần thấy: **Đã tới thanh toán** và đúng số vé. **Làm lại** đặt lại bài thử; các màn queue/CAPTCHA/canvas nằm trong phần kiểm tra riêng.
 
@@ -32,7 +34,7 @@ npm run build
 3. Ghim icon **Camp vé**. Sau mỗi lần build/reload extension, tải lại tab website.
 4. **Diễn tập** → chọn số vé → **Chạy thử**.
 
-`npm run zip` tạo `.output/ticket-sp-0.5.6-chrome.zip`. Git chỉ lưu source/lockfile, không lưu output hay dữ liệu test.
+`npm run zip` tạo `.output/ticket-sp-0.6.0-chrome.zip`. Git chỉ lưu source/lockfile, không lưu output hay dữ liệu test.
 
 ### Tạo bản phát hành · dành cho người phát triển
 
@@ -40,7 +42,7 @@ npm run build
 npm run release
 ```
 
-Hoặc chạy workflow **Build tested extension** trong GitHub Actions. Đầu ra gồm **`.output/Camp-ve-0.5.6.zip`** để gửi, ZIP riêng để upload Web Store, `SHA256SUMS.txt` và `release.json`. Không gửi repo hoặc yêu cầu người nhận chạy lệnh build. Hướng dẫn cũng có trong menu tool. [Nội dung chuẩn bị Web Store](docs/WEB_STORE.md).
+Hoặc chạy workflow **Build tested extension** trong GitHub Actions. Đầu ra gồm **`.output/Camp-ve-0.6.0.zip`** để gửi, ZIP riêng để upload Web Store, `SHA256SUMS.txt` và `release.json`. Không gửi repo hoặc yêu cầu người nhận chạy lệnh build. Hướng dẫn cũng có trong menu tool. [Nội dung chuẩn bị Web Store](docs/WEB_STORE.md).
 
 ### Cập nhật khi đang nạp `.output/chrome-mv3`
 
@@ -48,7 +50,7 @@ Build mới chỉ thay file trên đĩa; Chrome có thể vẫn chạy tiến tr
 
 1. Đóng popup và tab cấu hình cũ. Mở `chrome://extensions`.
 2. Ở **Camp vé · 1Zone Assistant**, bấm biểu tượng **Tải lại / Reload**.
-3. **Tải lại tab 1Zone** để thay content script cũ. Mở lại tiện ích, kiểm tra **v0.5.6** ở cửa sổ cấu hình và bảng camp trên tab vé.
+3. **Tải lại tab 1Zone** để thay content script cũ. Mở lại tiện ích, kiểm tra **v0.6.0** ở cửa sổ cấu hình và bảng camp trên tab vé.
 4. Tải lại hạng vé, chọn ưu tiên và lưu lại để nhận đầy đủ các khu của từng hạng. Bản cũ chỉ lưu một tên khu đại diện.
 
 Không cần tải ZIP nếu Chrome đang nạp trực tiếp `.output/chrome-mv3` của project này. Nếu nạp thư mục giải nén ZIP ở nơi khác, cập nhật đầy đủ các file trong chính thư mục đó rồi Reload.

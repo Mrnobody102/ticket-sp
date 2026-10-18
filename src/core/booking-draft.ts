@@ -16,6 +16,7 @@ export interface BookingDraft {
   url: string;
   saleTime: string;
   immediate: boolean;
+  strictSchedule?: boolean;
   quantity: string;
   budget: string;
   labels: string;
@@ -29,7 +30,7 @@ export interface BookingDraft {
 }
 export const emptyFinder = (): FinderDraft => ({ query: '', platform: 'onezone', result: null, showResults: true, detail: null, performanceId: '', tickets: null });
 export const emptyBookingDraft = (): BookingDraft => ({ url: '', saleTime: '', immediate: false, quantity: String(DEFAULT_QUANTITY), budget: '', labels: '',
-  alternatives: false, refreshAtSale: false, manualMode: false, loaded: null, selectedTickets: [], finder: emptyFinder() });
+  strictSchedule: false, alternatives: false, refreshAtSale: true, manualMode: false, loaded: null, selectedTickets: [], finder: emptyFinder() });
 
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
 const short = (value: unknown, max = 500): value is string => typeof value === 'string' && value.length <= max;
@@ -47,6 +48,7 @@ export function parseBookingDraft(value: unknown, baseKey: string): { form: Book
   try {
     if (!object(value) || value.schemaVersion !== 1 || value.baseKey !== baseKey || typeof value.dirty !== 'boolean' || !object(value.form) || JSON.stringify(value).length > 2000000) return null;
     const f = value.form;
+    if (f.strictSchedule !== undefined && typeof f.strictSchedule !== 'boolean') return null;
     if (!short(f.url, 2000) || !short(f.saleTime, 32) || !short(f.quantity, 5) || !short(f.budget, 30) || !short(f.labels, 4000) ||
       ['immediate', 'alternatives', 'refreshAtSale', 'manualMode'].some(k => typeof f[k] !== 'boolean') ||
       !Array.isArray(f.selectedTickets) || f.selectedTickets.length > 20 || f.selectedTickets.some(id => !short(id, 100))) return null;

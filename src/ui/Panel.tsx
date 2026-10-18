@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { PageSnapshot, TaskConfig, WorkflowState } from '../core/models';
-import { countdown, isSameEvent, money } from '../core/preferences';
+import { countdown, isSameTaskPage, money } from '../core/preferences';
 import type { Recommendation } from '../core/workflow';
 import { autoActive, type AutoPhase, type AutoRun } from '../core/automation';
 import { EXTENSION_VERSION } from '../infrastructure/extension-runtime';
@@ -38,7 +38,7 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
   const p = config.preferences;
-  const sameEvent = p && isSameEvent(snapshot.url, p.eventUrl);
+  const sameEvent = p && isSameTaskPage(snapshot.url, p);
   const running = autoActive(autoRun ?? null);
   const atCheckout = autoRun?.progress.phase === 'CHECKOUT';
   const routineScreen = sameEvent && snapshot.supported && ['NOT_READY', 'SELECTING', 'EVENT_PAGE'].includes(snapshot.state);

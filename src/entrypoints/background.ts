@@ -77,10 +77,10 @@ export default defineBackground(() => {
   chrome.storage.onChanged.addListener((changes, area) => { if (area === 'local' && changes[CONFIG_KEY]) reconcile(); });
   chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === SALE_ALARM) reconcile(); });
   chrome.runtime.onStartup.addListener(reconcile);
-  chrome.runtime.onInstalled.addListener(() => {
+  chrome.runtime.onInstalled.addListener(details => {
     void enqueue(async () => {
       const config = await repository.load();
-      const corrected = correctHanoiSaleDate(config);
+      const corrected = correctHanoiSaleDate(config, details.previousVersion);
       if (corrected !== config) { await stopAutoRun(); await repository.save(corrected); }
       await reconcileAutoRun(); await reconcileReminder();
     }).catch(() => undefined);

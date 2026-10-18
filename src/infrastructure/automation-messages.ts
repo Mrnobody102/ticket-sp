@@ -1,7 +1,7 @@
 import type { AutoProgress, AutoRun } from '../core/automation';
 import { sendToBackground } from './extension-runtime';
 
-export type AutoCommand = { type: 'AUTO_GET' } | { type: 'AUTO_START' } | { type: 'AUTO_STOP' } |
+export type AutoCommand = { type: 'AUTO_GET' } | { type: 'AUTO_FOCUS' } | { type: 'AUTO_START' } | { type: 'AUTO_START_HERE' } | { type: 'AUTO_STOP' } |
   { type: 'AUTO_STEP'; id: string; revision: number; progress: AutoProgress };
 export async function autoCommand(message: AutoCommand): Promise<AutoRun | null> {
   const reply = await sendToBackground<{ run?: AutoRun | null; error?: string }>(message);

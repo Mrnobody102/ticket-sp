@@ -10,13 +10,13 @@ async function launch(extensionPath: string, profile = '') {
   return { context, extensionId: new URL(worker.url()).host };
 }
 
-test('cập nhật phiên bản sửa ngày Hà Nội: giữ hạng/số vé, không tự bật lại camp', async ({}, info) => {
+test('cập nhật bản mới: giữ ngày đợt bán mới, hạng/số vé, không tự bật camp', async ({}, info) => {
   const extensionPath = info.outputPath('upgrade-extension');
   const profile = info.outputPath('upgrade-profile');
-  cpSync(resolve('.output/chrome-mv3'), extensionPath, { recursive: true });
+  cpSync(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'), extensionPath, { recursive: true });
   const manifestPath = resolve(extensionPath, 'manifest.json');
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  writeFileSync(manifestPath, JSON.stringify({ ...manifest, version: '0.5.1' }));
+  writeFileSync(manifestPath, JSON.stringify({ ...manifest, version: '0.5.8' }));
   let { context, extensionId } = await launch(extensionPath, profile);
   try {
     const popup = await context.newPage(); await popup.goto(`chrome-extension://${extensionId}/popup.html`);
@@ -33,10 +33,10 @@ test('cập nhật phiên bản sửa ngày Hà Nội: giữ hạng/số vé, kh
     writeFileSync(manifestPath, JSON.stringify(manifest));
     ({ context, extensionId } = await launch(extensionPath, profile));
     const restarted = context.serviceWorkers()[0]!;
-    await expect.poll(() => restarted.evaluate(async () => (await chrome.storage.local.get('ticket-assistant.config.v1'))['ticket-assistant.config.v1'].preferences.saleStartAt)).toBe('2026-10-18T05:00:00.000Z');
+    await expect.poll(() => restarted.evaluate(async () => (await chrome.storage.local.get('ticket-assistant.config.v1'))['ticket-assistant.config.v1'].preferences.saleStartAt)).toBe('2026-10-19T05:00:00.000Z');
     expect(await restarted.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1'])).toBeUndefined();
     const updated = await context.newPage(); await updated.goto(`chrome-extension://${extensionId}/popup.html`);
-    await expect(updated.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('2026-10-18T12:00');
+    await expect(updated.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('2026-10-19T12:00');
     await expect(updated.getByLabel('Số vé', { exact: true })).toHaveValue('2');
     await updated.locator('.extra-settings > summary').click();
     await expect(updated.getByLabel('Hạng vé ưu tiên · mỗi dòng một hạng')).toHaveValue('ÚT CƯNG - EB');
@@ -45,7 +45,7 @@ test('cập nhật phiên bản sửa ngày Hà Nội: giữ hạng/số vé, kh
 });
 
 test('Mở rộng mở trang cấu hình bằng link thật, không cần lệnh OPEN_WORKSPACE', async () => {
-  const { context, extensionId } = await launch(resolve('.output/chrome-mv3'));
+  const { context, extensionId } = await launch(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'));
   try {
     const page = await context.newPage(); await page.goto(`chrome-extension://${extensionId}/popup.html`);
     await expect(page.getByLabel('Link concert')).toBeEditable();
@@ -60,7 +60,7 @@ test('Mở rộng mở trang cấu hình bằng link thật, không cần lệnh
 test('UI mới + worker cũ: báo reload rõ ràng, khóa camp nhưng Mở rộng vẫn hoạt động', async ({}, info) => {
   // Reproduce a mixed installation without touching the actual release or user profile.
   const extensionPath = info.outputPath('legacy-extension');
-  cpSync(resolve('.output/chrome-mv3'), extensionPath, { recursive: true });
+  cpSync(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'), extensionPath, { recursive: true });
   writeFileSync(resolve(extensionPath, 'background.js'), `chrome.runtime.onMessage.addListener((_message, _sender, reply) => { reply({ error: 'Lệnh không được hỗ trợ.' }); });`);
   const { context, extensionId } = await launch(extensionPath);
   try {
@@ -80,7 +80,7 @@ test('UI mới + worker cũ: báo reload rõ ràng, khóa camp nhưng Mở rộn
 
 test('content bị worker cũ từ chối: có lỗi trên panel, không Uncaught hoặc tự camp', async ({}, info) => {
   const extensionPath = info.outputPath('legacy-content-extension');
-  cpSync(resolve('.output/chrome-mv3'), extensionPath, { recursive: true });
+  cpSync(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'), extensionPath, { recursive: true });
   writeFileSync(resolve(extensionPath, 'background.js'), `chrome.runtime.onMessage.addListener((_message, _sender, reply) => { reply({ error: 'Lệnh chỉ dùng trong trang cấu hình tiện ích.' }); });`);
   const { context } = await launch(extensionPath);
   const errors: string[] = [];
@@ -102,7 +102,7 @@ test('content bị worker cũ từ chối: có lỗi trên panel, không Uncaugh
 });
 
 test('hướng dẫn mở được từ tool và đủ bước cài bản gửi bạn bè', async () => {
-  const { context, extensionId } = await launch(resolve('.output/chrome-mv3'));
+  const { context, extensionId } = await launch(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'));
   try {
     const page = await context.newPage(); await page.goto(`chrome-extension://${extensionId}/popup.html`);
     const [guide] = await Promise.all([context.waitForEvent('page'), page.getByRole('link', { name: 'Hướng dẫn', exact: true }).click()]);
@@ -115,7 +115,7 @@ test('hướng dẫn mở được từ tool và đủ bước cài bản gửi 
 
 test('worker từ chối lệnh khi bấm camp: lỗi được bắt, không Uncaught hoặc click vé', async ({}, info) => {
   const extensionPath = info.outputPath('legacy-start-extension');
-  cpSync(resolve('.output/chrome-mv3'), extensionPath, { recursive: true });
+  cpSync(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'), extensionPath, { recursive: true });
   writeFileSync(resolve(extensionPath, 'background.js'), `chrome.runtime.onMessage.addListener((message, _sender, reply) => {
     if (message.type === 'RUNTIME_INFO') reply({ info: { version: ${JSON.stringify(version)}, protocolVersion: 1 } });
     else if (message.type === 'AUTO_GET') reply({ run: null });
@@ -142,7 +142,7 @@ test('worker từ chối lệnh khi bấm camp: lỗi được bắt, không Unc
 
 test('worker mới nhưng tab chỉ có content cũ: không tạo phiên camp giả', async ({}, info) => {
   const extensionPath = info.outputPath('legacy-tab-extension');
-  cpSync(resolve('.output/chrome-mv3'), extensionPath, { recursive: true });
+  cpSync(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'), extensionPath, { recursive: true });
   writeFileSync(resolve(extensionPath, 'content-scripts/tickets.js'), '// Legacy content without readiness handshake.');
   const { context, extensionId } = await launch(extensionPath);
   const errors: string[] = [];

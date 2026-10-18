@@ -28,7 +28,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
   const formRef = useRef(form);
   const baseKey = useRef('');
   const initialized = useRef(false);
-  const { url, saleTime, immediate, quantity, budget, labels, alternatives, loaded, selectedTickets, retainedCatalog, refreshAtSale, manualMode } = form;
+  const { url, saleTime, immediate, strictSchedule, quantity, budget, labels, alternatives, loaded, selectedTickets, retainedCatalog, refreshAtSale, manualMode } = form;
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [autoRun, setAutoRun] = useState<AutoRun | null>(null);
@@ -69,14 +69,14 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
       const p = currentConfig.preferences;
       let initial = emptyBookingDraft();
       if (p) {
-        initial = { ...initial, url: p.eventUrl, saleTime: toVietnamLocal(p.saleStartAt), immediate: p.startMode === 'IMMEDIATE', quantity: String(p.quantity),
+        initial = { ...initial, url: p.eventUrl, saleTime: toVietnamLocal(p.saleStartAt), immediate: p.startMode === 'IMMEDIATE', strictSchedule: p.startMode === undefined, quantity: String(p.quantity),
           budget: p.maxTotalVnd ? String(p.maxTotalVnd) : '', labels: p.preferredZoneLabels.join('\n'), alternatives: p.allowAlternatives,
           retainedCatalog: p.catalog, refreshAtSale: p.refreshAtSale === true, manualMode: !p.catalog && p.preferredZoneLabels.length > 0 };
       }
       if (savedDraft && baseKey.current === JSON.stringify(c.preferences)) { initial = savedDraft.form; setDirty(savedDraft.dirty); }
       // Older drafts can contain OPEN detail without performance.saleStatus.
       // An empty schedule must not prevent buying a show that is already on sale.
-      if (!initial.saleTime && initial.loaded && isOnSale(initial.loaded)) initial = { ...initial, immediate: true, refreshAtSale: false };
+      if (!initial.saleTime && initial.loaded && isOnSale(initial.loaded)) initial = { ...initial, immediate: true };
       draftEvent.current = initial.url; formRef.current = initial; setForm(initial); initialized.current = true;
       setReady(true);
     }).catch(() => { if (active) setError('Không đọc được cấu hình. Đóng và mở lại tiện ích.'); });
@@ -107,9 +107,9 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
       }
       const preferences = validatePreferences({
         platform: platformForUrl(url.trim())?.id, eventUrl: url.trim(), saleStartAt: startImmediately ? new Date().toISOString() : fromVietnamLocal(saleTime),
-        ...(startImmediately ? { startMode: 'IMMEDIATE' } : {}), quantity: Number(quantity),
+        ...(startImmediately ? { startMode: 'IMMEDIATE' } : !strictSchedule ? { startMode: 'WHEN_AVAILABLE' } : {}), quantity: Number(quantity),
         maxTotalVnd: budget.trim() ? Number(budget) : undefined,
-        preferredZoneLabels: labels.split('\n').map(v => v.trim()).filter(Boolean), allowAlternatives: alternatives, catalog, refreshAtSale: !startImmediately && refreshAtSale,
+        preferredZoneLabels: labels.split('\n').map(v => v.trim()).filter(Boolean), allowAlternatives: alternatives, catalog, refreshAtSale,
       });
       const saved = await command({ type: 'SAVE', preferences }); setConfig(saved); baseKey.current = JSON.stringify(saved.preferences);
       const next = { ...formRef.current, immediate: startImmediately, retainedCatalog: catalog }; formRef.current = next; setForm(next); setDirty(false);
@@ -124,13 +124,21 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
     catch (e) { setError(e instanceof Error ? e.message : 'Không bắt đầu được camp.'); }
     finally { setBusy(false); }
   }
+  async function openRunTab() {
+    setBusy(true); setError('');
+    try {
+      if (autoActive(autoRun)) await autoCommand({ type: 'AUTO_FOCUS' });
+      else await command({ type: 'OPEN_EVENT' });
+    } catch (e) { setError(e instanceof Error ? e.message : 'Không mở được tab vé.'); }
+    finally { setBusy(false); }
+  }
   function resetConcert(targetUrl?: string) {
     const patch: Partial<BookingDraft> = { loaded: null, retainedCatalog: undefined, selectedTickets: [], manualMode: false };
     if (targetUrl && (!draftEvent.current || !isSameEvent(targetUrl, draftEvent.current))) {
       // Performance time is not sale time. Unknown sale dates stay empty.
       const preset = isSameEvent(targetUrl, HANOI_PRESET.eventUrl) ? HANOI_PRESET : undefined;
-      Object.assign(patch, { saleTime: preset ? toVietnamLocal(preset.saleStartAt) : '', immediate: false,
-        quantity: String(DEFAULT_QUANTITY), budget: '', alternatives: false, refreshAtSale: !!preset });
+      Object.assign(patch, { saleTime: preset && Date.parse(preset.saleStartAt) > Date.now() ? toVietnamLocal(preset.saleStartAt) : '', immediate: false, strictSchedule: false,
+        quantity: String(DEFAULT_QUANTITY), budget: '', alternatives: false, refreshAtSale: true });
     }
     if (targetUrl) { draftEvent.current = targetUrl; patch.url = targetUrl; }
     edit(patch);
@@ -143,7 +151,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
     presetPriorityPending.current = false;
     const preferred = usePresetPriority ? value.catalog.tickets.filter(t => t.name === HANOI_PRESET.preferredTicketName) : [];
     edit({ url: target.href, loaded: value, retainedCatalog: undefined, selectedTickets: preferred.length === 1 ? [preferred[0]!.id] : [], labels: '', manualMode: false,
-      ...(isOnSale(value) && !formRef.current.saleTime ? { immediate: true, refreshAtSale: false } : {}) });
+      ...(!usePresetPriority && isOnSale(value) && !formRef.current.saleTime ? { immediate: true } : {}) });
     setNotice(''); setError(usePresetPriority && preferred.length !== 1 ? 'Chưa tìm thấy đúng hạng HAI QUÝ - EB. Kiểm tra danh sách vé.' : '');
   }
   const running = autoActive(autoRun);
@@ -153,7 +161,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
   function useTarget() {
     presetPriorityPending.current = true;
     draftEvent.current = HANOI_PRESET.eventUrl;
-    edit({ url: HANOI_PRESET.eventUrl, saleTime: toVietnamLocal(HANOI_PRESET.saleStartAt), immediate: false, quantity: String(HANOI_PRESET.quantity),
+    edit({ url: HANOI_PRESET.eventUrl, saleTime: Date.parse(HANOI_PRESET.saleStartAt) > Date.now() ? toVietnamLocal(HANOI_PRESET.saleStartAt) : '', immediate: false, strictSchedule: false, quantity: String(HANOI_PRESET.quantity),
       budget: '', alternatives: false, refreshAtSale: true, labels: '', manualMode: false, loaded: null, retainedCatalog: undefined, selectedTickets: [] });
     setError(''); setNotice(''); setRequestedUrl({ url: HANOI_PRESET.eventUrl, requestId: Date.now() });
   }
@@ -167,7 +175,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
     </nav></header>
     {runtimeError && <aside className="runtime-notice error" role="alert"><b>Cần tải lại tiện ích</b><p>{runtimeError}</p></aside>}
     <div className="setup-grid" inert={busy || !ready || !runtimeReady}>
-      {ready && <EventFinder initialDraft={form.finder} onDraftChange={finder => edit({ finder }, false)} requestedUrl={requestedUrl} saved={retainedCatalog} shortcut={{ title: HANOI_PRESET.title, description: 'Hà Nội · 12:00 · 18/10/2026 · tự tải hạng/giá', onChoose: useTarget }} onLoad={loadConcert} onReset={resetConcert} />}
+      {ready && <EventFinder initialDraft={form.finder} onDraftChange={finder => edit({ finder }, false)} requestedUrl={requestedUrl} saved={retainedCatalog} shortcut={{ title: HANOI_PRESET.title, description: 'Hà Nội · HAI QUÝ · 1 vé', onChoose: useTarget }} onLoad={loadConcert} onReset={resetConcert} />}
       <form id="camp-setup-form" className="setup-form" onSubmit={e => void save(e)}>
         <div className="section-title"><h2>Vé và giờ bán</h2><span>{dirty ? 'Bản nháp' : config.preferences ? 'Đã lưu' : ''}</span></div>
         {loaded ? <TicketPriorities key={loaded.performance.id} tickets={loaded.catalog.tickets} selected={selectedTickets} onChange={selectedTickets => edit({ selectedTickets })} /> :
@@ -175,7 +183,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
             <section className="catalog-needed" aria-label="Danh sách hạng vé"><span>Chọn sự kiện để tải hạng vé.</span>{url.trim() && <button type="button" onClick={reloadTickets}>Tải hạng vé</button>}</section>}
         <div className="booking-fields">
           <label>Số vé<input aria-label="Số vé" type="number" min="1" max={Math.min(100, quantityLimit ?? 100)} step="1" required value={quantity} onChange={e => edit({ quantity: e.target.value })} />{quantityLimit !== undefined && <small>Tối đa {quantityLimit}</small>}</label>
-          <label>Bắt đầu<select aria-label="Cách bắt đầu camp" value={immediate ? 'IMMEDIATE' : 'SCHEDULED'} onChange={e => edit({ immediate: e.target.value === 'IMMEDIATE' })}><option value="SCHEDULED">Đúng giờ mở bán</option><option value="IMMEDIATE">Ngay khi bật camp</option></select></label>
+          <label>Bắt đầu<select aria-label="Cách bắt đầu camp" value={immediate ? 'IMMEDIATE' : strictSchedule ? 'SCHEDULED' : 'WHEN_AVAILABLE'} onChange={e => edit({ immediate: e.target.value === 'IMMEDIATE', strictSchedule: e.target.value === 'SCHEDULED' })}><option value="WHEN_AVAILABLE">Theo giờ và khi web mở</option><option value="SCHEDULED">Chỉ đúng giờ đã đặt</option><option value="IMMEDIATE">Ngay khi bật camp</option></select>{!immediate && !strictSchedule && <small>Chạy sớm nếu website cho mua.</small>}</label>
         </div>
         {!immediate && <label>Giờ mở bán · UTC+7<input aria-label="Giờ mở bán · giờ Việt Nam (UTC+7)" type="datetime-local" required={!loaded || !isOnSale(loaded)} value={saleTime} onChange={e => edit({ saleTime: e.target.value })} />{!saleTime && <small>{loaded && isOnSale(loaded) ? 'Show đang bán. Để trống để camp ngay.' : 'Nguồn chưa cung cấp giờ mở bán. Nhập giờ ban tổ chức công bố.'}</small>}</label>}
         <details className="event-link" open={!current}><summary>Link sự kiện</summary><label><span className="sr-only">Link concert</span><input type="url" required value={url} onChange={e => { draftEvent.current = ''; edit({ url: e.target.value, loaded: null, retainedCatalog: undefined, manualMode: false, immediate: false, saleTime: '', selectedTickets: [] }); }} placeholder="https://ticket.1zone.vn/events/…" /></label><button type="button" className="subtle-button" disabled={!url.trim()} onClick={reloadTickets}>Tải chi tiết từ link</button></details>
@@ -183,14 +191,14 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
           <label>Tổng ngân sách (VNĐ)<input type="number" min="1" step="1" value={budget} onChange={e => edit({ budget: e.target.value })} placeholder="Không giới hạn" /></label>
           <label className="checkbox-label"><input type="checkbox" checked={alternatives} onChange={e => edit({ alternatives: e.target.checked })} />Cho phép mua hạng ngoài danh sách ưu tiên</label>
           {alternatives && <small>Chỉ chọn trong ngân sách đã đặt. Để trống nghĩa là không giới hạn giá.</small>}
-          {!immediate && <label className="checkbox-label"><input type="checkbox" checked={refreshAtSale} onChange={e => edit({ refreshAtSale: e.target.checked })} />Cập nhật trang nếu đến giờ vẫn chưa mở bán</label>}
+          <label className="checkbox-label"><input type="checkbox" checked={refreshAtSale} onChange={e => edit({ refreshAtSale: e.target.checked })} />Kiểm tra mở bán khi trang chưa cập nhật</label>
           {!loaded && !retainedCatalog && <><label className="checkbox-label"><input type="checkbox" checked={manualMode} onChange={e => edit({ manualMode: e.target.checked })} />Nhập hạng vé thủ công</label>
             {manualMode && <label>Hạng vé ưu tiên · mỗi dòng một hạng<textarea value={labels} onChange={e => edit({ labels: e.target.value })} placeholder={'VIP\nKhu A'} /><small>Chỉ dùng khi nguồn không cung cấp danh sách. Tên phải khớp hạng hiển thị trên website.</small></label>}</>}
         </details>
         {error && <p className="error" role="alert">{error}</p>}
         {notice && <p className="success" role="status">{notice}</p>}
         <details className="display-settings"><summary>Trang vé và hiển thị</summary><div className="button-row">
-          <button type="button" disabled={busy || !config.preferences} onClick={() => void send({ type: 'OPEN_EVENT' })}>Mở trang vé</button>
+          <button type="button" disabled={busy || !config.preferences} onClick={() => void openRunTab()}>{running ? 'Đến tab đang camp' : 'Mở trang vé'}</button>
           <button type="button" disabled={busy || !config.preferences} onClick={() => void send({ type: 'ENABLE', enabled: !config.enabled })}>{config.enabled ? 'Tắt công cụ trên trang vé' : 'Bật công cụ trên trang vé'}</button>
         </div><label className="checkbox-label"><input type="checkbox" checked={config.panelVisible} disabled={!ready || busy} onChange={e => {
           const previous = config; setConfig({ ...config, panelVisible: e.target.checked }); void send({ type: 'PANEL', visible: e.target.checked }, previous);

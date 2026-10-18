@@ -4,6 +4,7 @@ import { normalize } from '../core/preferences';
 import { MAP_REPLY, MAP_REQUEST, type MapZone } from './onezone-map-bridge';
 import type { PageReader } from './onezone-dom';
 import { currentPriceValues } from './onezone-options';
+import { SelectionUnavailableError } from '../core/automation';
 
 function requestMap(document: Document, p: EventPreferences, choose?: MapZone): { zones: MapZone[]; selected?: boolean } {
   if (!p.catalog) return { zones: [] };
@@ -24,8 +25,28 @@ function requestMap(document: Document, p: EventPreferences, choose?: MapZone): 
 const bindings = new WeakMap<Element, Map<string, MapZone>>();
 export function readOnezoneMap(document: Document, p: EventPreferences, reader: PageReader): OptionElement[] {
   const zones = requestMap(document, p).zones;
+  if (!zones.length) return [];
   const entries: OptionElement[] = [];
   const containers = new Map<Element, Map<string, MapZone>>();
+  const expected = new Set(p.catalog!.tickets.flatMap(t => [t.name, ...(t.zones ?? []).map(z => z.name)]).map(normalize));
+  const captions = new Map<string, Element[]>();
+  for (const element of document.querySelectorAll('p,h2,h3,h4,span')) {
+    if (!reader.isVisible(element)) continue;
+    const label = normalize(reader.text(element));
+    if (expected.has(label)) captions.set(label, [...(captions.get(label) ?? []), element]);
+  }
+  const priceCache = new Map<string, number[]>();
+  const pricesFor = (label: string): number[] => {
+    const key = normalize(label);
+    if (priceCache.has(key)) return priceCache.get(key)!;
+    const prices = (captions.get(key) ?? []).flatMap(name => {
+      for (let card = name.parentElement, depth = 0; card && card !== document.body && depth < 4; card = card.parentElement, depth++) {
+        const values = currentPriceValues(card, reader); if (values.length) return values;
+      }
+      return [];
+    });
+    priceCache.set(key, prices); return prices;
+  };
   for (const zone of zones) {
     if (!zone || typeof zone.containerId !== 'string' || typeof zone.label !== 'string' || typeof zone.disabled !== 'boolean') continue;
     const quote = p.catalog?.tickets.find(t => t.id === zone.ticketClassId);
@@ -34,16 +55,7 @@ export function readOnezoneMap(document: Document, p: EventPreferences, reader: 
     if (!quote || !physical || !container || quote.seatMode === 'PICK') continue;
     // The map identifies physical zones; the price legend may show only their
     // shared ticket class (e.g. HAI QUÝ - EB for HAI QUÝ 1 and 2).
-    const labels = new Set([normalize(physical.name), normalize(quote.name)]);
-    const names = [...document.querySelectorAll('p,h2,h3,h4,span')].filter(e => reader.isVisible(e) && labels.has(normalize(reader.text(e))));
-    const observedPrices = [...new Set(names.flatMap(name => {
-      let card: Element | null = name.parentElement;
-      for (let depth = 0; card && card !== document.body && depth < 4; depth++, card = card.parentElement) {
-        const prices = currentPriceValues(card, reader);
-        if (prices.length) return prices;
-      }
-      return [];
-    }))];
+    const observedPrices = [...new Set([...pricesFor(physical.name), ...pricesFor(quote.name)])];
     if (observedPrices.length !== 1 && !zone.disabled) continue;
     const optionId = `onezone-map-${zone.zoneId}`;
     let bound = containers.get(container);
@@ -59,5 +71,11 @@ export function readOnezoneMap(document: Document, p: EventPreferences, reader: 
 export function hasMapChoice(element: Element, optionId: string) { return bindings.get(element)?.has(optionId) === true; }
 export function chooseOnezoneMap(element: Element, optionId: string, p: EventPreferences) {
   const zone = bindings.get(element)?.get(optionId);
-  if (!zone || !element.isConnected || !requestMap(element.ownerDocument, p, zone).selected) throw new Error('Không chọn được khu đã xác minh trên sơ đồ. Kiểm tra trang.');
+  if (!zone || !element.isConnected) throw new Error('Sơ đồ đã thay đổi trước khi chọn khu.');
+  const result = requestMap(element.ownerDocument, p, zone);
+  if (result.selected) return;
+  if (result.zones.some(next => next.containerId === zone.containerId && next.zoneId === zone.zoneId && next.ticketClassId === zone.ticketClassId && next.label === zone.label && next.disabled)) {
+    throw new SelectionUnavailableError('Khu vừa chọn đã hết vé.');
+  }
+  throw new Error('Không chọn được khu đã xác minh trên sơ đồ. Kiểm tra trang.');
 }

@@ -1,4 +1,4 @@
-import { autoActive, decideAutomation, preferencesKey, type AutoProgress, type AutoRun } from '../core/automation';
+import { autoActive, decideAutomation, preferencesKey, SelectionUnavailableError, type AutoProgress, type AutoRun } from '../core/automation';
 import type { TaskConfig } from '../core/models';
 import type { PlatformInspection } from '../platforms/contracts';
 
@@ -58,7 +58,13 @@ export function createAutomationRunner(options: RunnerOptions) {
         const verified = fresh.automation && decideAutomation(before, fresh.automation.page, config.preferences, Date.now());
         if (!verified || verified.type !== 'STEP' || JSON.stringify(verified.action) !== JSON.stringify(decision.action) ||
             JSON.stringify(verified.progress.chosen) !== JSON.stringify(decision.progress.chosen)) {
-          run = await options.transport.commit(committed, { ...committed.progress, phase: 'PAUSED', message: 'Trang đã đổi trong lúc chuẩn bị thao tác. Kiểm tra rồi bắt đầu lại.' });
+          // Nothing has been clicked yet. The same state machine may prove the
+          // chosen zone became unavailable and permit a bounded selection retry.
+          const recovery = decision.action.kind === 'CHOOSE' && fresh.automation &&
+            decideAutomation(committed, fresh.automation.page, config.preferences, Date.now());
+          run = await options.transport.commit(committed, recovery && recovery.type === 'STEP' && recovery.progress.phase === 'READY' && !recovery.action
+            ? recovery.progress
+            : { ...committed.progress, phase: 'PAUSED', message: 'Trang đã đổi trong lúc chuẩn bị thao tác. Kiểm tra rồi bắt đầu lại.' });
           return;
         }
         fresh.automation!.execute(decision.action);
@@ -66,7 +72,10 @@ export function createAutomationRunner(options: RunnerOptions) {
     } catch (error) {
       if (run && run.id === before.id) {
         const current = run;
-        const progress: AutoProgress = { ...current.progress, phase: 'PAUSED', message: error instanceof Error ? error.message : 'Camp bị gián đoạn. Kiểm tra trang.' };
+        const retry = error instanceof SelectionUnavailableError && decision.action?.kind === 'CHOOSE' && (current.progress.selectionRetries ?? 0) < 5;
+        const progress: AutoProgress = retry
+          ? { ...current.progress, phase: 'READY', chosen: undefined, actionAt: undefined, selectionRetries: (current.progress.selectionRetries ?? 0) + 1, message: 'Khu vừa chọn hết vé. Đang tìm khu khác đúng ưu tiên.' }
+          : { ...current.progress, phase: 'PAUSED', message: error instanceof Error ? error.message : 'Camp bị gián đoạn. Kiểm tra trang.' };
         try { run = await options.transport.commit(current, progress); }
         catch { run = { ...current, progress }; }
       }

@@ -26,6 +26,7 @@ test.afterAll(async () => { await context?.close(); });
 async function configure(page: Page) {
   await page.goto(`chrome-extension://${extensionId}/popup.html`);
   await page.getByLabel('Link concert').fill(target);
+  await page.getByLabel('Cách bắt đầu camp').selectOption('SCHEDULED');
   await page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)').fill('2026-10-18T12:00');
   await page.getByLabel('Số vé', { exact: true }).fill('1');
   await page.locator('.extra-settings > summary').click();
@@ -168,7 +169,7 @@ test('nhắc giờ lưu bền; chỉ một alarm, dừng sẽ hủy', async () =
 
 test('khởi động lại browser giữ cấu hình và khôi phục alarm bị mất', async ({}, info) => {
   const profile = info.outputPath('restart-profile');
-  const extensionPath = resolve('.output/chrome-mv3');
+  const extensionPath = resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3');
   const launch = () => chromium.launchPersistentContext(profile, {
     channel: 'chromium', headless: true,
     args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
@@ -258,20 +259,22 @@ test('camp tự chọn zone, đặt 2 vé và tới checkout; không bấm thanh
   expect(errors).toEqual([]);
 });
 
-test('camp khóa một tab; phòng chờ tự đi tiếp khi được vào; ẩn panel vẫn chạy', async () => {
+test('chuyển camp sang một tab duy nhất trước chọn vé; ẩn panel vẫn chạy đúng tab', async () => {
   const { popup, event } = await prepareAuto('1', 'waiting');
   await event.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
   const worker = context.serviceWorkers()[0]!;
   await expect.poll(() => worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1']?.progress.phase)).toBe('READY');
   const second = await context.newPage(); await second.goto(target.replace('/events/', '/booking/'));
   await second.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
-  await expect(second.getByRole('alert')).toContainText('Đang camp trên một tab');
+  await expect(second.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'READY');
+  await expect(event.locator('.auto-status')).not.toHaveAttribute('data-auto-phase', 'READY');
   await popup.locator('.display-settings > summary').click();
   await popup.getByLabel('Hiện bảng camp trên trang vé').uncheck();
   // Install controls and handlers in the same task, as a real framework commit does.
   const markup = fixture('booking').match(/<main[\s\S]*?<\/main>/)![0];
-  await event.addScriptTag({ content: `document.querySelector('main').outerHTML = ${JSON.stringify(markup)}; (${installBookingDemo.toString()})(document);` });
-  await expect(event.locator('main form')).toContainText('VIP · 1 vé');
+  await second.addScriptTag({ content: `document.querySelector('main').outerHTML = ${JSON.stringify(markup)}; (${installBookingDemo.toString()})(document);` });
+  await expect(second.locator('main form')).toContainText('VIP · 1 vé');
+  await expect(event.locator('main form')).toHaveCount(0);
   await expect.poll(() => worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1']?.progress.phase)).toBe('CHECKOUT');
   await popup.getByLabel('Hiện bảng camp trên trang vé').check();
 });
@@ -428,6 +431,7 @@ test('đóng popup và worker MV3 bị ngắt: giữ phiên, đến giờ vẫn 
   await worker.evaluate(async () => {
     const key = 'ticket-assistant.config.v1', config = (await chrome.storage.local.get(key))[key];
     config.preferences.saleStartAt = new Date(Date.now() + 15000).toISOString();
+    delete config.preferences.startMode;
     await chrome.storage.local.set({ [key]: config });
   });
   await popup.reload();
@@ -482,6 +486,24 @@ test('mở bán trễ: nhiều phản hồi vẫn khóa, tự cập nhật tới
   expect(errors).toEqual([]);
 });
 
+test('camp ngay nhưng trang giữ trạng thái cũ: tự cập nhật, không chờ ngày cũ trong tương lai', async () => {
+  const { popup, event } = await prepareAuto();
+  let requests = 0;
+  const booking = target.replace('/events/', '/booking/');
+  await context.route(booking, route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: requests++ === 0
+    ? '<!doctype html><meta charset="utf-8"><h1>Sắp mở bán</h1><button disabled>Sắp mở bán</button>'
+    : fixture('booking') + `<script>(${installBookingDemo.toString()})(document)</script>` }));
+  await event.goto(booking);
+  await context.serviceWorkers()[0]!.evaluate(async () => {
+    const key = 'ticket-assistant.config.v1', config = (await chrome.storage.local.get(key))[key];
+    config.preferences.startMode = 'IMMEDIATE'; config.preferences.saleStartAt = '2030-01-01T00:00:00Z'; config.preferences.refreshAtSale = true;
+    await chrome.storage.local.set({ [key]: config });
+  });
+  await popup.reload(); await popup.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  expect(requests).toBe(2);
+});
+
 test('queue.1zone.vn ngoài miền: giữ phiên qua hàng chờ lâu, quay về booking tự chọn tiếp', async () => {
   const { event } = await prepareAuto();
   const booking = target.replace('/events/', '/booking/');
@@ -491,7 +513,7 @@ test('queue.1zone.vn ngoài miền: giữ phiên qua hàng chờ lâu, quay về
   await event.goto(target);
   await event.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
   await expect(event).toHaveURL(queued);
-  await expect(event.locator('[data-ticket-assistant]')).toHaveCount(0);
+  await expect(event.locator('.status-line')).toContainText('Đang xếp hàng');
   const before = await context.serviceWorkers()[0]!.evaluate(async () => {
     const key = 'ticket-assistant.auto.session.v1', run = (await chrome.storage.session.get(key))[key];
     run.progress.actionAt = Date.now() - 60000;
@@ -503,6 +525,50 @@ test('queue.1zone.vn ngoài miền: giữ phiên qua hàng chờ lâu, quay về
   const after = await context.serviceWorkers()[0]!.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1']);
   expect(after.id).toBe(before.id); expect(after.tabId).toBe(before.tabId);
   expect(errors).toEqual([]);
+});
+
+test('web mở sớm: CTA chính khả dụng thì tự mua trước giờ hẹn trong chế độ theo web', async () => {
+  const { popup, event } = await prepareAuto();
+  const booking = target.replace('/events/', '/booking/');
+  await context.route(target, route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><meta charset="utf-8"><h1>Giới thiệu sự kiện</h1><button data-id="btn-by-ticket" onclick="location.href='${booking}'">Mua vé</button>` }));
+  await event.goto(target);
+  const saleAt = Date.now() + 120000;
+  await context.serviceWorkers()[0]!.evaluate(async saleAt => {
+    const key = 'ticket-assistant.config.v1', config = (await chrome.storage.local.get(key))[key];
+    config.preferences.startMode = 'WHEN_AVAILABLE'; config.preferences.saleStartAt = new Date(saleAt).toISOString();
+    await chrome.storage.local.set({ [key]: config });
+  }, saleAt);
+  await popup.reload(); await popup.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  const run = await context.serviceWorkers()[0]!.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1']);
+  expect(run.progress.checkoutReachedAt).toBeLessThan(saleAt);
+});
+
+test('mở tay phòng chờ ở tab mới: bấm camp tại đó chuyển quyền, giữ nguyên hàng chờ', async () => {
+  const { popup, event } = await prepareAuto();
+  await context.route(target, route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: '<!doctype html><meta charset="utf-8"><h1>Sắp mở bán</h1><button disabled>Sắp mở bán</button>' }));
+  await event.goto(target);
+  await context.serviceWorkers()[0]!.evaluate(async () => {
+    const key = 'ticket-assistant.config.v1', config = (await chrome.storage.local.get(key))[key];
+    config.preferences.startMode = 'WHEN_AVAILABLE'; config.preferences.saleStartAt = new Date(Date.now() + 120000).toISOString(); config.preferences.refreshAtSale = false;
+    await chrome.storage.local.set({ [key]: config });
+  });
+  await popup.reload(); await popup.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  const original = await context.serviceWorkers()[0]!.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1']);
+  const booking = target.replace('/events/', '/booking/');
+  const queueUrl = 'https://queue.1zone.vn/?t=' + encodeURIComponent(booking);
+  let queueLoads = 0;
+  await context.route('https://queue.1zone.vn/**', route => { queueLoads++; return route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><meta charset="utf-8"><h1>Bạn đang trong hàng chờ</h1><button onclick="location.href='${booking}'">Cho vào · mô phỏng</button>` }); });
+  const manual = await context.newPage(); await manual.goto(queueUrl);
+  await manual.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(manual.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'READY');
+  await expect(manual.locator('.status-line')).toContainText('Đang xếp hàng');
+  const moved = await context.serviceWorkers()[0]!.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1']);
+  expect(moved.id).not.toBe(original.id); expect(moved.tabId).not.toBe(original.tabId);
+  expect(queueLoads).toBe(1);
+  await manual.getByRole('button', { name: 'Cho vào · mô phỏng' }).click();
+  await expect(manual.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(event.locator('.auto-status')).not.toHaveAttribute('data-auto-phase', 'CHECKOUT');
 });
 
 test('không bấm dừng: tự hết phiên khi đang ở phòng chờ', async () => {

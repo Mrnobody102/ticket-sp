@@ -52,9 +52,10 @@ export function installOnezoneMapBridge(view: Window & typeof globalThis) {
       if (request.choose) {
         const choice = request.choose;
         const exact = matches.filter(({ zone }) => zone.containerId === choice.containerId && zone.zoneId === choice.zoneId && zone.ticketClassId === choice.ticketClassId && zone.label === choice.label);
-        if (exact.length !== 1 || exact[0]!.zone.disabled || choice.disabled) throw new Error('Khu đã thay đổi hoặc không còn khả dụng.');
-        exact[0]!.node.fire('click', { evt: new view.MouseEvent('click', { bubbles: true }) }, true);
-        selected = true;
+        if (exact.length === 1 && !exact[0]!.zone.disabled && !choice.disabled) {
+          exact[0]!.node.fire('click', { evt: new view.MouseEvent('click', { bubbles: true }) }, true);
+          selected = true;
+        }
       }
       view.document.dispatchEvent(new view.CustomEvent(MAP_REPLY, { detail: JSON.stringify({ requestId: request.requestId, zones: matches.map(m => m.zone), selected }) }));
     } catch {

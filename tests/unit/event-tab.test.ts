@@ -2,6 +2,15 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { openEventTab } from '../../src/infrastructure/event-tab';
 
 afterEach(() => vi.unstubAllGlobals());
+it('ưu tiên tab phòng chờ hiện tại và không điều hướng lại làm mất chỗ', async () => {
+  const target = 'https://ticket.1zone.vn/events/demo?calendarId=HN';
+  const old = { id: 1, windowId: 1, active: true, url: target };
+  const queue = { id: 2, windowId: 2, active: true, url: 'https://queue.1zone.vn/?t=' + encodeURIComponent(target.replace('/events/', '/booking/')) };
+  const update = vi.fn(async () => undefined);
+  vi.stubGlobal('chrome', { tabs: { query: async (q: chrome.tabs.QueryInfo) => q.currentWindow ? [queue] : [old, queue], update }, windows: { update: vi.fn(async () => undefined) } });
+  expect(await openEventTab(target)).toBe(2);
+  expect(update).toHaveBeenCalledExactlyOnceWith(2, { active: true });
+});
 it('ưu tiên tab sự kiện đang mở, thay vì tab cũ đứng trước trong danh sách', async () => {
   const target = 'https://ticket.1zone.vn/events/demo?calendarId=HN';
   const update = vi.fn(async () => undefined);

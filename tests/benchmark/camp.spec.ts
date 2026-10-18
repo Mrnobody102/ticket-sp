@@ -5,7 +5,8 @@ import { installOnezoneDemo } from '../../src/testing/onezone-demo';
 import { calendar, flightHtml } from '../fixtures/catalog';
 
 test('đo từ mở CTA tới checkout qua extension production, không gọi website thật', async () => {
-  const path = resolve('.output/chrome-mv3');
+  const path = resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3');
+  const version = JSON.parse(readFileSync(resolve(path, 'manifest.json'), 'utf8')).version as string;
   const context = await chromium.launchPersistentContext('', { channel: 'chromium', headless: true, args: [`--disable-extensions-except=${path}`, `--load-extension=${path}`] });
   const samples: { delayMs: number; releaseToEnterMs: number; releaseToCheckoutMs: number; saleTimerJitterMs: number; actions: string[] }[] = [];
   const errors: string[] = [];
@@ -80,7 +81,7 @@ test('đo từ mở CTA tới checkout qua extension production, không gọi we
       return { simulatedResponseDelayPerStepMs: delayMs, runs: data.length, releaseToEnterP50Ms: percentile(data.map(s => s.releaseToEnterMs), .5), releaseToEnterP95Ms: percentile(data.map(s => s.releaseToEnterMs), .95), releaseToCheckoutP50Ms: percentile(data.map(s => s.releaseToCheckoutMs), .5), releaseToCheckoutP95Ms: percentile(data.map(s => s.releaseToCheckoutMs), .95) };
     });
     mkdirSync('artifacts', { recursive: true });
-    const result = { fixture: true, productionExtension: true, browser: context.browser()?.version(), observedAt: new Date().toISOString(), scenarios, samples, errors, limitation: 'No real 1Zone queue, CAPTCHA, network or reservation. Not a live booking guarantee.' };
+    const result = { version, fixture: true, productionExtension: true, browser: context.browser()?.version(), observedAt: new Date().toISOString(), scenarios, samples, errors, limitation: 'No real 1Zone queue, CAPTCHA, network or reservation. Not a live booking guarantee.' };
     writeFileSync('artifacts/camp-benchmark.json', JSON.stringify(result, null, 2));
     console.log(JSON.stringify({ scenarios, errors }));
   } finally { await context.close(); }

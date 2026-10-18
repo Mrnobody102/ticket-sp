@@ -12,6 +12,40 @@ function page(patch: Partial<AutoPage> = {}): AutoPage {
   return { snapshot: { url: p.eventUrl, state: 'SELECTING', selectionMode: 'ZONE_ONLY', supported: true, reason: '', visibleOptions: [vip], maxQuantity: 2 }, enterCount: 0, advanceCount: 1, selectable: ['vip'], quantity: { value: 1, min: 1, max: 2, writable: true, stepper: false }, ...patch };
 }
 describe('máy trạng thái camp dùng chung', () => {
+  it('chế độ theo web: nút mua đã xác minh mở sớm thì vào ngay; nhãn chung không đủ', () => {
+    const configured = { ...p, startMode: 'WHEN_AVAILABLE' as const, saleStartAt: new Date(now + 120000).toISOString() };
+    const session = { ...run(), preferencesKey: preferencesKey(configured) };
+    const view = page({ enterCount: 1 }); view.snapshot.state = 'EVENT_PAGE';
+    expect(decideAutomation(session, view, configured, now)).toMatchObject({ type: 'WAIT' });
+    view.saleOpen = true;
+    expect(decideAutomation(session, view, configured, now)).toMatchObject({ action: { kind: 'ENTER' } });
+    view.snapshot.state = 'SELECTING';
+    expect(decideAutomation(session, view, configured, now)).toMatchObject({ action: { kind: 'CHOOSE' } });
+    const strict = { ...configured, startMode: undefined };
+    expect(decideAutomation({ ...session, preferencesKey: preferencesKey(strict) }, view, strict, now)).toMatchObject({ type: 'WAIT' });
+  });
+  it('chỉ kiểm tra trang còn khóa trong phút trước giờ bán; sau click không bị chặn lại bởi giờ', () => {
+    const configured = { ...p, startMode: 'WHEN_AVAILABLE' as const, saleStartAt: new Date(now + 120000).toISOString(), refreshAtSale: true };
+    const session = { ...run(), preferencesKey: preferencesKey(configured) };
+    const view = page(); view.snapshot.state = 'NOT_READY';
+    expect(decideAutomation(session, view, configured, now)).toMatchObject({ type: 'WAIT', wakeAt: now + 60000 });
+    const refresh = decideAutomation(session, view, configured, now + 60000);
+    expect(refresh).toMatchObject({ action: { kind: 'RELOAD' } });
+    if (refresh.type !== 'STEP') throw new Error('Expected refresh');
+    expect(decideAutomation({ ...session, progress: refresh.progress }, view, configured, now + 60100)).toMatchObject({ type: 'WAIT', wakeAt: now + 62500 });
+    view.snapshot.state = 'SELECTING';
+    expect(decideAutomation({ ...session, progress: { phase: 'OPENING', message: '', actionAt: now } }, view, configured, now + 1000)).toMatchObject({ progress: { phase: 'READY' } });
+  });
+  it('khu hết vé trước khi gửi giữ chỗ: chỉ thử khu khác khi adapter xác nhận an toàn', () => {
+    const current = run({ phase: 'CHOOSING', chosen: vip, actionAt: now });
+    const view = page({ selectionRetrySafe: true }); view.snapshot.visibleOptions = [{ ...vip, displayedAvailability: 'UNAVAILABLE' }];
+    expect(decideAutomation(current, view, p, now)).toMatchObject({ progress: { phase: 'READY', selectionRetries: 1 } });
+    view.selectionRetrySafe = false;
+    expect(decideAutomation(current, view, p, now)).toMatchObject({ type: 'WAIT' });
+    view.selectionRetrySafe = true;
+    expect(decideAutomation({ ...current, progress: { ...current.progress, selectionRetries: 5 } }, view, p, now)).toMatchObject({ progress: { phase: 'PAUSED' } });
+    expect(decideAutomation({ ...current, progress: { ...current.progress, phase: 'ADVANCING' } }, view, p, now)).toMatchObject({ type: 'WAIT' });
+  });
   it('chỉ tiếp tục bước mua kèm đã xác minh một lần trong phiên đang chuyển checkout', () => {
     const view = page({ verifiedAddons: true }); view.snapshot.url = 'https://ticket.1zone.vn/checkout/add-ons?orderId=test'; view.snapshot.state = 'UNKNOWN';
     const decision = decideAutomation(run({ phase: 'ADVANCING', chosen: vip }), view, p, now);
@@ -39,12 +73,14 @@ describe('máy trạng thái camp dùng chung', () => {
     view.problem = 'Hạng không khớp';
     expect(decideAutomation(run(), view, p, now)).toMatchObject({ progress: { phase: 'PAUSED' } });
   });
-  it('camp ngay bỏ lịch cũ trong tương lai, nhưng không reload trang còn khóa', () => {
+  it('camp ngay bỏ lịch cũ; cập nhật trang còn khóa khi người dùng bật tùy chọn', () => {
     const immediate = { ...p, startMode: 'IMMEDIATE' as const, saleStartAt: '2030-01-01T00:00:00Z', refreshAtSale: true };
     const session = { ...run(), preferencesKey: preferencesKey(immediate) };
     expect(decideAutomation(session, page(), immediate, now)).toMatchObject({ type: 'STEP', action: { kind: 'CHOOSE' } });
     const closed = page(); closed.snapshot.state = 'NOT_READY';
-    expect(decideAutomation(session, closed, immediate, now)).toMatchObject({ type: 'WAIT' });
+    expect(decideAutomation(session, closed, immediate, now)).toMatchObject({ action: { kind: 'RELOAD' } });
+    const passive = { ...immediate, refreshAtSale: false };
+    expect(decideAutomation({ ...session, preferencesKey: preferencesKey(passive) }, closed, passive, now)).toMatchObject({ type: 'WAIT' });
   });
   it.each(['CHOOSING', 'QUANTITY', 'SETTING_QUANTITY'] as const)('nhiều khu cùng class được đánh dấu selected ở %s: dừng trước số lượng/checkout', phase => {
     const view = page();
@@ -74,6 +110,8 @@ describe('máy trạng thái camp dùng chung', () => {
     expect(reload).toMatchObject({ action: { kind: 'RELOAD' }, progress: { releaseReloadedAt: now } });
     if (reload.type !== 'STEP') throw new Error('Expected reload');
     expect(decideAutomation({ ...initial, progress: reload.progress }, view, configured, now + 10).type).toBe('WAIT');
+    expect(decideAutomation({ ...initial, progress: reload.progress }, view, configured, now + 999)).toMatchObject({ type: 'WAIT', wakeAt: now + 1000 });
+    expect(decideAutomation({ ...initial, progress: reload.progress }, view, configured, now + 1000)).toMatchObject({ action: { kind: 'RELOAD' } });
     view.snapshot.state = 'WAITING_ROOM'; expect(decideAutomation(initial, view, configured, now).type).toBe('WAIT');
     view.snapshot.state = 'SELECTING'; expect(decideAutomation(initial, view, configured, now)).toMatchObject({ action: { kind: 'CHOOSE' } });
     view.snapshot.state = 'NOT_READY';

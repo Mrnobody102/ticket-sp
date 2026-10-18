@@ -1,4 +1,5 @@
-# Kiểm tra và chuẩn bị camp Vương Bình Hà Nội · 0.5.6
+> **Lượt bán tiếp theo:** chưa có link/giờ mới được người dùng cung cấp. Dùng v0.6.0, tải lại hạng vé, chọn HAI QUÝ và số vé, nhập giờ mới, chọn **Theo giờ và khi web mở**, Lưu rồi bật camp trước giờ. Kiểm thử mới nhất ở [VALIDATION.md](VALIDATION.md). Nội dung bên dưới ghi lại lượt 18/10, không phải lịch của đợt tới.
+# Lưu trữ lượt 18/10 · 0.5.6
 
 Hướng dẫn ngắn cho người lần đầu camp, hành vi khi đóng popup/không bấm dừng và giới hạn điện thoại: [CHUAN_BI_18_10.md](CHUAN_BI_18_10.md).
 

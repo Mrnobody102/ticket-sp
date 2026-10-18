@@ -1,10 +1,14 @@
-import { eventUrl, isSameEvent } from '../core/preferences';
+import { eventUrl, isSameTaskPage } from '../core/preferences';
+import { platformForUrl } from '../core/platform-catalog';
 
 export async function openEventTab(target: string): Promise<number> {
   const url = eventUrl(target).href;
-  const tabs = await chrome.tabs.query({ url: `${new URL(url).origin}/*` });
-  const matching = tabs.filter(t => t.url && isSameEvent(t.url, url));
-  const existing = matching.find(t => t.active) ?? matching[0];
+  const platform = platformForUrl(url)!;
+  const patterns = [platform.integration!.origin, ...(platform.integration!.queueOrigins ?? [])].map(origin => `${origin}/*`);
+  const [tabs, active] = await Promise.all([chrome.tabs.query({ url: patterns }), chrome.tabs.query({ active: true, currentWindow: true })]);
+  const matches = (tab: chrome.tabs.Tab) => !!tab.url && isSameTaskPage(tab.url, { eventUrl: url });
+  const matching = tabs.filter(matches);
+  const existing = active.find(tab => tab.active && matches(tab)) ?? matching.find(t => t.active) ?? matching[0];
   if (existing?.id !== undefined) {
     await chrome.tabs.update(existing.id, { active: true });
     await chrome.windows.update(existing.windowId, { focused: true });

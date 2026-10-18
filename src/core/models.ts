@@ -8,7 +8,7 @@ export interface EventPreferences {
   platform: Platform;
   eventUrl: string;
   saleStartAt: string;
-  startMode?: 'IMMEDIATE';
+  startMode?: 'IMMEDIATE' | 'WHEN_AVAILABLE';
   quantity: number;
   maxTotalVnd?: number;
   preferredZoneLabels: string[];

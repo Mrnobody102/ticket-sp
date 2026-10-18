@@ -10,7 +10,7 @@ export async function sendToBackground<T>(message: object): Promise<T | undefine
     const reply: unknown = await chrome.runtime.sendMessage(message);
     if (reply && typeof reply === 'object' && 'error' in reply) {
       const legacyDenied = reply.error === 'Lệnh chỉ dùng trong trang cấu hình tiện ích.' &&
-        'type' in message && typeof message.type === 'string' && /^(AUTO_(GET|START|STOP|STEP)|RUNTIME_INFO)$/.test(message.type);
+        'type' in message && typeof message.type === 'string' && /^(AUTO_(GET|FOCUS|START|START_HERE|STOP|STEP)|RUNTIME_INFO)$/.test(message.type);
       if (reply.error === 'Lệnh không được hỗ trợ.' || legacyDenied) throw new Error(RELOAD_EXTENSION_MESSAGE);
     }
     return reply as T | undefined;

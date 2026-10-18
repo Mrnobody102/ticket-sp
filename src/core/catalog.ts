@@ -23,6 +23,7 @@ export interface ConcertDetail extends ConcertSummary {
   performances: Performance[];
   currency: string;
   requiresQueue?: boolean;
+  requiresAttendeeForm?: boolean;
 }
 export interface TicketZone { id: string; name: string }
 export interface TicketType {
@@ -32,6 +33,9 @@ export interface TicketType {
   zoneName?: string;
   zones?: TicketZone[];
   maxQuantity?: number;
+  minQuantity?: number;
+  saleStartsAt?: string;
+  saleEndsAt?: string;
   available?: number;
   seatMode: 'AUTO' | 'PICK' | 'UNKNOWN';
   requiresChallenge?: boolean;
@@ -41,6 +45,9 @@ export interface TicketCatalog {
   performanceId: string;
   fetchedAt: number;
   tickets: TicketType[];
+  layout?: 'TICKET_TYPES' | 'SEAT_MAP' | 'UNKNOWN';
+  seatMapId?: number;
+  requiresQueue?: boolean;
 }
 export interface CatalogSelection {
   eventId: string;

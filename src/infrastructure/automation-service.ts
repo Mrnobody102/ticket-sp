@@ -1,5 +1,5 @@
 import { allowsAutoTransition, AUTO_TIMING, autoActive, isAutoProgress, preferencesKey, type AutoRun } from '../core/automation';
-import { isSameEvent } from '../core/preferences';
+import { isSameTaskPage } from '../core/preferences';
 import type { AutoCommand } from './automation-messages';
 import { openEventTab } from './event-tab';
 import { repository } from './storage';
@@ -37,6 +37,11 @@ export async function handleAutoCommand(message: AutoCommand, sender: chrome.run
   const run = await readAutoRun();
   const extensionPage = sender.url?.startsWith(chrome.runtime.getURL('/'));
   const owner = extensionPage || sender.tab?.id === run?.tabId;
+  if (message.type === 'AUTO_FOCUS') {
+    if (!extensionPage || !run) throw new Error('Không có tab camp để mở.');
+    const tab = await chrome.tabs.update(run.tabId, { active: true });
+    await chrome.windows.update(tab.windowId, { focused: true }); return run;
+  }
   if (message.type === 'AUTO_GET') return owner ? run : null;
   if (message.type === 'AUTO_STOP') {
     if (!owner && run) throw new Error('Camp đang chạy ở tab khác.');
@@ -45,14 +50,25 @@ export async function handleAutoCommand(message: AutoCommand, sender: chrome.run
   const config = await repository.load();
   const p = config.preferences;
   if (!p) throw new Error('Lưu link concert, giờ bán và ưu tiên trước khi bắt đầu camp.');
-  if (message.type === 'AUTO_START') {
-    if (autoActive(run) && run!.expiresAt > Date.now()) throw new Error('Đang camp trên một tab. Dừng phiên hiện tại trước khi bắt đầu lại.');
+  if (message.type === 'AUTO_START' || message.type === 'AUTO_START_HERE') {
+    const startHere = message.type === 'AUTO_START_HERE';
+    const senderMatches = !!sender.tab?.url && isSameTaskPage(sender.tab.url, p);
+    if (startHere && (extensionPage || !senderMatches)) throw new Error('Chỉ chuyển camp từ đúng tab sự kiện hoặc phòng chờ.');
+    if (autoActive(run) && run!.expiresAt > Date.now()) {
+      if (!startHere || run!.tabId === sender.tab?.id) throw new Error('Đang camp trên một tab. Dừng phiên hiện tại trước khi bắt đầu lại.');
+      if (!['READY', 'OPENING'].includes(run!.progress.phase) || run!.progress.chosen || run!.preferencesKey !== preferencesKey(p)) throw new Error('Tab cũ đang xử lý chọn hoặc giữ vé. Kiểm tra tab đó trước khi chuyển.');
+      const transferred: AutoRun = { ...run!, id: crypto.randomUUID(), tabId: sender.tab!.id!, revision: 0,
+        progress: { ...run!.progress, phase: 'READY', actionAt: undefined, message: 'Camp đã chuyển sang tab này.' } };
+      // Invalidate the old runner before the new owner can execute a step.
+      await chrome.tabs.sendMessage(run!.tabId, { type: 'AUTO_UPDATED', run: null }).catch(() => undefined);
+      await writeAutoRun(transferred); return transferred;
+    }
     if (p.catalog) {
       const provider = getCatalogProvider(p.platform, true);
       const [detail, tickets] = await Promise.all([provider.detail(p.eventUrl), provider.tickets(p.catalog.eventId, p.catalog.performanceId)]);
       verifyCatalogSelection(p, detail, tickets, Date.now());
     }
-    if (!extensionPage && (!sender.tab?.url || !isSameEvent(sender.tab.url, p.eventUrl))) throw new Error('Mở đúng concert/suất đã lưu trước khi bắt đầu camp.');
+    if (!extensionPage && !senderMatches) throw new Error('Mở đúng concert/suất đã lưu trước khi bắt đầu camp.');
     const tabId = extensionPage ? await openEventTab(p.eventUrl) : sender.tab!.id!;
     if (extensionPage) await ensureEventRuntime(tabId);
     if (!config.enabled || !config.panelVisible) await repository.save({ ...config, enabled: true, panelVisible: true });

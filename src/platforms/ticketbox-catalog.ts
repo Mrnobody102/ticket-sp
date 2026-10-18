@@ -20,6 +20,7 @@ function iso(v: unknown) {
   return new Date(text(v)).toISOString();
 }
 const positiveId = (v: unknown) => { if (number(v) === undefined || v === 0) throw new Error('ID Ticketbox không hợp lệ.'); return String(v); };
+const optionalDate = (value: unknown) => value === undefined || value === null || value === '' ? undefined : iso(value);
 export function createTicketboxCatalog(read: CatalogReadResource): CatalogProvider {
   const detailData = async (id: string) => {
     if (!/^\d{1,16}$/.test(id)) throw new Error('ID Ticketbox không hợp lệ.');
@@ -49,22 +50,35 @@ export function createTicketboxCatalog(read: CatalogReadResource): CatalogProvid
       if (String(data.id) !== id || !Array.isArray(data.showings)) throw new Error('Chi tiết Ticketbox không khớp sự kiện.');
       return { platform: 'ticketbox', id, title: text(data.title), url: new URL(url).origin + new URL(url).pathname,
         venue: [text(data.venue), text(data.address)].filter(Boolean).join(', '), startsAt: iso(data.startTime),
-        priceFromVnd: number(data.minTicketPrice), imageUrl: text(data.bannerURL), status: text(data.status), currency: 'VND',
-        performances: data.showings.map(value => { const show = record(value); return { id: positiveId(show.id), venue: text(data.venue), startsAt: iso(show.startTime), endsAt: iso(show.endTime) }; }) };
+        priceFromVnd: number(data.minTicketPrice), imageUrl: text(data.bannerURL), status: text(data.status), currency: 'VND', requiresAttendeeForm: data.isFormIncluded === true,
+        performances: data.showings.flatMap(value => { const show = record(value); if (show.id === 0) return [];
+          return [{ id: positiveId(show.id), venue: text(data.venue), startsAt: iso(show.startTime), endsAt: optionalDate(show.endTime),
+            ...(show.isSalable === true && show.status === 'book_now' && data.isBookingAllowed === true ? { saleStatus: 'OPEN' as const }
+              : show.isSalable === false ? { saleStatus: 'CLOSED' as const } : {}) }]; }) };
     },
     async tickets(eventId, performanceId): Promise<TicketCatalog> {
-      const data = await detailData(eventId);
-      if (String(data.id) !== eventId) throw new Error('Hạng vé Ticketbox không khớp sự kiện.');
-      const show = Array.isArray(data.showings) ? data.showings.map(record).find(s => positiveId(s.id) === performanceId) : undefined;
-      if (!show || !Array.isArray(show.ticketTypes)) throw new Error('Không tìm thấy hạng vé của suất Ticketbox.');
+      if (!/^\d{1,16}$/.test(eventId) || !/^[1-9]\d{0,15}$/.test(performanceId)) throw new Error('ID suất Ticketbox không hợp lệ.');
+      // Public showing endpoint is authoritative for this performance, unlike the
+      // event summary cached across all showings. This remains an anonymous GET.
+      const show = record(body(await read(`${TICKETBOX_READ_ORIGIN}/gin/api/v2/events/showings/${performanceId}`, 'json'), 'detail').result);
+      // The live endpoint can emit eventId=0 while event.id carries the real ID.
+      // Zero is a placeholder, never evidence; every nonzero identity must agree.
+      const identities = [show.eventId, record(show.event).id].filter(id => id !== undefined && id !== 0);
+      if (String(show.id) !== performanceId || !identities.length || identities.some(id => positiveId(id) !== eventId)) throw new Error('Hạng vé Ticketbox không khớp sự kiện/suất.');
+      if (!Array.isArray(show.ticketTypes)) throw new Error('Không tìm thấy hạng vé của suất Ticketbox.');
+      if (!show.ticketTypes.length && Array.isArray(show.ticketTypeGroups) && show.ticketTypeGroups.length) throw new Error('Suất này có nhóm vé cần bộ đọc riêng. Xem trên Ticketbox.');
+      const mapId = number(show.seatMapId);
       const tickets = show.ticketTypes.map(value => {
         const ticket = record(value), priceVnd = number(ticket.price);
         if (priceVnd === undefined || !text(ticket.name)) throw new Error('Hạng vé Ticketbox thiếu ID/giá.');
-        return { id: positiveId(ticket.id), name: text(ticket.name), priceVnd, maxQuantity: number(ticket.maxQtyPerOrder), available: ticket.status === 'sold_out' ? 0 : undefined,
-          seatMode: 'UNKNOWN' as const };
+        const minQuantity = number(ticket.minQtyPerOrder), maxQuantity = number(ticket.maxQtyPerOrder);
+        if (minQuantity !== undefined && maxQuantity !== undefined && minQuantity > maxQuantity) throw new Error('Giới hạn số vé Ticketbox mâu thuẫn.');
+        return { id: positiveId(ticket.id), name: text(ticket.name), priceVnd, maxQuantity, minQuantity,
+          saleStartsAt: optionalDate(ticket.startTime), saleEndsAt: optionalDate(ticket.endTime), available: ticket.status === 'sold_out' ? 0 : undefined,
+          seatMode: mapId === 0 ? 'AUTO' as const : 'UNKNOWN' as const };
       });
       if (new Set(tickets.map(t => t.id)).size !== tickets.length) throw new Error('Hạng vé Ticketbox trùng ID.');
-      return { eventId, performanceId, fetchedAt: Date.now(), tickets };
+      return { eventId, performanceId, fetchedAt: Date.now(), tickets, layout: mapId === undefined ? 'UNKNOWN' : mapId > 0 ? 'SEAT_MAP' : 'TICKET_TYPES', seatMapId: mapId, requiresQueue: show.isEnabledQueueWaiting === true };
     },
   };
 }

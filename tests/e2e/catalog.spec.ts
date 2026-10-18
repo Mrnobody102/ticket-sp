@@ -1,7 +1,7 @@
 import { test, expect, chromium, type BrowserContext, type Worker } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { calendar, catalogUrl, eventData, flightHtml, searchItem, ticketData, ticketReply, ticketboxReply, ticketboxUrl } from '../fixtures/catalog';
+import { calendar, catalogUrl, eventData, flightHtml, searchItem, ticketData, ticketReply, ticketboxReply, ticketboxShowingReply, ticketboxUrl } from '../fixtures/catalog';
 import { installBookingDemo } from '../../src/testing/booking-demo';
 import { installOnezoneDemo } from '../../src/testing/onezone-demo';
 import { HANOI_PRESET } from '../../src/core/task-presets';
@@ -17,6 +17,7 @@ const defaults = (): Mock[] => [
   { path: '/get-summary-event/event-test?', body: ticketReply() },
   { path: '/search/v3/events?', body: { code: 200, data: { results: [{ id: 26657, name: 'Ticketbox thử nghiệm', deeplink: ticketboxUrl, day: calendar().startDate }], total: { filtered: 1 } } } },
   { path: '/gin/api/v2/events/26657', body: ticketboxReply() },
+  { path: '/gin/api/v2/events/showings/', body: ticketboxShowingReply() },
 ];
 async function mockCatalog(mocks = defaults()) {
   await worker.evaluate(data => {
@@ -33,7 +34,7 @@ async function mockCatalog(mocks = defaults()) {
 }
 test.beforeEach(async () => {
   errors.length = 0;
-  const extensionPath = resolve('.output/chrome-mv3');
+  const extensionPath = resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3');
   context = await chromium.launchPersistentContext('', { channel: 'chromium', headless: true, args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`] });
   context.on('page', page => page.on('pageerror', error => errors.push(error.message)));
   worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
@@ -86,7 +87,7 @@ for (const state of ['event', 'booking'] as const) test(`mở sẵn ${state} tr�
   const target = catalogUrl + '?calendarId=HN';
   const booking = target.replace('/events/', '/booking/');
   const bookingBody = readFileSync('fixtures/booking.html', 'utf8') + `<script>(${installBookingDemo.toString()})(document)</script>`;
-  const eventBody = '<!doctype html><html lang="vi"><head><meta charset="utf-8"></head><body><main><h1>Sắp mở bán</h1><button data-id="btn-by-ticket" disabled>Sắp mở bán</button><h2>Thanh toán thế nào?</h2><form><input aria-label="Email nhận tin"></form></main></body></html>';
+  const eventBody = `<!doctype html><html lang="vi"><head><meta charset="utf-8"></head><body><main><h1>Sắp mở bán</h1><button data-id="btn-by-ticket" disabled onclick="location.href='${booking}'">Sắp mở bán</button><h2>Thanh toán thế nào?</h2><form><input aria-label="Email nhận tin"></form></main></body></html>`;
   await context.route(/^https:\/\/ticket\.1zone\.vn\//, route => route.fulfill({ contentType: 'text/html', body: new URL(route.request().url()).pathname.startsWith('/booking/') ? bookingBody : eventBody }));
   // A tab of the same event but another calendar must never receive this run.
   const other = await context.newPage(); await other.goto(catalogUrl + '?calendarId=OTHER');
@@ -104,11 +105,6 @@ for (const state of ['event', 'booking'] as const) test(`mở sẵn ${state} tr�
   }, true);
   await context.addInitScript(audit);
   await existing.evaluate(audit);
-  if (state === 'event') {
-    await existing.evaluate(url => {
-      document.querySelector('main button')!.addEventListener('click', () => { location.href = url; });
-    }, booking);
-  }
   await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
   if (state === 'event') {
     await expect(existing.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'READY');
@@ -243,7 +239,7 @@ test('bản nháp khi đang camp không sửa số vé hoặc hủy phiên đang
   expect(actual.run.progress.phase).toBe('READY');
 });
 
-test('cấu hình nhanh Hà Nội chọn HAI QUÝ, 12h và 1 vé; chỉ lưu, chưa tự arm', async () => {
+test('cấu hình nhanh Hà Nội chọn HAI QUÝ và 1 vé; không dùng lại giờ bán đã qua', async () => {
   const mocks = defaults();
   mocks.unshift({ path: '/events/vuong-binh-tiec-thanh-than-mam-2', body: flightHtml({ ...eventData, id: 'aAq6NT', pathName: 'vuong-binh-tiec-thanh-than-mam-2', eventCalendar: [{ ...calendar('8h0YGm'), eventId: 'aAq6NT' }] }), text: true });
   mocks.unshift({ path: '/get-summary-event/aAq6NT?', body: ticketReply([{ ...ticketData, name: 'HAI QUÝ - EB', finalPriceVn: 2996000, eventId: 'aAq6NT', calendarId: '8h0YGm' }]) });
@@ -252,7 +248,8 @@ test('cấu hình nhanh Hà Nội chọn HAI QUÝ, 12h và 1 vé; chỉ lưu, ch
   await expect(page.locator('.target-shortcut strong')).toHaveText(HANOI_PRESET.title);
   await page.getByRole('button', { name: `Chuẩn bị ${HANOI_PRESET.title}` }).click();
   await expect(page.getByLabel('Link concert')).toHaveValue(HANOI_PRESET.eventUrl);
-  await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('2026-10-18T12:00');
+  await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue(Date.parse(HANOI_PRESET.saleStartAt) > Date.now() ? '2026-10-18T12:00' : '');
+  await page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)').fill('2030-10-25T12:00');
   await expect(page.getByLabel('Số vé', { exact: true })).toHaveValue('1');
   await expect(page.locator('.ticket-priorities li')).toContainText('HAI QUÝ - EB');
   await expect(page.getByLabel('Số vé', { exact: true })).toHaveAttribute('max', '2');
@@ -264,10 +261,11 @@ test('cấu hình nhanh Hà Nội chọn HAI QUÝ, 12h và 1 vé; chỉ lưu, ch
   const saved = await worker.evaluate(async () => (await chrome.storage.local.get('ticket-assistant.config.v1'))['ticket-assistant.config.v1']);
   expect(saved.preferences.refreshAtSale).toBe(true); expect(saved.preferences.maxTotalVnd).toBeUndefined();
   expect(saved.preferences.preferredZoneLabels).toEqual(['HAI QUÝ - EB']);
+  expect(saved.preferences.startMode).toBe('WHEN_AVAILABLE');
   expect(await worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1'])).toBeUndefined();
   await page.reload();
   await expect(page.getByLabel('Số vé', { exact: true })).toHaveAttribute('max', '2');
-  await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('2026-10-18T12:00');
+  await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('2030-10-25T12:00');
   await expect(page.locator('.saved-tickets')).toContainText('HAI QUÝ - EB');
   await page.locator('.setup-form').evaluate(e => { e.scrollTop = 0; });
   await page.screenshot({ path: 'artifacts/hanoi-preset.png', fullPage: true });
@@ -387,7 +385,7 @@ test('nguồn Ticketbox hiển thị giá thật từ schema, không gắn adapt
   await expect(page.locator('.event-result')).toBeVisible();
   await page.locator('.event-result').click();
   await expect(page.locator('.ticket-preview')).toContainText('2.000.000');
-  await expect(page.locator('.source-note')).toContainText('chưa được xác minh');
+  await expect(page.locator('.source-note').filter({ hasText: 'Luồng camp chưa được xác minh.' })).toContainText('chưa được xác minh');
   await expect(page.getByLabel('Link concert')).toHaveValue('');
   await expect(page.getByRole('button', { name: 'Bắt đầu camp', exact: true })).toBeDisabled();
 });

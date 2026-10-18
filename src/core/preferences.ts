@@ -24,6 +24,16 @@ export function isSameEvent(actual: string, target: string): boolean {
   } catch { return false; }
 }
 
+/** Platform queue policy verifies its destination without retaining queue tokens. */
+export function isSameTaskPage(actual: string, p: Pick<EventPreferences, 'eventUrl' | 'catalog'>): boolean {
+  if (isSameEvent(actual, p.eventUrl)) return true;
+  try {
+    const integration = platformForUrl(p.eventUrl)?.integration;
+    const destination = integration?.queueDestination?.(new URL(actual), p.catalog?.eventId);
+    return !!destination && isSameEvent(destination.href, p.eventUrl);
+  } catch { return false; }
+}
+
 export function validatePreferences(value: unknown): EventPreferences {
   if (!value || typeof value !== 'object') throw new Error('Cấu hình không hợp lệ.');
   const p = value as Record<string, unknown>;
@@ -31,7 +41,7 @@ export function validatePreferences(value: unknown): EventPreferences {
   try { cleanUrl = eventUrl(String(p.eventUrl ?? '')); }
   catch { throw new Error('Nhập link concert trên nền tảng đã được hỗ trợ.'); }
   const platform = platformForUrl(cleanUrl.href)!;
-  if (p.startMode !== undefined && p.startMode !== 'IMMEDIATE') throw new Error('Cách bắt đầu camp không hợp lệ.');
+  if (p.startMode !== undefined && p.startMode !== 'IMMEDIATE' && p.startMode !== 'WHEN_AVAILABLE') throw new Error('Cách bắt đầu camp không hợp lệ.');
   if (p.platform !== platform.id) throw new Error('Nền tảng không khớp link concert hoặc chưa có adapter.');
   if (typeof p.saleStartAt !== 'string' || !/(Z|[+-]\d{2}:\d{2})$/.test(p.saleStartAt) ||
       !Number.isFinite(Date.parse(p.saleStartAt))) throw new Error('Giờ mở bán phải có múi giờ rõ ràng.');
@@ -68,7 +78,7 @@ export function validatePreferences(value: unknown): EventPreferences {
   }
   return {
     platform: platform.id, eventUrl: cleanUrl.href, saleStartAt: new Date(p.saleStartAt).toISOString(),
-    ...(p.startMode === 'IMMEDIATE' ? { startMode: 'IMMEDIATE' as const } : {}),
+    ...(p.startMode === 'IMMEDIATE' || p.startMode === 'WHEN_AVAILABLE' ? { startMode: p.startMode } : {}),
     quantity: p.quantity, maxTotalVnd: p.maxTotalVnd as number | undefined,
     preferredZoneLabels: catalog ? catalog.tickets.map(t => t.name) : [...new Set((p.preferredZoneLabels as string[]).map(v => v.trim()))],
     allowAlternatives: p.allowAlternatives === true,

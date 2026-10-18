@@ -97,7 +97,7 @@ export function EventFinder({ onLoad, onReset, requestedUrl, shortcut, saved, in
       }}><option value="">Chọn đúng ngày và địa điểm</option>{detail.performances.map(p => <option key={p.id} value={p.id}>{eventDate(p.startsAt)} · {p.venue}</option>)}</select></label>
       {!detail.performances.length && <p className="empty-note">Nguồn chưa công bố suất diễn để chọn.</p>}
       {!platformForUrl(detail.url)?.integration && <><p className="source-note">Đã đọc được hạng và giá vé {PLATFORM_CATALOG.find(p => p.id === detail.platform)?.name}. Luồng camp chưa được xác minh.</p><a className="external-link" href={detail.url} target="_blank" rel="noreferrer">Mở sự kiện trên website ↗</a>
-        {tickets && <ul className="ticket-preview">{tickets.tickets.map(t => <li key={t.id}><span>{t.name}</span><b>{money(t.priceVnd)}</b></li>)}</ul>}</>}
+        {tickets && <><p className="source-note">{tickets.layout === 'SEAT_MAP' ? 'Có sơ đồ chọn chỗ' : tickets.layout === 'TICKET_TYPES' ? 'Chọn hạng và số vé' : 'Chưa xác định cách chọn chỗ'}{tickets.requiresQueue ? ' · Có phòng chờ' : ''}</p><ul className="ticket-preview">{tickets.tickets.map(t => <li key={t.id}><span>{t.name}{t.available === 0 ? ' · Hết vé' : ''}</span><b>{money(t.priceVnd)}</b></li>)}</ul></>}</>}
     </div>}
   </section>;
 }

@@ -64,4 +64,22 @@ describe('runner độc lập platform', () => {
     else expect(runner.run).toBeNull();
     expect(execute).not.toHaveBeenCalled(); runner.destroy();
   });
+  it.each([true, false])('khu hết vé trong lúc lưu bước: chỉ chọn lại khi adapter xác minh an toàn = %s', async safe => {
+    const config: TaskConfig = { schemaVersion: 1, enabled: true, panelVisible: true, preferences: { platform: 'onezone', eventUrl: 'https://ticket.1zone.vn/events/demo', saleStartAt: new Date(0).toISOString(), quantity: 1, preferredZoneLabels: ['VIP'], allowAlternatives: false } };
+    const run: AutoRun = { id: 'race', tabId: 1, revision: 0, preferencesKey: preferencesKey(config.preferences!), startedAt: Date.now(), expiresAt: Date.now() + 3600000, progress: { phase: 'READY', message: '' } };
+    const execute = vi.fn();
+    const inspection: PlatformInspection = { snapshot: { url: config.preferences!.eventUrl, state: 'SELECTING', supported: true, selectionMode: 'ZONE_ONLY', reason: '', visibleOptions: [{ id: 'vip', label: 'VIP', kind: 'ZONE', displayedPriceVnd: 900000, displayedAvailability: 'AVAILABLE' }] }, optionElements: [] };
+    inspection.automation = { page: { snapshot: inspection.snapshot, enterCount: 0, advanceCount: 0, selectable: ['vip'], selectionRetrySafe: safe }, execute };
+    const runner = createAutomationRunner({ initialRun: run, config: () => config, inspect: () => inspection, changed: vi.fn(), transport: {
+      start: async () => run, stop: async () => null,
+      commit: async (previous, progress) => {
+        if (progress.phase === 'CHOOSING') inspection.snapshot.visibleOptions[0]!.displayedAvailability = 'UNAVAILABLE';
+        return { ...previous, revision: previous.revision + 1, progress };
+      },
+    } });
+    await runner.tick(inspection);
+    expect(runner.run?.progress.phase).toBe(safe ? 'READY' : 'PAUSED');
+    expect(runner.run?.progress.selectionRetries).toBe(safe ? 1 : undefined);
+    expect(execute).not.toHaveBeenCalled(); runner.destroy();
+  });
 });

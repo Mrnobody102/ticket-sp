@@ -1,5 +1,5 @@
 import type { EventPreferences, PageSnapshot, TaskConfig, VisibleOption } from './models';
-import { isSameEvent, normalize } from './preferences';
+import { isSameTaskPage, normalize } from './preferences';
 import { ticketMatchesOption } from './ticket-identity';
 
 export interface Recommendation { option: VisibleOption; rank: number; estimatedTotalVnd?: number }
@@ -30,7 +30,7 @@ export function recommend(snapshot: PageSnapshot, p: EventPreferences): Recommen
 export function effectiveSnapshot(snapshot: PageSnapshot, config: TaskConfig): PageSnapshot {
   if (!config.preferences) return { ...snapshot, state: 'NOT_READY', supported: false, reason: 'Mở tiện ích và nhập concert cần theo dõi.' };
   if (!config.enabled) return { ...snapshot, state: 'STOPPED', supported: false, reason: 'Đã dừng theo dõi. Bật lại trong tiện ích khi cần.' };
-  if (!isSameEvent(snapshot.url, config.preferences.eventUrl)) {
+  if (!isSameTaskPage(snapshot.url, config.preferences)) {
     const blockedStep = ['WAITING_ROOM', 'CHALLENGE', 'CHECKOUT'].includes(snapshot.state);
     return {
       ...snapshot, state: blockedStep ? snapshot.state : 'UNKNOWN', supported: false,

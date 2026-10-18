@@ -1,4 +1,38 @@
-# Kiểm thử · 0.5.6 · 18/10/2026
+# Kiểm thử · 0.6.0 · 18/10/2026
+
+Kiểm tra trên build production ở `artifacts/release-0.6.0/chrome-mv3`. Giữ nguyên 16 file của `.output/chrome-mv3` 0.5.8 đang được Chrome nạp; đã đối chiếu hash trước/sau. Không thay phiên thật của người dùng.
+
+| Kiểm tra | Kết quả bản cuối |
+|---|---|
+| TypeScript / unit | PASS; 246 bài, 21 file |
+| Chromium E2E | PASS 60/60, không retry, 3,3 phút; 17 catalog, 25 extension, 11 sơ đồ Konva, 7 runtime |
+| Mở bán | Nút mua đã xác minh mở sớm; trang cũ cần nhiều lần tải mới; mở trễ; camp ngay với ngày cũ trong tương lai |
+| Hàng chờ / tab | Theo dõi queue.1zone.vn; trả về booking hoặc event; chuyển phiên chưa chọn vé sang tab mở tay; chỉ một tab có quyền thao tác |
+| Khu vừa hết vé | Thử khu khác trước giữ chỗ, tối đa 5 lần: lúc lưu bước, giữa kiểm tra và click, hoặc sau click nhưng chưa có modal/giữ vé. Adapter phải chứng minh retry an toàn |
+| Giá / số lượng / checkout | Giá hoặc modal sai thì chặn; khu đúng class/ID, 1–2 vé; bước mua kèm đúng tổng tiền tự tiếp tục; không bấm thanh toán cuối |
+| Vòng đời | Đóng popup, worker bị Chrome ngắt, ẩn panel, dừng, hết phiên, content/worker khác phiên bản và cập nhật giữ ngày đợt bán mới |
+| Catalog công khai | GET thật: 1Zone Hà Nội có 4 hạng, HAI QUÝ có 2 khu; Ticketbox dùng API từng suất. Không bật camp, không tạo đơn thật |
+| Ticketbox | 4 case: có sơ đồ, nhiều suất không sơ đồ, hết vé/ID 0. Route select-ticket ẩn danh cho ra đăng nhập; chưa kiểm chứng đặt vé sau đăng nhập. Xem [TICKETBOX.md](TICKETBOX.md) |
+| Đóng gói | MV3, 16 file local, cú pháp JS hợp lệ, không inline script/private files. Cả hai ZIP khớp SHA-256 từng file production |
+| Cài ZIP thật | PASS từ `artifacts/share-install-0.6.0-0438435c/tien-ich`: diễn tập 2 vé tới checkout, 0 pageerror, 0 HTTP request; 2 ảnh 1280×800 |
+
+ZIP bạn bè: `artifacts/release-0.6.0/Camp-ve-0.6.0.zip`, 227.893 byte; SHA-256 `0438435c9a230f365d33b2609e8015027ce61979e27bcffdda95cbaf89b5e513`. Người nhận giải nén, mở `BAT-DAU.html`, nạp `tien-ich`; không chạy npm. Giờ/link lượt bán tiếp theo chưa được cung cấp, không tự suy từ giờ diễn hoặc ngày cũ.
+
+Benchmark production 0.6.0: làm nóng mỗi tình huống một lượt rồi đo 12 lượt, tổng 36 mẫu; 0 pageerror, không click lặp. API/website là fixture cục bộ, không gồm mạng thật, hàng chờ, CAPTCHA hoặc server giữ chỗ.
+
+| Tình huống | Mở giao diện → click mua p50 / p95 | Mở giao diện → checkout p50 / p95 |
+|---|---:|---:|
+| DOM, phản hồi tức thì | 12,3 / 23,8 ms | 47,0 / 80,9 ms |
+| DOM, phản hồi mỗi bước 100 ms | 11,6 / 23,9 ms | 268,3 / 295,4 ms |
+| Sơ đồ Konva, modal 2 vé, phản hồi tức thì | Không qua CTA | 83,2 / 185,8 ms |
+
+Mẫu gốc: `artifacts/camp-benchmark.json`, `artifacts/map-benchmark.json`. Không dùng các số này để suy ra thời gian đặt vé thật.
+
+Kiểm thử thao tác dùng dữ liệu tổng hợp và Konva thật trong profile tạm. Chưa xác minh checkout đăng nhập trên website thật; kết quả này không chứng minh server đã giữ vé hoặc thứ tự vào hàng chờ.
+
+---
+
+# Lưu trữ kiểm thử 0.5.6 · 18/10/2026
 
 Windows, Node.js 22.11.0, npm 10.9.0; WXT 0.21.4, Vite 6.4.4, Vitest 4.1.12; Chromium 156 qua Playwright. Kiểm thử đặt vé dùng profile tạm và dữ liệu tổng hợp; không tạo đơn thật.
 

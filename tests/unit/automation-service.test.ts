@@ -15,10 +15,37 @@ beforeEach(() => {
     set: async (value: object) => { Object.assign(store, value); },
     remove: async (key: string) => { delete store[key]; },
   });
-  vi.stubGlobal('chrome', { storage: { local: area(local), session: area(session) }, tabs: { sendMessage: vi.fn(async () => undefined) }, runtime: { getURL: (path: string) => `chrome-extension://ext${path}` } });
+  vi.stubGlobal('chrome', { storage: { local: area(local), session: area(session) }, tabs: { sendMessage: vi.fn(async () => undefined), update: vi.fn(async () => ({ windowId: 1 })) }, windows: { update: vi.fn(async () => undefined) }, runtime: { getURL: (path: string) => `chrome-extension://ext${path}` } });
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe('khóa phiên và CAS tại background', () => {
+  it('mở đúng tab đang camp không điều hướng lại URL; chỉ trang tiện ích được yêu cầu', async () => {
+    await handleAutoCommand({ type: 'AUTO_START' }, sender);
+    await handleAutoCommand({ type: 'AUTO_FOCUS' }, { ...sender, url: 'chrome-extension://ext/popup.html' });
+    expect(chrome.tabs.update).toHaveBeenCalledExactlyOnceWith(1, { active: true });
+    await expect(handleAutoCommand({ type: 'AUTO_FOCUS' }, sender)).rejects.toThrow('tab camp');
+  });
+  it('bấm camp tại tab mới: chuyển phiên chưa chọn vé, vô hiệu lệnh của tab cũ', async () => {
+    const original = (await handleAutoCommand({ type: 'AUTO_START' }, sender))!;
+    const other = { ...sender, tab: { ...sender.tab!, id: 2 } };
+    const next = (await handleAutoCommand({ type: 'AUTO_START_HERE' }, other))!;
+    expect(next.tabId).toBe(2); expect(next.id).not.toBe(original.id);
+    expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, { type: 'AUTO_UPDATED', run: null });
+    await expect(handleAutoCommand({ type: 'AUTO_STEP', id: original.id, revision: 0, progress: { phase: 'OPENING', message: '' } }, sender)).rejects.toThrow('đã đổi');
+  });
+  it('phòng chờ đúng đích được nhận làm tab camp; sai đích bị từ chối', async () => {
+    const url = 'https://queue.1zone.vn/?t=' + encodeURIComponent(prefs.eventUrl.replace('/events/', '/booking/'));
+    const queued = { ...sender, url, tab: { id: 2, url } } as chrome.runtime.MessageSender;
+    expect((await handleAutoCommand({ type: 'AUTO_START_HERE' }, queued))?.tabId).toBe(2);
+    const wrong = { ...queued, tab: { id: 3, url: url.replace('demo', 'other') } } as chrome.runtime.MessageSender;
+    await expect(handleAutoCommand({ type: 'AUTO_START_HERE' }, wrong)).rejects.toThrow('đúng tab');
+  });
+  it('không chuyển tab khi đã chọn hoặc đang gửi giữ vé', async () => {
+    await handleAutoCommand({ type: 'AUTO_START' }, sender);
+    const run = session[AUTO_KEY] as AutoRun; run.progress = { phase: 'CHOOSING', message: '', chosen: { label: 'VIP', kind: 'ZONE' } };
+    await expect(handleAutoCommand({ type: 'AUTO_START_HERE' }, { ...sender, tab: { ...sender.tab!, id: 2 } })).rejects.toThrow('giữ vé');
+    expect((session[AUTO_KEY] as AutoRun).tabId).toBe(1);
+  });
   it('bật trước giờ bán một ngày: hết phiên một giờ sau giờ bán, không sau lúc bật', async () => {
     vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-18T05:00:00Z'));
     const config = local[CONFIG_KEY] as TaskConfig;

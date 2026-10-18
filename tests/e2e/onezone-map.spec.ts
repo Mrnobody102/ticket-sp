@@ -13,7 +13,7 @@ const types = [
 const zones = [{ id: 'ga-a', name: 'GA A', ticketClassId: 'ga-test' }, { id: 'ga-b', name: 'GA B', ticketClassId: 'ga-test' }, { id: 'fan-a', name: 'FANZONE A', ticketClassId: 'fan-test' }].map(z => ({ ...z, eventId: eventData.id, calendarId: 'HN' }));
 test.beforeEach(async () => {
   errors.length = 0;
-  const extension = resolve('.output/chrome-mv3');
+  const extension = resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3');
   context = await chromium.launchPersistentContext('', { channel: 'chromium', headless: true, args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`] });
   context.on('page', p => p.on('pageerror', error => errors.push(error.message)));
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
@@ -54,6 +54,41 @@ test('Konva thật: bỏ khu khóa, chọn GA B đúng class/giá, 2 vé tới c
   await expect(page.getByRole('button', { name: 'Xác nhận đơn hàng' })).toBeVisible();
   mkdirSync('artifacts', { recursive: true });
   await page.screenshot({ path: 'artifacts/konva-checkout.png' });
+});
+
+test('khu vừa bấm đã hết vé trước modal: tự chọn khu khác, không lặp yêu cầu giữ vé', async () => {
+  await booking(false, true);
+  await page.evaluate(() => {
+    const K = (window as unknown as { Konva: { stages: { find(selector: string): { getAttr(name: string): string; setAttr(name: string, value: boolean): void; on(name: string, handler: (event: { cancelBubble: boolean }) => void): void }[]; getLayers(): { draw(): void }[] }[] } }).Konva;
+    const stage = K.stages[0]!, node = stage.find('.seat').find(n => n.getAttr('zoneId') === 'ga-a')!;
+    node.setAttr('disabled', false);
+    node.on('click', event => { event.cancelBubble = true; node.setAttr('disabled', true); stage.getLayers()[0]!.draw(); });
+    stage.getLayers()[0]!.draw();
+  });
+  await expect(page.locator('.recommendation').first()).toContainText('GA A');
+  await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(page.locator('main form')).toContainText('GA B · 2 vé');
+  await expect(page.locator('main')).toHaveAttribute('data-advances', '1');
+});
+
+test('khu khóa ngay giữa kiểm tra và click: nhận lỗi trước giữ vé rồi chuyển khu', async () => {
+  await booking(false, true);
+  await page.evaluate(() => {
+    const K = (window as unknown as { Konva: { stages: { find(selector: string): { getAttr(name: string): string; setAttr(name: string, value: boolean): void }[]; getLayers(): { draw(): void }[] }[] } }).Konva;
+    const stage = K.stages[0]!, node = stage.find('.seat').find(n => n.getAttr('zoneId') === 'ga-a')!;
+    node.setAttr('disabled', false); stage.getLayers()[0]!.draw();
+    document.addEventListener('camp-ve:onezone-zone-request', event => {
+      const request = JSON.parse((event as CustomEvent<string>).detail);
+      if (request.choose?.zoneId === 'ga-a') { node.setAttr('disabled', true); stage.getLayers()[0]!.draw(); }
+    }, true);
+  });
+  await expect(page.locator('.recommendation').first()).toContainText('GA A');
+  await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(page.locator('main form')).toContainText('GA B · 2 vé');
+  await expect(page.locator('main')).toHaveAttribute('data-selections', '1');
+  await expect(page.locator('main')).toHaveAttribute('data-advances', '1');
 });
 
 for (const mode of ['correct', 'wrong'] as const) test(`bước mua kèm: ${mode === 'correct' ? 'tự tiếp tục tới thanh toán' : 'tổng tiền khác vé phải dừng'}`, async () => {

@@ -5,13 +5,15 @@ import { resolve } from 'node:path';
 // Read-only inspection on the real event with a disposable, anonymous browser profile.
 // Only configure passive observation; never press Start camp or a website purchase control.
 const target = 'https://ticket.1zone.vn/events/vuong-binh-tiec-thanh-than-mam-2?calendarId=8h0YGm';
-const path = resolve('.output/chrome-mv3');
+const path = resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3');
 const context = await chromium.launchPersistentContext('', { channel: 'chromium', headless: true, args: [`--disable-extensions-except=${path}`, `--load-extension=${path}`] });
 try {
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
   const setup = await context.newPage(); await setup.goto(`chrome-extension://${new URL(worker.url()).host}/workspace.html`);
   await setup.getByRole('button', { name: /^Chuẩn bị TIỆC/ }).click();
   await setup.locator('.ticket-priorities li').filter({ hasText: 'HAI QUÝ - EB' }).waitFor({ timeout: 20000 });
+  // This disposable profile tests catalog/UI only, never arms a real sale.
+  await setup.getByLabel('Cách bắt đầu camp').selectOption('IMMEDIATE');
   await setup.getByRole('button', { name: 'Lưu cấu hình' }).click();
   const page = await context.newPage(); await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.locator('.status-line').waitFor({ timeout: 15000 });
@@ -29,7 +31,9 @@ try {
   const run = await worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1']);
   if (run) throw new Error('Smoke inspection must never create an automation session.');
   const config = await worker.evaluate(async () => (await chrome.storage.local.get('ticket-assistant.config.v1'))['ticket-assistant.config.v1']);
-  const result = { observedAt: new Date().toISOString(), url: page.url(), state: await page.locator('.status-line').innerText(), reason: await page.locator('.reason').innerText(),
+  const observedUrl = new URL(page.url());
+  const safeUrl = observedUrl.origin + observedUrl.pathname + (observedUrl.searchParams.has('calendarId') ? `?calendarId=${encodeURIComponent(observedUrl.searchParams.get('calendarId'))}` : '');
+  const result = { observedAt: new Date().toISOString(), url: safeUrl, state: await page.locator('.status-line').innerText(), reason: await page.locator('.reason').innerText(),
     savedTier: config.preferences.catalog.tickets.map(t => ({ name: t.name, priceVnd: t.priceVnd, zones: t.zones?.length })), saleStartAt: config.preferences.saleStartAt,
     domElements: await page.locator('body *').count(), rescanP50Ms: sorted[9], rescanP95Ms: sorted[18], samples, campStarted: false, limitation: 'Read-only public page; no account, queue, purchase, reservation or checkout verification.' };
   mkdirSync('artifacts', { recursive: true });

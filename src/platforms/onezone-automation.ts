@@ -116,6 +116,9 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
     : /het thoi gian (giu cho|dat ve)|phien (dat ve )?(da )?het han|reservation expired|khong the giu ve|khong the giu cho/.test(headings)
       ? 'Phiên giữ chỗ đã hết hạn hoặc giữ vé thất bại. Kiểm tra trên website.' : undefined;
   return { page: { snapshot, enterCount: enter.length, advanceCount: advance.length, selectable: [...choices.keys()], quantity: quantity?.model, problem,
+    saleOpen: (snapshot.state === 'EVENT_PAGE' && officialEnter.length === 1 && isSameEvent(snapshot.url, p.eventUrl)) ||
+      (snapshot.state === 'SELECTING' && snapshot.supported && (choices.size > 0 || !!modal)),
+    selectionRetrySafe: !modal && optionElements.some(entry => hasMapChoice(entry.element, entry.option.id)),
     ...(addons ? { verifiedAddons: true } : {}),
     ...(modal ? { resumeSelection: modal.entry.option.id, verificationPending: hasOnezoneVerification(document, reader) && !enabled(modal.advance, reader) } : {}) },
     bindings: { enter, advance, choices, quantity, reader, reload: () => document.defaultView!.location.reload(), chooseMap: (element, optionId) => chooseOnezoneMap(element, optionId, p) } };

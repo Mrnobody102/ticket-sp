@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 // Real public reads through the production extension. Never save config or start camp.
-const extensionPath = resolve('.output/chrome-mv3');
+const extensionPath = resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3');
 const context = await chromium.launchPersistentContext('', { channel: 'chromium', headless: true, args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`] });
 try {
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');

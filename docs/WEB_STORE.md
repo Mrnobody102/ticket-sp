@@ -21,6 +21,7 @@ Hỗ trợ camp trên một số giao diện 1Zone; Ticketbox hiện chỉ tra c
 | storage | Cấu hình và bản nháp cục bộ; một phiên camp tạm thời trong session |
 | alarms, notifications | Thông báo tới giờ mở bán đã lưu |
 | ticket.1zone.vn | Đọc metadata sự kiện; content script đọc và thao tác giao diện đặt vé |
+| queue.1zone.vn | Nhận diện phòng chờ đúng sự kiện và giữ/chuyển tab camp; không lấy token để tạo yêu cầu riêng |
 | marketplace.1zone.vn, prod.1zone.vn | GET tìm sự kiện và hạng/giá/số lượng tối đa |
 | api-v2.ticketbox.vn | GET tìm sự kiện, suất và hạng vé |
 

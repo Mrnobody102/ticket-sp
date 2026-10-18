@@ -8,6 +8,8 @@ export interface PlatformDefinition {
   catalogOrigin?: string;
   integration: {
     origin: string;
+    queueOrigins?: readonly string[];
+    queueDestination?(input: URL, eventId?: string): URL | null;
     canonicalEventUrl(input: URL): URL | null;
     isSameEvent(actual: URL, canonicalTarget: URL): boolean;
     performanceId(url: URL): string | undefined;
@@ -18,6 +20,16 @@ export const PLATFORM_CATALOG: readonly PlatformDefinition[] = [
   {
     id: 'onezone', name: '1Zone', catalogOrigin: 'https://ticket.1zone.vn', integration: {
       origin: 'https://ticket.1zone.vn',
+      queueOrigins: ['https://queue.1zone.vn'],
+      queueDestination(input, eventId) {
+        try {
+          if (input.origin !== 'https://queue.1zone.vn' || input.username || input.password) return null;
+          const target = new URL(input.searchParams.get('t') ?? '');
+          const event = input.searchParams.get('e');
+          return target.origin === 'https://ticket.1zone.vn' && !target.username && !target.password && target.pathname.startsWith('/booking/') &&
+            (!eventId || !event || eventId.toLowerCase() === event.toLowerCase()) ? target : null;
+        } catch { return null; }
+      },
       canonicalEventUrl(input) {
         if (!/^\/(events|booking)\/[^/]+\/?$/.test(input.pathname)) return null;
         const clean = new URL(input.origin + input.pathname.replace(/^\/booking\//, '/events/').replace(/\/$/, ''));
@@ -37,9 +49,9 @@ export const PLATFORM_CATALOG: readonly PlatformDefinition[] = [
   { id: 'ticketbox', name: 'Ticketbox', catalogOrigin: 'https://ticketbox.vn', integration: null },
   { id: 'cticket', name: 'CTicket', integration: null },
 ];
-export const contentMatches = PLATFORM_CATALOG.flatMap(p => p.integration ? [`${p.integration.origin}/*`] : []);
+export const contentMatches = PLATFORM_CATALOG.flatMap(p => p.integration ? [p.integration.origin, ...(p.integration.queueOrigins ?? [])].map(origin => `${origin}/*`) : []);
 export function platformForUrl(value: string): PlatformDefinition | undefined {
-  try { const url = new URL(value); return PLATFORM_CATALOG.find(p => p.integration?.origin === url.origin); }
+  try { const url = new URL(value); return PLATFORM_CATALOG.find(p => p.integration && [p.integration.origin, ...(p.integration.queueOrigins ?? [])].includes(url.origin)); }
   catch { return undefined; }
 }
 export function platformForCatalogUrl(value: string): PlatformDefinition | undefined {

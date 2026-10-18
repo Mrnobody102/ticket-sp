@@ -6,6 +6,7 @@ import { readOptionElements, type OptionElement } from './onezone-options';
 import { readSelectionMode } from './onezone-selection';
 import { hasOnezoneVerification, readOnezoneModal } from './onezone-modal';
 import { readOnezoneMap } from './onezone-map';
+import { isOnezoneQueueFor, ONEZONE_QUEUE_ORIGIN } from './onezone-queue';
 
 export { readOptionElements } from './onezone-options';
 
@@ -35,6 +36,11 @@ export function inspectOnezonePage(document: Document, url: URL, p?: EventPrefer
   const controls = [...document.querySelectorAll('button, a[href], input[type="submit"]')].filter(isVisible);
   const controlText = controls.map(e => normalize(e.getAttribute('aria-label') ?? visibleText(e))).join(' | ');
   const blocked = (state: 'CHALLENGE' | 'WAITING_ROOM' | 'CHECKOUT', reason: string) => finish({ ...base, state, reason });
+  if (url.origin === ONEZONE_QUEUE_ORIGIN) {
+    if (!p || !isOnezoneQueueFor(url.href, p)) return finish({ ...base, reason: 'Phòng chờ không khớp sự kiện đã lưu.' });
+    if (hasOnezoneVerification(document, reader)) return blocked('CHALLENGE', 'Hoàn thành xác minh trên phòng chờ.');
+    return blocked('WAITING_ROOM', 'Đang xếp hàng. Chờ website cho vào chọn vé.');
+  }
   const modal = p && readOnezoneModal(document, p, reader);
   const challengeFrame = hasOnezoneVerification(document, reader);
   const verifiedModal = modal && !modal.advance.matches(':disabled,[aria-disabled="true"]');

@@ -5,7 +5,7 @@ import { validatePreferences } from '../../src/core/preferences';
 import { catalogQuantityLimit, verifyCatalogSelection } from '../../src/core/catalog-validation';
 import { recommend } from '../../src/core/workflow';
 import type { EventPreferences, PageSnapshot } from '../../src/core/models';
-import { calendar, catalogUrl, eventData, flightHtml, searchItem, ticketData, ticketReply, ticketboxData, ticketboxReply, ticketboxUrl } from '../fixtures/catalog';
+import { calendar, catalogUrl, eventData, flightHtml, searchItem, ticketData, ticketReply, ticketboxData, ticketboxReply, ticketboxShowing, ticketboxShowingReply, ticketboxUrl } from '../fixtures/catalog';
 
 const detail = () => parseOnezoneDetail(flightHtml(), catalogUrl);
 const catalog = () => parseOnezoneTickets(ticketReply(), 'event-test', 'HN', 100);
@@ -62,18 +62,45 @@ describe('đọc nguồn 1Zone', () => {
 });
 
 describe('Ticketbox là nguồn tra cứu riêng', () => {
+  it('đọc suất trực tiếp: layout, phòng chờ, min/max và giờ bán không lấy từ giờ diễn', async () => {
+    const start = '2026-10-25T03:00:00Z';
+    const showing = { ...ticketboxShowing, seatMapId: 932, isEnabledQueueWaiting: true,
+      ticketTypes: [{ ...ticketboxShowing.ticketTypes[0]!, minQtyPerOrder: 2, startTime: start, endTime: '2026-11-01T10:00:00Z' }] };
+    const read = vi.fn(async () => ticketboxShowingReply(showing));
+    const catalog = await createTicketboxCatalog(read).tickets('26657', String(showing.id));
+    expect(read).toHaveBeenCalledExactlyOnceWith(`https://api-v2.ticketbox.vn/gin/api/v2/events/showings/${showing.id}`, 'json');
+    expect(catalog).toMatchObject({ layout: 'SEAT_MAP', seatMapId: 932, requiresQueue: true });
+    expect(catalog.tickets[0]).toMatchObject({ minQuantity: 2, maxQuantity: 2, saleStartsAt: new Date(start).toISOString(), seatMode: 'UNKNOWN' });
+  });
+  it('suất ID 0 là placeholder hết vé: không làm hỏng chi tiết sự kiện', async () => {
+    const closed = { ...ticketboxData, status: 'sold_out', showings: [{ ...ticketboxData.showings[0]!, id: 0, isSalable: false }] };
+    expect((await createTicketboxCatalog(async () => ticketboxReply(closed)).detail(ticketboxUrl)).performances).toEqual([]);
+  });
+  it('eventId=0 cần event.id thật khớp; không chấp nhận mất hoặc mâu thuẫn danh tính', async () => {
+    const showing = { ...ticketboxShowing, eventId: 0, event: { id: 26657 } };
+    expect((await createTicketboxCatalog(async () => ticketboxShowingReply(showing)).tickets('26657', String(showing.id))).tickets).toHaveLength(1);
+    await expect(createTicketboxCatalog(async () => ticketboxShowingReply({ ...showing, event: undefined })).tickets('26657', String(showing.id))).rejects.toThrow('khớp');
+    await expect(createTicketboxCatalog(async () => ticketboxShowingReply({ ...showing, eventId: 999 })).tickets('26657', String(showing.id))).rejects.toThrow('khớp');
+  });
+  it('từ chối showing của sự kiện khác, min/max mâu thuẫn và ngày bán sai', async () => {
+    for (const showing of [{ ...ticketboxShowing, eventId: 999 },
+      { ...ticketboxShowing, ticketTypes: [{ ...ticketboxShowing.ticketTypes[0]!, minQtyPerOrder: 3 }] },
+      { ...ticketboxShowing, ticketTypes: [{ ...ticketboxShowing.ticketTypes[0]!, startTime: 'invalid' }] }]) {
+      await expect(createTicketboxCatalog(async () => ticketboxShowingReply(showing)).tickets('26657', String(ticketboxShowing.id))).rejects.toThrow();
+    }
+  });
   it('đọc đúng schema search và detail/showing/ticketType', async () => {
-    const provider = createTicketboxCatalog(async url => url.includes('/search/') ? { code: 200, data: { results: [{ id: 26657, name: 'Ticketbox thử nghiệm', deeplink: ticketboxUrl + '?utm_source=test', day: calendar().startDate }], total: { filtered: 1 } } } : ticketboxReply());
+    const provider = createTicketboxCatalog(async url => url.includes('/search/') ? { code: 200, data: { results: [{ id: 26657, name: 'Ticketbox thử nghiệm', deeplink: ticketboxUrl + '?utm_source=test', day: calendar().startDate }], total: { filtered: 1 } } } : url.includes('/showings/') ? ticketboxShowingReply() : ticketboxReply());
     expect((await provider.search('Hà Nội', 1)).items[0]?.url).toBe(ticketboxUrl);
     expect((await provider.detail(ticketboxUrl)).performances[0]?.id).toBe('53858377012103');
-    expect((await provider.tickets('26657', '53858377012103')).tickets[0]).toMatchObject({ id: '100001', priceVnd: 2000000, seatMode: 'UNKNOWN' });
+    expect((await provider.tickets('26657', '53858377012103')).tickets[0]).toMatchObject({ id: '100001', priceVnd: 2000000, seatMode: 'AUTO' });
     await expect(provider.detail('https://evil.com/catalog-test-26657')).rejects.toThrow('Link');
     await expect(provider.tickets('26657', '999')).rejects.toThrow('suất');
   });
   it('từ chối ID sự kiện trả về sai và ID vé vượt safe integer', async () => {
     await expect(createTicketboxCatalog(async () => ticketboxReply({ ...ticketboxData, id: 999 })).tickets('26657', '53858377012103')).rejects.toThrow('khớp');
-    const data = { ...ticketboxData, showings: [{ ...ticketboxData.showings[0]!, ticketTypes: [{ id: Number.MAX_SAFE_INTEGER + 1, name: 'VIP', price: 1 }] }] };
-    await expect(createTicketboxCatalog(async () => ticketboxReply(data)).tickets('26657', '53858377012103')).rejects.toThrow('ID');
+    const data = { ...ticketboxShowing, ticketTypes: [{ id: Number.MAX_SAFE_INTEGER + 1, name: 'VIP', price: 1 }] };
+    await expect(createTicketboxCatalog(async () => ticketboxShowingReply(data)).tickets('26657', '53858377012103')).rejects.toThrow('ID');
   });
   it('phân biệt envelope search code=200 và detail status=1 của Ticketbox', async () => {
     await expect(createTicketboxCatalog(async () => ({ code: 200, data: { result: ticketboxData } })).detail(ticketboxUrl)).rejects.toThrow('dữ liệu');

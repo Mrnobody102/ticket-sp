@@ -11,3 +11,5 @@ export const ticketboxUrl = 'https://ticketbox.vn/catalog-test-26657';
 export const ticketboxData = { id: 26657, title: 'Ticketbox thử nghiệm', venue: 'Hà Nội', address: 'Cung Thiếu nhi', startTime: calendar().startDate, endTime: calendar().endDate,
   showings: [{ id: 53858377012103, startTime: calendar().startDate, endTime: calendar().endDate, ticketTypes: [{ id: 100001, name: 'VIP', price: 2000000, maxQtyPerOrder: 2, status: 'available' }] }] };
 export const ticketboxReply = (result: unknown = ticketboxData) => ({ status: 1, data: { result } });
+export const ticketboxShowing = { ...ticketboxData.showings[0]!, eventId: 26657, seatMapId: 0, ticketTypeGroups: [], isSalable: true, isEnabledQueueWaiting: false };
+export const ticketboxShowingReply = (result: unknown = ticketboxShowing) => ({ status: 1, data: { result } });
