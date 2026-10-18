@@ -45,7 +45,7 @@ Parser dùng `JSON.parse` và đếm ngoặc có xử lý chuỗi/escape; **khô
 
 Summary trả `seatType=auto` và bật CAPTCHA ở các hạng trên. Giá/tên/giới hạn có thể đổi theo đợt. Tool không tự ghi sự kiện này vào cấu hình; người dùng chọn đúng suất và lưu. Hậu tố `- EB` khác `- GS` ở link TP.HCM; không tạo alias tự động giữa hai đợt.
 
-Người dùng xác nhận 12:00 ngày 19/10/2026 UTC+7 làm mặc định có thể sửa. Mốc này thuộc preset, không suy từ giờ diễn hay trường CLOSE. Chọn/sắp ưu tiên và số vé được thực hiện trước giờ bán; form lấy giới hạn nhỏ nhất trong những giới hạn đã biết của suất và các hạng đã chọn. Khi arm, dữ liệu mới được đọc lại để chặn vượt giới hạn.
+Người dùng xác nhận 12:00 ngày 18/10/2026 UTC+7 làm mặc định có thể sửa. Mốc này thuộc preset, không suy từ giờ diễn hay trường CLOSE. Chọn/sắp ưu tiên và số vé được thực hiện trước giờ bán; form lấy giới hạn nhỏ nhất trong những giới hạn đã biết của suất và các hạng đã chọn. Khi arm, dữ liệu mới được đọc lại để chặn vượt giới hạn.
 
 ### Đối chiếu UI cho bản 0.4.0
 

@@ -1,6 +1,6 @@
-# Quyết định triển khai · 0.5.1
+# Quyết định triển khai · 0.5.2
 
-Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp và đi tới checkout nhanh, trên phiên trình duyệt của người dùng. Đã tìm được metadata và hạng vé Vương Bình Hà Nội; người dùng xác nhận 12h ngày 19/10 làm mặc định có thể sửa. Chưa xác minh độc lập giờ bán từ API hoặc DOM booking đăng nhập. TP.HCM và Lavender chỉ dùng tham khảo. Không dùng ước tính 100–200 vé làm tồn kho.
+Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp và đi tới checkout nhanh, trên phiên trình duyệt của người dùng. Đã tìm được metadata và hạng vé Vương Bình Hà Nội; người dùng xác nhận 12h ngày 18/10 làm mặc định có thể sửa. Chưa xác minh độc lập giờ bán từ API hoặc DOM booking đăng nhập. TP.HCM và Lavender chỉ dùng tham khảo. Không dùng ước tính 100–200 vé làm tồn kho.
 
 ## Các quyết định
 
@@ -35,6 +35,7 @@ Mục tiêu là camp **1 vé mặc định**, tự chọn zone/ghế phù hợp 
 29. Khi bật từ popup, CONTENT_READY kiểm tra bản content script trên frame chính trước khi tạo phiên. Chờ tối đa khoảng 8 giây cho tab mới; listener treo bị timeout. Listener đăng ký sau handshake worker nhưng trước AUTO_GET để không khóa chéo với hàng đợi AUTO_START.
 30. Với seatmap_zone, ghép endpoint zones theo ticketClassId, xác minh event/calendar/ID/tên và lưu cả tập khu. Không coi zoneName summary là toàn bộ khu. Card/modal giữ tên khu cụ thể; một hạng chưa chọn khu có thể chuyển tới khu thuộc tập đã xác minh.
 31. Diễn tập giữ ba tình huống tương tác dùng cùng runner/adapter: bình thường, queue, xác minh. Website và transport vẫn là local; không sửa cấu hình/session thật hoặc dùng kết quả làm chứng nhận giữ vé.
+32. 0.5.2 đính chính giờ bán thành 12:00 ngày 18/10/2026 UTC+7 theo thông tin mới của người dùng. Migration chỉ chạy khi cài/cập nhật: đúng URL/suất Hà Nội và đúng timestamp cũ 19/10 thì sửa ngày, giữ các lựa chọn, dừng phiên trước khi lưu và không tự bật camp. Không sửa giờ tùy chỉnh khác hoặc sự kiện khác; không thêm kiểm tra vào mỗi bước chọn vé.
 
 ## Phạm vi bàn giao
 

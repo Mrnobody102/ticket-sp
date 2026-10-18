@@ -1,4 +1,4 @@
-# Rà soát source và cơ chế tham khảo · 0.5.1
+# Rà soát source và cơ chế tham khảo · 0.5.2
 
 ## Review bổ sung cho ngày mở bán
 
@@ -8,7 +8,7 @@
 
 - Queue có thể trả về trang event sau khi đã bấm mua, không chỉ đi thẳng tới chọn vé. Reset riêng bước OPENING; không gửi lại bước ADVANCING. Unit mô phỏng queue lâu hơn timeout và E2E qua queue → event → booking.
 - Phản hồi START có thể tới sau AUTO_UPDATED hoặc STOP. Runner không ghi đè tiến trình mới, bỏ broadcast của phiên vừa hủy và ngắt local ngay khi dừng. Thêm unit cho START lặp, trả lời muộn, STOP trong lúc START chờ và mất kết nối lúc STOP.
-- Kiểm tra rõ thời hạn: bật hôm trước cho sale 12:00 ngày 19/10 thì hết phiên 13:00 ngày 19/10. Popup đóng không phải lệnh dừng; browser restart/extension Reload hủy session.
+- Kiểm tra rõ thời hạn: bật hôm trước cho sale 12:00 ngày 18/10 thì hết phiên 13:00 ngày 18/10. Popup đóng không phải lệnh dừng; browser restart/extension Reload hủy session.
 - Bản phát hành được kiểm tra manifest MV3/version, đường dẫn file, cú pháp JavaScript, script HTML chỉ dùng file cục bộ và không có source map/.env. Đây là kiểm tra kỹ thuật, không phải bảo đảm Web Store sẽ duyệt.
 
 Đã tham khảo thêm [Tickets Hunter](https://github.com/bouob/tickets_hunter), cụ thể [guide ưu tiên/fallback](https://github.com/bouob/tickets_hunter/blob/main/guide/keyword-mechanism.md) và [thư mục adapter theo nền tảng](https://github.com/bouob/tickets_hunter/tree/main/src/platforms). Bài học dùng được là chuẩn bị ưu tiên/số lượng trước, có điều kiện chuyển bước và phần riêng cho từng website. Không sao chép mã; repo này không có bằng chứng tương thích 1Zone. Tool giữ ID/tên/giá chính xác từ nguồn thay vì dựa vào substring hoặc fallback ngẫu nhiên. Cách chờ điều kiện có thể đối chiếu với [Automa](https://github.com/AutomaApp/documentation/blob/main/docs/workflow/element-selector.md) và [Playwright auto-waiting](https://playwright.dev/docs/actionability); các thư viện này không chạy thay booking adapter trong extension.

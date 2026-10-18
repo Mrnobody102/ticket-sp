@@ -3,12 +3,46 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 const { version } = JSON.parse(readFileSync(resolve('package.json'), 'utf8')) as { version: string };
 
-async function launch(extensionPath: string) {
-  const context = await chromium.launchPersistentContext('', { channel: 'chromium', headless: true,
+async function launch(extensionPath: string, profile = '') {
+  const context = await chromium.launchPersistentContext(profile, { channel: 'chromium', headless: true,
     args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`] });
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
   return { context, extensionId: new URL(worker.url()).host };
 }
+
+test('cập nhật phiên bản sửa ngày Hà Nội: giữ hạng/số vé, không tự bật lại camp', async ({}, info) => {
+  const extensionPath = info.outputPath('upgrade-extension');
+  const profile = info.outputPath('upgrade-profile');
+  cpSync(resolve('.output/chrome-mv3'), extensionPath, { recursive: true });
+  const manifestPath = resolve(extensionPath, 'manifest.json');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  writeFileSync(manifestPath, JSON.stringify({ ...manifest, version: '0.5.1' }));
+  let { context, extensionId } = await launch(extensionPath, profile);
+  try {
+    const popup = await context.newPage(); await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+    await expect(popup.getByLabel('Link concert')).toBeEditable();
+    const worker = context.serviceWorkers()[0]!;
+    await worker.evaluate(async () => {
+      await chrome.storage.local.set({ 'ticket-assistant.config.v1': { schemaVersion: 1, enabled: true, panelVisible: true,
+        preferences: { platform: 'onezone', eventUrl: 'https://ticket.1zone.vn/events/vuong-binh-tiec-thanh-than-mam-2?calendarId=8h0YGm',
+          saleStartAt: '2026-10-19T05:00:00.000Z', quantity: 2, preferredZoneLabels: ['ÚT CƯNG - EB'], allowAlternatives: false } } });
+    });
+    // A real persisted profile and manifest upgrade dispatch onInstalled.
+    // Avoid runtime.reload while Playwright is attached to the old worker.
+    await context.close();
+    writeFileSync(manifestPath, JSON.stringify(manifest));
+    ({ context, extensionId } = await launch(extensionPath, profile));
+    const restarted = context.serviceWorkers()[0]!;
+    await expect.poll(() => restarted.evaluate(async () => (await chrome.storage.local.get('ticket-assistant.config.v1'))['ticket-assistant.config.v1'].preferences.saleStartAt)).toBe('2026-10-18T05:00:00.000Z');
+    expect(await restarted.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1'])).toBeUndefined();
+    const updated = await context.newPage(); await updated.goto(`chrome-extension://${extensionId}/popup.html`);
+    await expect(updated.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('2026-10-18T12:00');
+    await expect(updated.getByLabel('Số vé', { exact: true })).toHaveValue('2');
+    await updated.locator('.extra-settings > summary').click();
+    await expect(updated.getByLabel('Hạng vé ưu tiên · mỗi dòng một hạng')).toHaveValue('ÚT CƯNG - EB');
+    await expect(updated.getByRole('button', { name: 'Bắt đầu camp', exact: true })).toBeEnabled();
+  } finally { await context.close(); }
+});
 
 test('Mở rộng mở trang cấu hình bằng link thật, không cần lệnh OPEN_WORKSPACE', async () => {
   const { context, extensionId } = await launch(resolve('.output/chrome-mv3'));

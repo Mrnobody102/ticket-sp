@@ -101,7 +101,7 @@ test('cấu hình nhanh Hà Nội tự điền link, 12h và 1 vé; chỉ chọn
   await expect(page.locator('.target-shortcut strong')).toHaveText(HANOI_PRESET.title);
   await page.getByRole('button', { name: `Chuẩn bị ${HANOI_PRESET.title}` }).click();
   await expect(page.getByLabel('Link concert')).toHaveValue(HANOI_PRESET.eventUrl);
-  await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('2026-10-19T12:00');
+  await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('2026-10-18T12:00');
   await expect(page.getByLabel('Số vé', { exact: true })).toHaveValue('1');
   await page.getByLabel('Thêm hạng vé ưu tiên').selectOption('vip-test');
   await expect(page.getByLabel('Số vé', { exact: true })).toHaveAttribute('max', '2');
@@ -115,7 +115,7 @@ test('cấu hình nhanh Hà Nội tự điền link, 12h và 1 vé; chỉ chọn
   expect(await worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1'])).toBeUndefined();
   await page.reload();
   await expect(page.getByLabel('Số vé', { exact: true })).toHaveAttribute('max', '2');
-  await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('2026-10-19T12:00');
+  await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('2026-10-18T12:00');
   await expect(page.locator('.saved-tickets')).toContainText('VIP');
   await page.locator('.setup-form').evaluate(e => { e.scrollTop = 0; });
   await page.screenshot({ path: 'artifacts/hanoi-preset.png', fullPage: true });
@@ -188,7 +188,7 @@ test('nhiều suất yêu cầu chọn; link sai calendarId không tự chuyển
   await expect(page.getByLabel('Thêm hạng vé ưu tiên')).toHaveCount(0);
   await page.getByLabel('Suất diễn', { exact: true }).selectOption('HN');
   await expect(page.getByLabel('Thêm hạng vé ưu tiên')).toBeVisible();
-  await page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)').fill('2026-10-19T12:00');
+  await page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)').fill('2026-10-18T12:00');
   await page.getByLabel('Số vé', { exact: true }).fill('2');
   await page.getByLabel('Suất diễn', { exact: true }).selectOption('HCM');
   await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('');

@@ -8,6 +8,7 @@ import { handleAutoCommand, readAutoRun, reconcileAutoRun, stopAutoRun } from '.
 import { openEventTab } from '../infrastructure/event-tab';
 import { handleCatalogCommand, type CatalogCommand } from '../infrastructure/catalog-service';
 import { RUNTIME_INFO } from '../infrastructure/extension-runtime';
+import { correctHanoiSaleDate } from '../core/config-migrations';
 
 export default defineBackground(() => {
   // Serialize mutations in this worker; durable configuration lives in storage.
@@ -76,7 +77,14 @@ export default defineBackground(() => {
   chrome.storage.onChanged.addListener((changes, area) => { if (area === 'local' && changes[CONFIG_KEY]) reconcile(); });
   chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === SALE_ALARM) reconcile(); });
   chrome.runtime.onStartup.addListener(reconcile);
-  chrome.runtime.onInstalled.addListener(reconcile);
+  chrome.runtime.onInstalled.addListener(() => {
+    void enqueue(async () => {
+      const config = await repository.load();
+      const corrected = correctHanoiSaleDate(config);
+      if (corrected !== config) { await stopAutoRun(); await repository.save(corrected); }
+      await reconcileAutoRun(); await reconcileReminder();
+    }).catch(() => undefined);
+  });
   chrome.tabs.onRemoved.addListener(tabId => { void enqueue(async () => { if ((await readAutoRun())?.tabId === tabId) await stopAutoRun(); }).catch(() => undefined); });
   // Reconcile on every worker evaluation as alarms may be lost across browser restarts.
   reconcile();

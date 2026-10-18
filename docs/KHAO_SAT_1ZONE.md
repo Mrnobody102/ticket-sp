@@ -58,7 +58,7 @@ Trang TP.HCM có nhóm tên tham khảo **HAI QUÝ - GS**, **BA THƯƠNG - GS**,
 
 Map Lavender tại Cung Thiếu nhi giúp nghiên cứu một kiểu giao diện/địa điểm tham khảo. Cùng địa điểm không bảo đảm cùng bố trí sân khấu, số tầng được mở, ghế bị khóa, vùng camera hoặc cách gắn tên hạng vé. Không dùng tọa độ hay mã ghế của Lavender để chọn vé Vương Bình.
 
-Từ 0.3.0 đã đọc được đúng link Hà Nội, tên hạng hậu tố `- EB`, giá và `seatType=auto`; xem [nghiên cứu API](NGHIEN_CUU_API.md). Bản 0.4.0 bổ sung CTA chính và modal số lượng theo component public; HTML công khai dùng tiêu đề “Chọn số lượng vé”. Các dấu hiệu này có fixture/E2E, chưa thay thế kiểm chứng booking sau đăng nhập. Người dùng xác nhận mốc 12h ngày 19/10/2026; mốc này có thể sửa trên form.
+Từ 0.3.0 đã đọc được đúng link Hà Nội, tên hạng hậu tố `- EB`, giá và `seatType=auto`; xem [nghiên cứu API](NGHIEN_CUU_API.md). Bản 0.4.0 bổ sung CTA chính và modal số lượng theo component public; HTML công khai dùng tiêu đề “Chọn số lượng vé”. Các dấu hiệu này có fixture/E2E, chưa thay thế kiểm chứng booking sau đăng nhập. Người dùng xác nhận mốc 12h ngày 18/10/2026; mốc này có thể sửa trên form.
 
 Với mỗi sự kiện vẫn cần xác nhận bốn nhóm thông tin:
 

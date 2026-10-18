@@ -141,7 +141,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
     </nav></header>
     {runtimeError && <aside className="runtime-notice error" role="alert"><b>Cần tải lại tiện ích</b><p>{runtimeError}</p></aside>}
     <div className="setup-grid" inert={busy || !ready || !runtimeReady}>
-      <EventFinder requestedUrl={requestedUrl} saved={retainedCatalog} shortcut={{ title: HANOI_PRESET.title, description: 'Hà Nội · 12:00 · 19/10/2026 · tự tải hạng/giá', onChoose: useTarget }} onLoad={loadConcert} onReset={resetConcert} />
+      <EventFinder requestedUrl={requestedUrl} saved={retainedCatalog} shortcut={{ title: HANOI_PRESET.title, description: 'Hà Nội · 12:00 · 18/10/2026 · tự tải hạng/giá', onChoose: useTarget }} onLoad={loadConcert} onReset={resetConcert} />
       <form id="camp-setup-form" className="setup-form" onSubmit={e => void save(e)}>
         <div className="section-title"><h2>Vé và giờ bán</h2><span>{dirty ? 'Chưa lưu' : config.preferences ? 'Đã lưu' : ''}</span></div>
         {loaded ? <TicketPriorities key={loaded.performance.id} tickets={loaded.catalog.tickets} selected={selectedTickets} onChange={ids => { setSelectedTickets(ids); setDirty(true); }} /> :

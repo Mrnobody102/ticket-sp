@@ -1,8 +1,10 @@
-# Cơ chế camp vé · bản 0.5.1
+# Cơ chế camp vé · bản 0.5.2
 
-0.5.1 xử lý queue sau bước vào mua: OPENING → queue thì trở về READY để chờ; khi được trả về event có thể vào mua tiếp. Không reset ADVANCING vì đó có thể là yêu cầu giữ vé chưa rõ kết quả. START/STOP có trạng thái đang chờ: tránh gửi START hai lần, không nhận lại progress revision cũ, không để phản hồi START muộn ghi đè phiên đã tiến bước hoặc vừa dừng. STOP ngắt hành động cục bộ trước khi chờ worker. Các kiểm tra này không thêm request vào từng click.
+0.5.2 sửa ngày bán Hà Nội thành 12:00 ngày 18/10/2026 UTC+7. Khi cài/cập nhật, chỉ sửa cấu hình đúng suất còn dùng chính xác mốc cũ 12:00 ngày 19/10; giữ hạng/số lượng và dừng phiên cũ, không tự bật mua. Giờ tùy chỉnh khác và sự kiện khác được giữ nguyên.
 
-Popup không sở hữu vòng lặp chọn vé nên đóng popup vẫn chạy trên tab chủ. Máy ngủ/đóng băng tab làm gián đoạn timer; Chrome điện thoại không hỗ trợ cài bản này. Hướng dẫn vận hành ngắn nằm ở [CHUAN_BI_19_10.md](CHUAN_BI_19_10.md).
+Từ 0.5.1, queue sau bước vào mua được xử lý như sau: OPENING → queue thì trở về READY để chờ; khi được trả về event có thể vào mua tiếp. Không reset ADVANCING vì đó có thể là yêu cầu giữ vé chưa rõ kết quả. START/STOP có trạng thái đang chờ: tránh gửi START hai lần, không nhận lại progress revision cũ, không để phản hồi START muộn ghi đè phiên đã tiến bước hoặc vừa dừng. STOP ngắt hành động cục bộ trước khi chờ worker. Các kiểm tra này không thêm request vào từng click.
+
+Popup không sở hữu vòng lặp chọn vé nên đóng popup vẫn chạy trên tab chủ. Máy ngủ/đóng băng tab làm gián đoạn timer; Chrome điện thoại không hỗ trợ cài bản này. Hướng dẫn vận hành ngắn nằm ở [CHUAN_BI_18_10.md](CHUAN_BI_18_10.md).
 
 0.5.0 giữ nguyên core/runner và tách việc nhận diện tên vé vào `core/ticket-identity.ts`: ID nếu có; nếu không thì tên hạng hoặc zone chính xác từ cùng bản ghi API, kèm giá. Lưu `zoneName` và kiểm tra lại khi bật camp. Ảnh có alt/ARIA, SVG có role và title/ARIA được đọc như điều khiển; SVG dùng bubbling MouseEvent vì không có HTMLElement.click. Không OCR hoặc bấm theo tọa độ.
 
@@ -20,7 +22,7 @@ Bản hiện tại kết nối **tìm sự kiện → chọn đúng suất/hạn
 
 ## 1. Đầu vào và đầu ra
 
-Bản 0.5.1 còn kiểm tra phiên bản content script trong tab vé trước khi bật từ popup. Tab chưa nạp mã mới không được báo là đã camp. Kiểm tra kết nối này chỉ chạy khi bắt đầu, không nằm trên đường chọn vé. API `/zones` bổ sung đủ 12 khu của 4 hạng cho suất Hà Nội; khi đã chọn khu cụ thể, modal phải khớp khu ấy.
+Bản 0.5.2 còn kiểm tra phiên bản content script trong tab vé trước khi bật từ popup. Tab chưa nạp mã mới không được báo là đã camp. Kiểm tra kết nối này chỉ chạy khi bắt đầu, không nằm trên đường chọn vé. API `/zones` bổ sung đủ 12 khu của 4 hạng cho suất Hà Nội; khi đã chọn khu cụ thể, modal phải khớp khu ấy.
 
 Diễn tập dùng cùng adapter, state machine và runner nhưng có transport lưu trong bộ nhớ, website tổng hợp và không gọi mạng đặt vé. Ba tình huống cho thấy mua bình thường, chờ website cho vào, và tạm dừng để xác minh. Nút “Cho vào chọn vé”/“Đã xác minh · chạy tiếp” chỉ điều khiển bài mô phỏng; bản thật chờ website và người dùng tương ứng. Không dùng kết quả diễn tập làm bằng chứng đã giữ được vé trên server.
 
