@@ -1,4 +1,32 @@
-# Kiểm thử · 0.6.0 · 18/10/2026
+# Kiểm thử · 0.6.1 · 18/10/2026
+
+Build: `artifacts/release-0.6.1/chrome-mv3`. TypeScript PASS, unit **261/261 trong 21 file**. Chromium E2E **65/65, không retry, 3,4 phút**: 17 catalog, 28 extension, 13 Konva, 7 runtime. Bản cài giải nén ZIP chạy đúng 2 vé tới checkout mô phỏng, 0 pageerror và 0 HTTP request.
+
+- Chờ từ 2 phút trước giờ bán; phút cuối cách mỗi giây khi trang đã tải xong. Nếu trang tải kẹt quá 15 giây mới cho phép tải lại để phục hồi. Không F5 trong queue, chọn vé hoặc giữ chỗ.
+- CTA chính đã mở có ưu tiên hơn tiêu đề bán vé cũ. CTA điều hướng chưa phản hồi được thử tối đa 3 lần, cách 1,5 giây; nếu vẫn ở đúng trang sự kiện quá hạn và cho phép tải lại thì F5 để phục hồi. Không áp dụng retry này cho giữ vé/thanh toán.
+- Website vừa vào chọn vé, queue hoặc checkout trong lúc lưu bước được nhận kết quả; F5 chờ sẵn được hủy khi website vừa chuyển trạng thái.
+- Queue có xác minh vẫn giữ phiên; sau khi người dùng hoàn thành xác minh và website cho vào, tool tiếp tục. Không tự giải CAPTCHA.
+- Ưu tiên hết vé dù hạng khác còn vẫn chờ; đọc lại sơ đồ mỗi giây và theo DOM/redraw. Chỉ chọn khi website báo khả dụng trở lại, đúng ID/giá/ưu tiên. Không polling API tồn kho, không tạo vé từ số 0.
+
+Đọc API công khai lúc **13:20:02 Việt Nam, 18/10/2026**: HAI QUÝ - EB, `availableTickets=0`, giá 2.996.000, tối đa 2. Chỉ GET, không đăng nhập hoặc tạo đơn. [Nguồn tồn kho](https://prod.1zone.vn/ticketing/api/v4/ticket-summary/get-summary-event/aAq6NT?type=group&calendarId=8h0YGm).
+
+ZIP: `artifacts/release-0.6.1/Camp-ve-0.6.1.zip`, 228.843 byte; SHA-256 `b79d3bb78c40bd4b4cac401f4153f3d90e496fb761581bc2d1fc888a88f8780c`. Cả ZIP bạn bè và ZIP Store đã khớp 16 hash production; không có file phát triển hoặc script từ xa.
+
+Sau kiểm thử, đã cập nhật `.output/chrome-mv3` bằng đúng 16 file có hash trùng build đã test; bản cũ ở `artifacts/chrome-mv3-backup-0.5.8-f5488fa8`. ZIP và release report cũng có trong `.output`. Không điều khiển hoặc tải lại tab Chrome của người dùng; cần Reload tiện ích và tải lại tab sự kiện trước lượt mới.
+
+Benchmark trên extension đã bật camp trước khi mở giao diện, 12 mẫu sau làm nóng mỗi tình huống, 36 mẫu tổng cộng; không pageerror/click lặp. Đây là fixture cục bộ, không gồm mạng, queue, CAPTCHA hoặc server giữ vé thật.
+
+| Tình huống | Mở CTA → click mua p50 / p95 | Mở giao diện → checkout p50 / p95 |
+|---|---:|---:|
+| DOM, phản hồi tức thì | 9,9 / 17,4 ms | 44,8 / 87,3 ms |
+| DOM, phản hồi mỗi bước 100 ms | 7,0 / 11,6 ms | 252,3 / 281,2 ms |
+| Konva, modal 2 vé, phản hồi tức thì | Không qua CTA | 73,8 / 86,5 ms |
+
+Mẫu gốc có version: `artifacts/camp-benchmark.json`, `artifacts/map-benchmark.json`. E2E còn xác nhận các trường hợp sai giá/nhầm khu/không rõ kết quả giữ vé đều không bấm tiếp. Chưa kiểm chứng checkout đăng nhập trên website thật bằng tài khoản của người dùng.
+
+---
+
+# Lưu trữ kiểm thử 0.6.0 · 18/10/2026
 
 Kiểm tra trên build production ở `artifacts/release-0.6.0/chrome-mv3`. Giữ nguyên 16 file của `.output/chrome-mv3` 0.5.8 đang được Chrome nạp; đã đối chiếu hash trước/sau. Không thay phiên thật của người dùng.
 

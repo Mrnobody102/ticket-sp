@@ -1,3 +1,12 @@
+import { normalize } from '../core/preferences';
+
+export const ONEZONE_BUY_LABEL = /^(mua ve|bat dau mua ve|dat ve|buy tickets?|book tickets?)$/;
+export function isOfficialOnezoneEntry(element: Element, reader: PageReader): boolean {
+  return element.matches('button[data-id="btn-by-ticket"]') && reader.isVisible(element) &&
+    !element.matches(':disabled,[aria-disabled="true"]') && !element.closest('[inert],[aria-disabled="true"]') &&
+    ONEZONE_BUY_LABEL.test(normalize(reader.name(element)));
+}
+
 export interface PageReader {
   isVisible(element: Element): boolean;
   text(element: Element): string;

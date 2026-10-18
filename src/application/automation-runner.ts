@@ -58,13 +58,18 @@ export function createAutomationRunner(options: RunnerOptions) {
         const verified = fresh.automation && decideAutomation(before, fresh.automation.page, config.preferences, Date.now());
         if (!verified || verified.type !== 'STEP' || JSON.stringify(verified.action) !== JSON.stringify(decision.action) ||
             JSON.stringify(verified.progress.chosen) !== JSON.stringify(decision.progress.chosen)) {
-          // Nothing has been clicked yet. The same state machine may prove the
-          // chosen zone became unavailable and permit a bounded selection retry.
-          const recovery = decision.action.kind === 'CHOOSE' && fresh.automation &&
+          // The website may acknowledge a step while persistence is in flight.
+          // Accept only an action-free transition proved by the same state machine.
+          const recovery = fresh.automation &&
             decideAutomation(committed, fresh.automation.page, config.preferences, Date.now());
-          run = await options.transport.commit(committed, recovery && recovery.type === 'STEP' && recovery.progress.phase === 'READY' && !recovery.action
+          // Opening/loading can win the race against a queued F5. Cancel that
+          // refresh and inspect again; it must not interrupt admission or pause it.
+          const cancelRefresh = decision.action.kind === 'RELOAD' && verified &&
+            (verified.type === 'WAIT' || verified.progress.phase !== 'PAUSED');
+          run = await options.transport.commit(committed, recovery && recovery.type === 'STEP' && !recovery.action
             ? recovery.progress
-            : { ...committed.progress, phase: 'PAUSED', message: 'Trang đã đổi trong lúc chuẩn bị thao tác. Kiểm tra rồi bắt đầu lại.' });
+            : cancelRefresh ? before.progress
+              : { ...committed.progress, phase: 'PAUSED', message: 'Trang đã đổi trong lúc chuẩn bị thao tác. Kiểm tra rồi bắt đầu lại.' });
           return;
         }
         fresh.automation!.execute(decision.action);

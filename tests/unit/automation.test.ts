@@ -24,8 +24,8 @@ describe('máy trạng thái camp dùng chung', () => {
     const strict = { ...configured, startMode: undefined };
     expect(decideAutomation({ ...session, preferencesKey: preferencesKey(strict) }, view, strict, now)).toMatchObject({ type: 'WAIT' });
   });
-  it('chỉ kiểm tra trang còn khóa trong phút trước giờ bán; sau click không bị chặn lại bởi giờ', () => {
-    const configured = { ...p, startMode: 'WHEN_AVAILABLE' as const, saleStartAt: new Date(now + 120000).toISOString(), refreshAtSale: true };
+  it('kiểm tra trang còn khóa từ hai phút trước giờ bán; sau click không bị chặn lại bởi giờ', () => {
+    const configured = { ...p, startMode: 'WHEN_AVAILABLE' as const, saleStartAt: new Date(now + 180000).toISOString(), refreshAtSale: true };
     const session = { ...run(), preferencesKey: preferencesKey(configured) };
     const view = page(); view.snapshot.state = 'NOT_READY';
     expect(decideAutomation(session, view, configured, now)).toMatchObject({ type: 'WAIT', wakeAt: now + 60000 });
@@ -35,6 +35,42 @@ describe('máy trạng thái camp dùng chung', () => {
     expect(decideAutomation({ ...session, progress: refresh.progress }, view, configured, now + 60100)).toMatchObject({ type: 'WAIT', wakeAt: now + 62500 });
     view.snapshot.state = 'SELECTING';
     expect(decideAutomation({ ...session, progress: { phase: 'OPENING', message: '', actionAt: now } }, view, configured, now + 1000)).toMatchObject({ progress: { phase: 'READY' } });
+  });
+  it('phút cuối kiểm tra mỗi giây; không F5 cắt ngang trang đang tải', () => {
+    const configured = { ...p, startMode: 'WHEN_AVAILABLE' as const, refreshAtSale: true };
+    const session = { ...run({ lastReleaseReloadAt: now - 45000 }), preferencesKey: preferencesKey(configured) };
+    const view = page(); view.snapshot.state = 'NOT_READY';
+    expect(decideAutomation(session, view, configured, now - 44001)).toMatchObject({ type: 'WAIT', wakeAt: now - 44000 });
+    expect(decideAutomation(session, view, configured, now - 44000)).toMatchObject({ action: { kind: 'RELOAD' } });
+    view.loading = true; view.documentStartedAt = now - 2000;
+    expect(decideAutomation(session, view, configured, now)).toMatchObject({ type: 'WAIT', wakeAt: now + 250 });
+    expect(decideAutomation(session, view, configured, now + 20000)).toMatchObject({ action: { kind: 'RELOAD' } });
+    view.loading = false;
+    expect(decideAutomation(session, view, configured, now)).toMatchObject({ action: { kind: 'RELOAD' } });
+  });
+  it('hạng ưu tiên hết nhưng hạng khác còn: chờ vé trả lại, không mua sai hoặc dừng', () => {
+    const view = page();
+    view.snapshot.visibleOptions = [{ ...vip, displayedAvailability: 'UNAVAILABLE' }, { ...vip, id: 'vvip', label: 'VVIP' }];
+    expect(decideAutomation(run(), view, p, now)).toMatchObject({ type: 'WAIT', wakeAt: now + 1000 });
+    view.snapshot.visibleOptions[0]!.displayedAvailability = 'AVAILABLE';
+    expect(decideAutomation(run(), view, p, now)).toMatchObject({ action: { kind: 'CHOOSE', optionId: 'vip' } });
+    const budget = { ...p, maxTotalVnd: 1000000 };
+    view.snapshot.visibleOptions[0]!.displayedAvailability = 'UNAVAILABLE';
+    expect(decideAutomation({ ...run(), preferencesKey: preferencesKey(budget) }, view, budget, now)).toMatchObject({ progress: { phase: 'PAUSED' } });
+  });
+  it('chỉ thử lại CTA điều hướng đã xác minh; giới hạn 3 lần và không lặp khi tới queue', () => {
+    const view = page({ entryRetrySafe: true, enterCount: 1 }); view.snapshot.state = 'EVENT_PAGE';
+    const current = run({ phase: 'OPENING', actionAt: now - 1500, entryAttempts: 1 });
+    expect(decideAutomation(current, view, p, now)).toMatchObject({ action: { kind: 'ENTER' }, progress: { entryAttempts: 2 } });
+    expect(decideAutomation({ ...current, progress: { ...current.progress, entryAttempts: 3 } }, view, p, now)).not.toHaveProperty('action');
+    const refresh = { ...p, refreshAtSale: true };
+    expect(decideAutomation({ ...current, preferencesKey: preferencesKey(refresh), progress: { ...current.progress, entryAttempts: 3 } }, view, refresh, now + 15000)).toMatchObject({ action: { kind: 'RELOAD' }, progress: { phase: 'READY' } });
+    view.entryRetrySafe = false;
+    expect(decideAutomation(current, view, p, now)).not.toHaveProperty('action');
+    view.entryRetrySafe = true; view.snapshot.state = 'WAITING_ROOM';
+    expect(decideAutomation(current, view, p, now)).toMatchObject({ progress: { phase: 'READY' } });
+    view.snapshot.state = 'CHALLENGE'; view.verificationPending = true;
+    expect(decideAutomation(current, view, p, now)).toMatchObject({ progress: { phase: 'READY' } });
   });
   it('khu hết vé trước khi gửi giữ chỗ: chỉ thử khu khác khi adapter xác nhận an toàn', () => {
     const current = run({ phase: 'CHOOSING', chosen: vip, actionAt: now });

@@ -6,6 +6,38 @@ import type { PlatformInspection } from '../../src/platforms/contracts';
 
 afterEach(() => vi.useRealTimers());
 describe('runner độc lập platform', () => {
+  it.each(['EVENT_PAGE', 'WAITING_ROOM', 'SELECTING'] as const)('website tới %s trong lúc chuẩn bị F5: hủy F5, giữ phiên chạy', async state => {
+    const config: TaskConfig = { schemaVersion: 1, enabled: true, panelVisible: true, preferences: { platform: 'onezone', eventUrl: 'https://ticket.1zone.vn/events/demo', saleStartAt: new Date(0).toISOString(), quantity: 1, preferredZoneLabels: [], allowAlternatives: false, refreshAtSale: true } };
+    const run: AutoRun = { id: 'reload-race', tabId: 1, revision: 0, preferencesKey: preferencesKey(config.preferences!), startedAt: Date.now(), expiresAt: Date.now() + 3600000, progress: { phase: 'READY', message: '' } };
+    const execute = vi.fn();
+    const inspection: PlatformInspection = { snapshot: { url: config.preferences!.eventUrl, state: 'NOT_READY', supported: true, selectionMode: 'UNKNOWN', reason: '', visibleOptions: [] }, optionElements: [] };
+    inspection.automation = { page: { snapshot: inspection.snapshot, enterCount: 1, advanceCount: 0, selectable: [] }, execute };
+    const runner = createAutomationRunner({ initialRun: run, config: () => config, inspect: () => inspection, changed: vi.fn(), transport: {
+      start: async () => run, stop: async () => null, commit: async (previous, progress) => {
+        inspection.snapshot.state = state;
+        return { ...previous, revision: previous.revision + 1, progress };
+      },
+    } });
+    await runner.tick(inspection);
+    expect(runner.run?.progress.phase).toBe('READY');
+    expect(execute).not.toHaveBeenCalled(); runner.destroy();
+  });
+  it.each(['SELECTING', 'WAITING_ROOM', 'CHECKOUT'] as const)('website đã tới %s trong lúc lưu bước: nhận kết quả, không click cũ hoặc tạm dừng', async state => {
+    const config: TaskConfig = { schemaVersion: 1, enabled: true, panelVisible: true, preferences: { platform: 'onezone', eventUrl: 'https://ticket.1zone.vn/events/demo', saleStartAt: new Date(0).toISOString(), quantity: 1, preferredZoneLabels: [], allowAlternatives: false } };
+    const run: AutoRun = { id: 'navigation-race', tabId: 1, revision: 0, preferencesKey: preferencesKey(config.preferences!), startedAt: Date.now(), expiresAt: Date.now() + 3600000, progress: { phase: 'READY', message: '' } };
+    const execute = vi.fn();
+    const inspection: PlatformInspection = { snapshot: { url: config.preferences!.eventUrl, state: 'EVENT_PAGE', supported: true, selectionMode: 'UNKNOWN', reason: '', visibleOptions: [] }, optionElements: [] };
+    inspection.automation = { page: { snapshot: inspection.snapshot, enterCount: 1, advanceCount: 0, selectable: [] }, execute };
+    const runner = createAutomationRunner({ initialRun: run, config: () => config, inspect: () => inspection, changed: vi.fn(), transport: {
+      start: async () => run, stop: async () => null, commit: async (previous, progress) => {
+        inspection.snapshot.state = state;
+        return { ...previous, revision: previous.revision + 1, progress };
+      },
+    } });
+    await runner.tick(inspection);
+    expect(runner.run?.progress.phase).toBe(state === 'CHECKOUT' ? 'CHECKOUT' : 'READY');
+    expect(execute).not.toHaveBeenCalled(); runner.destroy();
+  });
   function controls() {
     const config: TaskConfig = { schemaVersion: 1, enabled: true, panelVisible: true, preferences: { platform: 'onezone', eventUrl: 'https://ticket.1zone.vn/events/demo', saleStartAt: new Date(0).toISOString(), quantity: 1, preferredZoneLabels: [], allowAlternatives: false } };
     const run: AutoRun = { id: 'control-test', tabId: 1, revision: 0, preferencesKey: preferencesKey(config.preferences!), startedAt: Date.now(), expiresAt: Date.now() + 3600000, progress: { phase: 'READY', message: '' } };

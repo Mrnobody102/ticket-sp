@@ -8,7 +8,7 @@ test('đo từ mở CTA tới checkout qua extension production, không gọi we
   const path = resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3');
   const version = JSON.parse(readFileSync(resolve(path, 'manifest.json'), 'utf8')).version as string;
   const context = await chromium.launchPersistentContext('', { channel: 'chromium', headless: true, args: [`--disable-extensions-except=${path}`, `--load-extension=${path}`] });
-  const samples: { delayMs: number; releaseToEnterMs: number; releaseToCheckoutMs: number; saleTimerJitterMs: number; actions: string[] }[] = [];
+  const samples: { delayMs: number; releaseToEnterMs: number; releaseToCheckoutMs: number; actions: string[] }[] = [];
   const errors: string[] = [];
   const url = 'https://ticket.1zone.vn/events/bench-camp?calendarId=HN';
   try {
@@ -33,16 +33,16 @@ test('đo từ mở CTA tới checkout qua extension production, không gọi we
         await worker.evaluate(async () => { await chrome.storage.session.clear(); });
         body = fixture.replace('<div id="ticket-list">', '<h2 id="gate">Sắp mở bán</h2><button data-id="btn-by-ticket" disabled>Sắp mở bán</button><button data-sticky disabled>Sắp mở bán</button><div id="ticket-list" hidden>') + `<script>(${installOnezoneDemo.toString()})(document,{checkoutDelayMs:${delayMs},displayName:'HAI QUÝ 1'})</script>`;
         await page.goto(url);
-        const saleAt = Date.now() + 500;
+        const saleAt = Date.now() + 60000;
         await worker.evaluate(async ({ saleAt, url, startsAt }) => {
           await chrome.storage.local.set({ 'ticket-assistant.config.v1': { schemaVersion: 1, enabled: true, panelVisible: true, preferences: {
-            platform: 'onezone', eventUrl: url, saleStartAt: new Date(saleAt).toISOString(), quantity: 1, preferredZoneLabels: ['HAI QUÝ - EB'], allowAlternatives: false,
+            platform: 'onezone', eventUrl: url, startMode: 'WHEN_AVAILABLE', saleStartAt: new Date(saleAt).toISOString(), quantity: 1, preferredZoneLabels: ['HAI QUÝ - EB'], allowAlternatives: false,
             catalog: { eventId: 'bench-event', performanceId: 'HN', title: 'Diễn tập', venue: 'Cung Thiếu nhi Hà Nội', startsAt, verifiedAt: Date.now(), tickets: [{ id: 'bench-hai', name: 'HAI QUÝ - EB', priceVnd: 2996000, seatMode: 'AUTO', zones: [1, 2].map(index => ({ id: `bench-zone-${index}`, name: `HAI QUÝ ${index}` })) }] },
           } } });
         }, { saleAt, url, startsAt: calendar().startDate });
-        await page.evaluate(({ saleAt, delayMs }) => {
-          const host = window as unknown as { metrics: { releaseAt: number; first: number; checkoutAt: number; jitter: number; actions: string[] } };
-          host.metrics = { releaseAt: 0, first: 0, checkoutAt: 0, jitter: 0, actions: [] };
+        await page.evaluate(({ delayMs }) => {
+          const host = window as unknown as { metrics: { releaseAt: number; first: number; checkoutAt: number; actions: string[] } };
+          host.metrics = { releaseAt: 0, first: 0, checkoutAt: 0, actions: [] };
           new MutationObserver(() => {
             if (!host.metrics.checkoutAt && document.querySelector('#modal-host form')) host.metrics.checkoutAt = performance.now();
           }).observe(document.querySelector('#modal-host')!, { childList: true, subtree: true });
@@ -56,17 +56,21 @@ test('đo từ mở CTA tới checkout qua extension production, không gọi we
             const open = () => { document.querySelector('#gate')!.remove(); document.querySelectorAll('main > button').forEach(e => e.remove()); document.querySelector('#ticket-list')!.removeAttribute('hidden'); };
             if (delayMs) setTimeout(open, delayMs); else open();
           });
-          setTimeout(() => {
-            host.metrics.releaseAt = performance.now(); host.metrics.jitter = Date.now() - saleAt;
+          document.addEventListener('camp-benchmark-release', () => {
+            host.metrics.releaseAt = performance.now();
             document.querySelector('#gate')!.textContent = 'Giới thiệu sự kiện';
             document.querySelectorAll<HTMLButtonElement>('main > button').forEach(e => { e.disabled = false; e.textContent = 'Mua vé'; });
-          }, Math.max(0, saleAt - Date.now()));
-        }, { saleAt, delayMs });
+          }, { once: true });
+        }, { delayMs });
         await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+        // Measure an already armed run. Catalog/startup time belongs before sale,
+        // not inside the reaction-to-opening measurement on a busy machine.
+        await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'READY');
+        await page.evaluate(() => document.dispatchEvent(new Event('camp-benchmark-release')));
         await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
         const observed = await page.evaluate(() => {
-          const m = (window as unknown as { metrics: { releaseAt: number; first: number; checkoutAt: number; jitter: number; actions: string[] } }).metrics;
-          return { releaseToEnterMs: m.first - m.releaseAt, releaseToCheckoutMs: m.checkoutAt - m.releaseAt, saleTimerJitterMs: m.jitter, actions: m.actions };
+          const m = (window as unknown as { metrics: { releaseAt: number; first: number; checkoutAt: number; actions: string[] } }).metrics;
+          return { releaseToEnterMs: m.first - m.releaseAt, releaseToCheckoutMs: m.checkoutAt - m.releaseAt, actions: m.actions };
         });
         expect(observed.releaseToEnterMs).toBeGreaterThanOrEqual(0);
         expect(observed.actions).toEqual(['btn-by-ticket', 'Chọn', 'btn-continue']);
@@ -81,7 +85,7 @@ test('đo từ mở CTA tới checkout qua extension production, không gọi we
       return { simulatedResponseDelayPerStepMs: delayMs, runs: data.length, releaseToEnterP50Ms: percentile(data.map(s => s.releaseToEnterMs), .5), releaseToEnterP95Ms: percentile(data.map(s => s.releaseToEnterMs), .95), releaseToCheckoutP50Ms: percentile(data.map(s => s.releaseToCheckoutMs), .5), releaseToCheckoutP95Ms: percentile(data.map(s => s.releaseToCheckoutMs), .95) };
     });
     mkdirSync('artifacts', { recursive: true });
-    const result = { version, fixture: true, productionExtension: true, browser: context.browser()?.version(), observedAt: new Date().toISOString(), scenarios, samples, errors, limitation: 'No real 1Zone queue, CAPTCHA, network or reservation. Not a live booking guarantee.' };
+    const result = { version, fixture: true, productionExtension: true, armedBeforeRelease: true, browser: context.browser()?.version(), observedAt: new Date().toISOString(), scenarios, samples, errors, limitation: 'No real 1Zone queue, CAPTCHA, network or reservation. Not a live booking guarantee.' };
     writeFileSync('artifacts/camp-benchmark.json', JSON.stringify(result, null, 2));
     console.log(JSON.stringify({ scenarios, errors }));
   } finally { await context.close(); }

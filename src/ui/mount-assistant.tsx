@@ -127,6 +127,7 @@ export function mountAssistant(options: MountOptions) {
     attributeFilter: ['hidden', 'style', 'class', 'aria-hidden', 'aria-disabled', 'disabled', 'readonly', 'aria-readonly', 'aria-label', 'aria-labelledby', 'alt', 'title', 'inert', 'role', 'href', 'min', 'max', 'aria-valuemin', 'aria-valuemax', 'aria-selected', 'aria-checked', 'aria-pressed', 'aria-valuenow', 'checked', 'value', 'data-ticket-class-id', 'data-ticket-type-id', 'data-zone-id', 'data-id'] });
   view.addEventListener('scroll', drawSoon, true);
   view.addEventListener('resize', scheduleEvent);
+  view.addEventListener('load', scheduleEvent);
   view.addEventListener('popstate', scheduleEvent);
   view.addEventListener('hashchange', scheduleEvent);
   document.addEventListener('visibilitychange', scheduleEvent);
@@ -144,6 +145,7 @@ export function mountAssistant(options: MountOptions) {
       runner?.destroy();
       if (frame !== undefined) view.cancelAnimationFrame(frame);
       view.removeEventListener('scroll', drawSoon, true); view.removeEventListener('resize', scheduleEvent);
+      view.removeEventListener('load', scheduleEvent);
       view.removeEventListener('popstate', scheduleEvent); view.removeEventListener('hashchange', scheduleEvent);
       document.removeEventListener('visibilitychange', scheduleEvent);
       document.removeEventListener('input', scheduleEvent, true); document.removeEventListener('change', scheduleEvent, true);

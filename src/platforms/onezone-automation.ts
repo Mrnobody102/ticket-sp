@@ -3,10 +3,11 @@ import { sameOption } from '../core/automation';
 import { isSameEvent, normalize } from '../core/preferences';
 import type { EventPreferences } from '../core/models';
 import type { OnezoneInspection } from './onezone';
-import type { PageReader } from './onezone-dom';
+import { isOfficialOnezoneEntry, ONEZONE_BUY_LABEL, type PageReader } from './onezone-dom';
 import { hasOnezoneVerification, readOnezoneModal } from './onezone-modal';
 import { chooseOnezoneMap, hasMapChoice } from './onezone-map';
 import { readOnezoneAddons } from './onezone-addons';
+import { isOnezoneQueueFor } from './onezone-queue';
 
 interface QuantityBinding {
   model: AutoQuantity;
@@ -25,7 +26,7 @@ export interface AutoBindings {
 }
 export interface AutoInspection { page: AutoPage; bindings: AutoBindings }
 
-const buyLabel = /^(mua ve|bat dau mua ve|dat ve|buy tickets?|book tickets?)$/;
+const buyLabel = ONEZONE_BUY_LABEL;
 const selectLabel = /^(chon|chon ve|chon khu vuc|chon ghe|select|select tickets?)$/;
 // "Thanh toán" / "Xác nhận đơn hàng" are deliberately not navigation commands.
 const nextLabel = /^(tiep tuc|tiep tuc dat ve|tiep tuc mua ve|mua ve|dat ve|den buoc thanh toan|tiep tuc den thanh toan|continue|proceed to checkout)$/;
@@ -85,7 +86,7 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
   const controls = [...document.querySelectorAll<HTMLElement>('button, a[href], input[type="submit"], [role="button"]')].filter(e => enabled(e, reader));
   const candidates = controls.filter(e => buyLabel.test(label(e, reader)) && safeLink(e, p, true));
   // The official hero CTA identifies the event action; the sticky copy has no data-id.
-  const officialEnter = candidates.filter(e => e.matches('button[data-id="btn-by-ticket"]'));
+  const officialEnter = candidates.filter(e => isOfficialOnezoneEntry(e, reader));
   const enter = officialEnter.length === 1 && isSameEvent(snapshot.url, p.eventUrl) ? officialEnter : candidates;
   const advance = controls.filter(e => nextLabel.test(label(e, reader)) && safeLink(e, p, false) && !optionElements.some(entry => entry.element.contains(e)));
   const addons = readOnezoneAddons(document, new URL(snapshot.url), p, progress, reader);
@@ -116,11 +117,16 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
     : /het thoi gian (giu cho|dat ve)|phien (dat ve )?(da )?het han|reservation expired|khong the giu ve|khong the giu cho/.test(headings)
       ? 'Phiên giữ chỗ đã hết hạn hoặc giữ vé thất bại. Kiểm tra trên website.' : undefined;
   return { page: { snapshot, enterCount: enter.length, advanceCount: advance.length, selectable: [...choices.keys()], quantity: quantity?.model, problem,
+    loading: document.readyState !== 'complete',
+    documentStartedAt: document.defaultView?.performance.timeOrigin,
+    entryRetrySafe: snapshot.state === 'EVENT_PAGE' && officialEnter.length === 1 && document.readyState === 'complete' && isSameEvent(snapshot.url, p.eventUrl),
     saleOpen: (snapshot.state === 'EVENT_PAGE' && officialEnter.length === 1 && isSameEvent(snapshot.url, p.eventUrl)) ||
       (snapshot.state === 'SELECTING' && snapshot.supported && (choices.size > 0 || !!modal)),
     selectionRetrySafe: !modal && optionElements.some(entry => hasMapChoice(entry.element, entry.option.id)),
     ...(addons ? { verifiedAddons: true } : {}),
-    ...(modal ? { resumeSelection: modal.entry.option.id, verificationPending: hasOnezoneVerification(document, reader) && !enabled(modal.advance, reader) } : {}) },
+    ...(modal ? { resumeSelection: modal.entry.option.id } : {}),
+    verificationPending: (!!modal && hasOnezoneVerification(document, reader) && !enabled(modal.advance, reader)) ||
+      (snapshot.state === 'CHALLENGE' && isOnezoneQueueFor(snapshot.url, p)) },
     bindings: { enter, advance, choices, quantity, reader, reload: () => document.defaultView!.location.reload(), chooseMap: (element, optionId) => chooseOnezoneMap(element, optionId, p) } };
 }
 

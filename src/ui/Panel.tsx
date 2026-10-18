@@ -41,6 +41,7 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
   const sameEvent = p && isSameTaskPage(snapshot.url, p);
   const running = autoActive(autoRun ?? null);
   const atCheckout = autoRun?.progress.phase === 'CHECKOUT';
+  const waitingForStock = running && autoRun?.progress.phase === 'READY' && snapshot.state === 'SELECTING' && !options.length;
   const routineScreen = sameEvent && snapshot.supported && ['NOT_READY', 'SELECTING', 'EVENT_PAGE'].includes(snapshot.state);
   return <aside className={`assistant ${collapsed ? 'collapsed' : ''}`} aria-label="Trợ lý camp vé">
     <header className="panel-header">
@@ -58,7 +59,7 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
       </div>}
       <div className="panel-body">
         {(onStartAuto || autoRun) && <div className="auto-status" role="status" data-auto-phase={autoRun?.progress.phase} data-auto-pending={autoBusy ? 'true' : 'false'}>
-          <b>{running && snapshot.state === 'CHALLENGE' ? 'Chờ xác minh' : autoRun ? phaseLabels[autoRun.progress.phase] : 'Camp tới thanh toán'}</b>
+          <b>{running && snapshot.state === 'CHALLENGE' ? 'Chờ xác minh' : waitingForStock ? 'Chờ vé ưu tiên' : autoRun ? phaseLabels[autoRun.progress.phase] : 'Camp tới thanh toán'}</b>
           {running && snapshot.state === 'CHALLENGE' ? <p>Hoàn thành xác minh trên website.</p> : autoRun && !['READY', 'CHECKOUT'].includes(autoRun.progress.phase) && <p>{autoRun.progress.message}</p>}
           {autoRun?.progress.checkoutReachedAt && autoRun.progress.selectionStartedAt && <p>Chọn vé → thanh toán: {((autoRun.progress.checkoutReachedAt - autoRun.progress.selectionStartedAt) / 1000).toFixed(2)} giây (phiên này).</p>}
           {onStartAuto && autoRun?.progress.phase !== 'CHECKOUT' && <button className={running ? 'danger-button' : 'primary'} disabled={!p || (autoBusy && !running)} onClick={running ? onStopAuto : onStartAuto}>{running ? 'Dừng camp' : 'Bắt đầu camp'}</button>}
@@ -78,7 +79,7 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
           {options.slice(0, 4).map(({ option, estimatedTotalVnd }, i) => <div className="recommendation" key={option.id}>
             <span className="rank">{i + 1}</span><div><b>{option.label}</b>{option.kind === 'SEAT' ? <small>Ghế cụ thể{option.zoneLabel ? ` · ${option.zoneLabel}` : ''}</small> : option.zoneLabel && <small>{option.zoneLabel}</small>}<small>{estimatedTotalVnd === undefined ? 'Website chưa hiển thị giá rõ ràng' : `${money(estimatedTotalVnd)} / ${p?.quantity} vé · chưa tính phí`}</small></div>
           </div>)}
-        </div> : snapshot.state === 'SELECTING' && <p className="muted">{snapshot.visibleOptions.length > 0 && snapshot.visibleOptions.every(o => o.displayedAvailability === 'UNAVAILABLE') ? 'Các khu ưu tiên hiện không còn vé khả dụng.' : 'Chưa có lựa chọn khớp đủ điều kiện. Kiểm tra hạng vé, giá và số lượng trực tiếp.'}</p>}
+        </div> : snapshot.state === 'SELECTING' && !waitingForStock && <p className="muted">{snapshot.visibleOptions.length > 0 && snapshot.visibleOptions.every(o => o.displayedAvailability === 'UNAVAILABLE') ? 'Các khu ưu tiên hiện không còn vé khả dụng.' : 'Chưa có lựa chọn khớp đủ điều kiện. Kiểm tra hạng vé, giá và số lượng trực tiếp.'}</p>}
         {error && <p role="alert" className="error">{error}</p>}
         {!rehearsal && <details className="panel-tools"><summary>Thao tác khác</summary><div className="panel-actions"><button onClick={onRescan}>Nhận diện lại</button><button onClick={onOpen}>Mở trang vé</button>{onSaveReport && <button onClick={onSaveReport}>Lưu báo cáo</button>}{!autoActive(autoRun ?? null) && <button className="danger-button" disabled={!config.enabled} onClick={onStop}>Tắt công cụ</button>}</div></details>}
         {!rehearsal && !atCheckout && <p className="footnote">{background && autoActive(autoRun ?? null) ? 'Đưa tab vé ra phía trước để tránh chậm giờ.' : 'Giữ tab vé ở phía trước và máy thức.'}</p>}

@@ -56,6 +56,23 @@ test('Konva thật: bỏ khu khóa, chọn GA B đúng class/giá, 2 vé tới c
   await page.screenshot({ path: 'artifacts/konva-checkout.png' });
 });
 
+test('khu ưu tiên hết rồi trả lại: giữ camp, đọc mới Konva không cần reload trang chọn vé', async () => {
+  await booking(false, true);
+  const changeStock = (disabled: boolean) => {
+    const K = (window as unknown as { Konva: { stages: { find(selector: string): { getAttr(name: string): string; setAttr(name: string, value: boolean): void }[] }[] } }).Konva;
+    K.stages[0]!.find('.seat').find(node => node.getAttr('zoneId') === 'ga-b')!.setAttr('disabled', disabled);
+  };
+  await page.evaluate(changeStock, true);
+  await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(page.locator('.auto-status')).toContainText('Chờ vé ưu tiên');
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'READY');
+  await page.evaluate(changeStock, false);
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(page.locator('main form')).toContainText('GA B · 2 vé');
+  await expect(page.locator('main')).toHaveAttribute('data-selections', '1');
+  await expect(page.locator('main')).toHaveAttribute('data-advances', '1');
+});
+
 test('khu vừa bấm đã hết vé trước modal: tự chọn khu khác, không lặp yêu cầu giữ vé', async () => {
   await booking(false, true);
   await page.evaluate(() => {
@@ -108,13 +125,26 @@ test('thẻ giá chỉ ghi tên hạng chung: chọn đúng khu khả dụng r�
   await expect(page.locator('main')).toHaveAttribute('data-advances', '1');
 });
 
-test('giá trên thẻ đã đổi: không chọn khu hoặc bấm tiếp', async () => {
+for (const scope of ['one', 'all'] as const) test(`giá ${scope === 'one' ? 'một khu đổi: chờ khu khác đúng giá' : 'tất cả khu đổi: dừng trước khi chọn'}`, async () => {
   await booking();
-  await page.locator('main p').filter({ hasText: 'đ900.000' }).last().evaluate(p => { p.textContent = 'đ950.000'; });
+  const prices = page.locator('main p').filter({ hasText: 'đ900.000' });
+  if (scope === 'one') await prices.last().evaluate(p => { p.textContent = 'đ950.000'; });
+  else await prices.evaluateAll(items => items.forEach(p => { p.textContent = 'đ950.000'; }));
   await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
-  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'PAUSED');
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', scope === 'one' ? 'READY' : 'PAUSED');
   await expect(page.locator('main')).not.toHaveAttribute('data-selections');
   await expect(page.locator('main')).not.toHaveAttribute('data-advances');
+  if (scope === 'one') {
+    await page.evaluate(() => {
+      const K = (window as unknown as { Konva: { stages: { find(selector: string): { getAttr(name: string): string; setAttr(name: string, value: boolean): void }[]; getLayers(): { draw(): void }[] }[] } }).Konva;
+      K.stages[0]!.find('.seat').find(node => node.getAttr('zoneId') === 'ga-a')!.setAttr('disabled', false);
+      K.stages[0]!.getLayers()[0]!.draw();
+    });
+    await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+    await expect(page.locator('main form')).toContainText('GA A · 2 vé');
+    await expect(page.locator('main')).toHaveAttribute('data-selections', '1');
+    await expect(page.locator('main')).toHaveAttribute('data-advances', '1');
+  }
 });
 
 test('Konva đổi trạng thái khu không đổi DOM: redraw đánh thức camp đang chờ', async () => {

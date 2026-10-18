@@ -14,6 +14,19 @@ beforeEach(() => {
 });
 describe('adapter 1Zone · fixture tổng hợp', () => {
   it.each([
+    ['data-id="btn-by-ticket"', 'EVENT_PAGE'],
+    ['data-id="btn-by-ticket" disabled', 'NOT_READY'],
+    ['data-id="btn-by-ticket" aria-disabled="true"', 'NOT_READY'],
+    ['', 'NOT_READY'],
+  ])('nút mua %s có ưu tiên đúng so với tiêu đề cũ', (attrs, state) => {
+    document.body.innerHTML = `<h1>Sắp mở bán</h1><button ${attrs}>Mua vé</button>`;
+    expect(inspectOnezonePage(document, url).snapshot.state).toBe(state);
+  });
+  it('không chọn giữa hai CTA chính cùng khả dụng', () => {
+    document.body.innerHTML = '<h1>Sắp mở bán</h1><button data-id="btn-by-ticket">Mua vé</button><button data-id="btn-by-ticket">Mua vé</button>';
+    expect(inspectOnezonePage(document, url).snapshot.state).toBe('NOT_READY');
+  });
+  it.each([
     ['zone', 'SELECTING', 'ZONE_ONLY', true], ['assigned', 'SELECTING', 'ASSIGNED_SEAT', true],
     ['seats', 'SELECTING', 'PICK_SEAT', true], ['canvas', 'UNKNOWN', 'PICK_SEAT', false],
     ['waiting', 'WAITING_ROOM', 'UNKNOWN', false], ['challenge', 'CHALLENGE', 'UNKNOWN', false],

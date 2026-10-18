@@ -1,7 +1,7 @@
 import type { EventPreferences, PageSnapshot } from '../core/models';
 import { platformForUrl } from '../core/platform-catalog';
 import { normalize } from '../core/preferences';
-import { createPageReader, type PageReader } from './onezone-dom';
+import { createPageReader, isOfficialOnezoneEntry, type PageReader } from './onezone-dom';
 import { readOptionElements, type OptionElement } from './onezone-options';
 import { readSelectionMode } from './onezone-selection';
 import { hasOnezoneVerification, readOnezoneModal } from './onezone-modal';
@@ -57,6 +57,11 @@ export function inspectOnezonePage(document: Document, url: URL, p?: EventPrefer
     return blocked('CHECKOUT', 'Kiểm tra vé, tổng tiền và hoàn tất thanh toán trên website.');
   }
   if (modal) return finish({ ...base, selectionMode: 'ZONE_ONLY', supported: true, state: 'SELECTING', visibleOptions: [modal.entry.option], reason: 'Đã đọc modal chọn hạng và số lượng của 1Zone.' }, [modal.entry]);
+  // The live official CTA is stronger evidence than a stale sale-status heading.
+  // Queue, verification, checkout and ticket modals have already taken precedence.
+  if (/^\/events\/[^/]+\/?$/.test(url.pathname) && controls.filter(e => isOfficialOnezoneEntry(e, reader)).length === 1) {
+    return finish({ ...base, state: 'EVENT_PAGE', supported: true, reason: 'Website đã mở nút mua vé.' });
+  }
   let selectionMode = readSelectionMode(text);
   const maxMatch = text.match(/(?:toi da|maximum|max\.)\s*0*(\d{1,3})\s*(?:ve|tickets)/);
   const maxQuantity = maxMatch ? Number(maxMatch[1]) : undefined;

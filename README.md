@@ -4,7 +4,7 @@ Chrome Extension MV3 trên máy tính, mặc định **1 vé**, ngân sách khô
 
 Adapter đối chiếu tên/ID/giá, khu trong modal, số lượng và lựa chọn đã được website xác nhận. Dữ liệu mâu thuẫn hoặc renderer chưa hỗ trợ thì dừng. `snapshot.state` là trạng thái nội bộ, không phải text nguyên văn trên website.
 
-**0.6.0** thêm chế độ **Theo giờ và khi web mở**: phản ứng với nút mua đã xác minh, kiểm tra trang chưa cập nhật trong phút trước giờ hẹn và tiếp tục khi mở bán trễ. Hỗ trợ phòng chờ queue.1zone.vn; bấm camp ở tab mới để chuyển phiên chưa chọn vé sang. Khu vừa hết vé trước giữ chỗ được thử lại có giới hạn; không gửi lại yêu cầu giữ vé chưa rõ kết quả. **Lưu cấu hình** mới áp dụng thay đổi. [Cách đánh giá lượt chạy thật](docs/SAN_SANG_MO_BAN.md#đánh-giá-lượt-chạy-thật).
+**0.6.1**: chế độ **Theo giờ và khi web mở** tải lại trang chưa mở bán từ 2 phút trước giờ hẹn, mỗi giây trong phút cuối khi trang đã tải xong. Nút mua đã mở được ưu tiên dù tiêu đề trạng thái còn cũ; hủy F5 nếu website vừa chuyển bước. Không F5 phòng chờ hoặc trang đang chọn/giữ vé. Xác minh ở đúng queue.1zone.vn giữ phiên chạy để tiếp tục sau khi website cho vào. Hạng ưu tiên hết vé thì chờ thay đổi trên sơ đồ, không tự mua hạng khác. Khu vừa hết vé trước giữ chỗ được thử lại có giới hạn; không gửi lại yêu cầu giữ vé chưa rõ kết quả. **Lưu cấu hình** mới áp dụng thay đổi. [Cách đánh giá lượt chạy thật](docs/SAN_SANG_MO_BAN.md#đánh-giá-lượt-chạy-thật).
 
 Đóng popup vẫn camp; giữ tab vé ở phía trước và máy thức. Không hỗ trợ Chrome điện thoại. Phiên tự dừng ở checkout, tạm dừng khi cần xử lý, hoặc hết hạn một giờ sau mốc muộn hơn giữa lúc bật và giờ bán. Xem [chuẩn bị trước giờ bán](docs/SAN_SANG_MO_BAN.md).
 
@@ -12,9 +12,9 @@ Adapter đối chiếu tên/ID/giá, khu trong modal, số lượng và lựa ch
 
 ## Cài bản gửi bạn bè
 
-Nhận **`Camp-ve-0.6.0.zip`**, giải nén và mở **`BAT-DAU.html`**. Trong Chrome → `chrome://extensions` → Developer mode → Load unpacked, chọn thư mục **`tien-ich`**. Không cần source, Node.js hoặc npm. Mỗi người tự đăng nhập website trên Chrome của mình.
+Nhận **`Camp-ve-0.6.1.zip`**, giải nén và mở **`BAT-DAU.html`**. Trong Chrome → `chrome://extensions` → Developer mode → Load unpacked, chọn thư mục **`tien-ich`**. Không cần source, Node.js hoặc npm. Mỗi người tự đăng nhập website trên Chrome của mình.
 
-Bản 0.6.0 của lượt rà soát này nằm ở `artifacts/release-0.6.0/Camp-ve-0.6.0.zip`. Build được tách riêng để giữ nguyên `.output/chrome-mv3` 0.5.8 đang nạp trong Chrome; chỉ Reload thư mục cũ sẽ chưa nhận bản mới. Dừng phiên cũ trước khi đổi sang bản mới.
+Bản gửi bạn bè nằm ở `.output/Camp-ve-0.6.1.zip`. `.output/chrome-mv3` đã được cập nhật bằng đúng 16 file production đã kiểm thử ở `artifacts/release-0.6.1`; bản 0.5.8 trước đó được sao lưu trong artifacts. Dừng phiên cũ, Reload tiện ích rồi tải lại tab sự kiện trước lượt mới; không cần nạp thêm tiện ích trùng.
 
 Mở tool → **Diễn tập** → chọn số vé → **Chạy thử**. Kết quả cần thấy: **Đã tới thanh toán** và đúng số vé. **Làm lại** đặt lại bài thử; các màn queue/CAPTCHA/canvas nằm trong phần kiểm tra riêng.
 
@@ -34,7 +34,7 @@ npm run build
 3. Ghim icon **Camp vé**. Sau mỗi lần build/reload extension, tải lại tab website.
 4. **Diễn tập** → chọn số vé → **Chạy thử**.
 
-`npm run zip` tạo `.output/ticket-sp-0.6.0-chrome.zip`. Git chỉ lưu source/lockfile, không lưu output hay dữ liệu test.
+`npm run zip` tạo `.output/ticket-sp-0.6.1-chrome.zip`. Git chỉ lưu source/lockfile, không lưu output hay dữ liệu test.
 
 ### Tạo bản phát hành · dành cho người phát triển
 
@@ -42,7 +42,7 @@ npm run build
 npm run release
 ```
 
-Hoặc chạy workflow **Build tested extension** trong GitHub Actions. Đầu ra gồm **`.output/Camp-ve-0.6.0.zip`** để gửi, ZIP riêng để upload Web Store, `SHA256SUMS.txt` và `release.json`. Không gửi repo hoặc yêu cầu người nhận chạy lệnh build. Hướng dẫn cũng có trong menu tool. [Nội dung chuẩn bị Web Store](docs/WEB_STORE.md).
+Hoặc chạy workflow **Build tested extension** trong GitHub Actions. Đầu ra gồm **`.output/Camp-ve-0.6.1.zip`** để gửi, ZIP riêng để upload Web Store, `SHA256SUMS.txt` và `release.json`. Không gửi repo hoặc yêu cầu người nhận chạy lệnh build. Hướng dẫn cũng có trong menu tool. [Nội dung chuẩn bị Web Store](docs/WEB_STORE.md).
 
 ### Cập nhật khi đang nạp `.output/chrome-mv3`
 
@@ -50,7 +50,7 @@ Build mới chỉ thay file trên đĩa; Chrome có thể vẫn chạy tiến tr
 
 1. Đóng popup và tab cấu hình cũ. Mở `chrome://extensions`.
 2. Ở **Camp vé · 1Zone Assistant**, bấm biểu tượng **Tải lại / Reload**.
-3. **Tải lại tab 1Zone** để thay content script cũ. Mở lại tiện ích, kiểm tra **v0.6.0** ở cửa sổ cấu hình và bảng camp trên tab vé.
+3. **Tải lại tab 1Zone** để thay content script cũ. Mở lại tiện ích, kiểm tra **v0.6.1** ở cửa sổ cấu hình và bảng camp trên tab vé.
 4. Tải lại hạng vé, chọn ưu tiên và lưu lại để nhận đầy đủ các khu của từng hạng. Bản cũ chỉ lưu một tên khu đại diện.
 
 Không cần tải ZIP nếu Chrome đang nạp trực tiếp `.output/chrome-mv3` của project này. Nếu nạp thư mục giải nén ZIP ở nơi khác, cập nhật đầy đủ các file trong chính thư mục đó rồi Reload.
