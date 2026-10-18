@@ -1,5 +1,21 @@
 # Khảo sát case 1Zone và ý nghĩa với tool
 
+## Kiểm tra show đang mở bán · 18/10/2026
+
+`node scripts/audit-open-shows.mjs` dùng profile Chromium mới, catalog parser và bộ đọc DOM của production. Đọc API bằng GET ẩn danh, nhận diện CTA và bấm nút chính vào mua đúng một lần. Chặn các request khác GET/HEAD/OPTIONS; không bật runner, chọn hạng hoặc bấm Tiếp tục. Không thay cấu hình Hà Nội của người dùng.
+
+| Show | API tại lần kiểm tra | Bộ đọc DOM trước khi vào mua | Sau khi bấm CTA chính |
+|---|---|---|---|
+| [Lavender – Đan Trường](https://ticket.1zone.vn/events/lavender-flower-50-nam-cuoc-doi?calendarId=UlSY5H) | OPEN, 7 hạng, seatMode AUTO | EVENT_PAGE, 1 CTA chính | `account.1zone.vn/login` |
+| [Trúc Nhân – Tân Mùi](https://ticket.1zone.vn/events/truc-nhan-tan-mui) | OPEN, 4 hạng, AUTO/UNKNOWN tùy hạng | EVENT_PAGE, 1 CTA chính | `account.1zone.vn/login` |
+| [Sky Melody – Lời Chưa Kịp Nói](https://ticket.1zone.vn/events/loi-chua-kip-noi) | OPEN, 6 hạng, AUTO | SELECTING: đọc được 4 thẻ có thể chọn ngay trên trang event; 1 CTA chính | `account.1zone.vn/login` |
+
+Không có pageerror trong ba ca. Các request POST bị chặn đều là analytics; không quan sát request tạo giỏ/giữ vé. Kết quả có timestamp, hạng/giá, snapshot và ảnh ở `artifacts/open-shows/`. Trạng thái OPEN không chứng minh còn vé tại lúc đọc hoặc đã đặt được.
+
+**Chưa đi tới checkout thật:** cả ba yêu cầu đăng nhập. Cần một lượt trong trình duyệt đã đăng nhập để đối chiếu modal, lựa chọn/giá/số lượng, request giữ vé và checkout. Lavender cùng địa điểm Cung Thiếu nhi và metadata AUTO nên là một case bổ sung hữu ích; bố trí và renderer vẫn có thể khác show Hà Nội. Không suy từ việc qua một show rằng mọi renderer được hỗ trợ.
+
+Trên máy người dùng: chọn show thử, 1 vé và giờ đã tới, Lưu → Bắt đầu camp; kiểm tra đơn rồi Lưu báo cáo trước khi Dừng/chạy lại. Đây có thể là lượt giữ vé thật; tool dừng trước thanh toán cuối, Dừng camp không hủy chỗ do server giữ. Không dùng preset Hà Nội để chạy show khác.
+
 > Ngày đối chiếu: 17/10/2026. Mục tiêu người dùng là **Vương Bình tại Hà Nội**, 1–2 vé, không đặt trần ngân sách. URL TP.HCM và sơ đồ sự kiện khác dùng để nghiên cứu; không tự lưu chúng thành cấu hình mua vé.
 
 > **Cập nhật 18/10/2026, bản 0.3.0:** API tìm kiếm đã trả [Vương Bình Mâm 2 tại Hà Nội](https://ticket.1zone.vn/events/vuong-binh-tiec-thanh-than-mam-2?calendarId=8h0YGm), event `aAq6NT`, suất `8h0YGm`, tại Cung Thiếu nhi Hà Nội. Đã đọc hạng `HAI QUÝ - EB`, `BA THƯƠNG - EB`, `TƯ MẾN - EB`, `ÚT CƯNG - EB`; metadata ghi giờ diễn 11:00 ngày 21/11/2026, **chưa xác minh giờ mở bán**. Xem [nghiên cứu API](NGHIEN_CUU_API.md) cho giá, giới hạn và phạm vi tích hợp. Các mục khảo sát DOM dưới đây ghi lại lần quan sát trước đó.

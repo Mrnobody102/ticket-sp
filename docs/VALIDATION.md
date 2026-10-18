@@ -19,6 +19,7 @@ Windows, Node.js 22.11.0, npm 10.9.0; WXT 0.21.4, Vite 6.4.4, Vitest 4.1.12; Chr
 | Mâu thuẫn sau khi chọn | PASS E2E modal sai class ID và hai khu cùng selected: tạm dừng trước ADVANCE, 0 click Tiếp tục; unit giữ đúng trường hợp ghế A1 có class/zone hợp lệ |
 | `npm run smoke:catalog` ở 0.5.2 | Tham chiếu API thật 1Zone Hà Nội 4 hạng, HAI QUÝ 2 khu, ÚT CƯNG 6 khu và max=2; Ticketbox 11 hạng; không lưu cấu hình/bật camp. Parser catalog không thay trong 0.5.3–0.5.5 |
 | `node scripts/smoke-live.mjs <link-Hà-Nội>` | PASS trên đúng trang công khai `8h0YGm`: chưa mở bán, đúng 1 bảng camp, 0 pageerror; không bật camp hoặc bấm mua |
+| `node scripts/audit-open-shows.mjs` | 3 show OPEN: Lavender 7 hạng, Trúc Nhân 4, Lời Chưa Kịp Nói 6; production parser/reader nhận 1 CTA chính, bấm một lần đều tới đăng nhập, 0 pageerror. Chặn request ghi; không chọn/giữ vé hoặc xác nhận checkout. Chi tiết [khảo sát](KHAO_SAT_1ZONE.md) |
 
 SHA-256 ZIP bạn bè: `a4ba18061069bb3964bb5e20b5b8894033c91c53420126de4be43771b0bac1bb`. Báo cáo từng file ở `.output/release.json`. 0.5.3 thêm kiểm tra khớp tên/ID, modal hợp lệ và chỉ một lựa chọn selected; 0.5.4 siết phân loại checkout; 0.5.5 xuất báo cáo theo yêu cầu, cập nhật observer và bỏ đồng hồ chờ/lời nhắc tab ở checkout, hiển thị hạng đã chọn. Không thêm network request hoặc sleep vào các bước chọn vé.
 
