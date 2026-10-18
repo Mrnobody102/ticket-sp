@@ -82,6 +82,53 @@ test('tìm → chọn đúng hạng/giá → lưu ID → camp tới checkout v�
   expect(log).toHaveLength(5); // search, detail, tiers, and fresh detail+tiers before arming.
 });
 
+for (const state of ['event', 'booking'] as const) test(`mở sẵn ${state} trước cấu hình: popup dùng đúng tab/suất, không mở trùng, tới checkout một lần`, async () => {
+  const target = catalogUrl + '?calendarId=HN';
+  const booking = target.replace('/events/', '/booking/');
+  const bookingBody = readFileSync('fixtures/booking.html', 'utf8') + `<script>(${installBookingDemo.toString()})(document)</script>`;
+  const eventBody = '<!doctype html><html lang="vi"><head><meta charset="utf-8"></head><body><main><h1>Sắp mở bán</h1><button data-id="btn-by-ticket" disabled>Sắp mở bán</button></main></body></html>';
+  await context.route(/^https:\/\/ticket\.1zone\.vn\//, route => route.fulfill({ contentType: 'text/html', body: new URL(route.request().url()).pathname.startsWith('/booking/') ? bookingBody : eventBody }));
+  // A tab of the same event but another calendar must never receive this run.
+  const other = await context.newPage(); await other.goto(catalogUrl + '?calendarId=OTHER');
+  const existing = await context.newPage(); await existing.goto(state === 'event' ? target : booking);
+  await expect(existing.locator('[data-ticket-assistant]')).toHaveCount(1);
+  const tabId = await worker.evaluate(async url => (await chrome.tabs.query({ url: 'https://ticket.1zone.vn/*' })).find(tab => tab.url === url)!.id!, existing.url());
+  const page = await context.newPage(); await page.goto(`chrome-extension://${extensionId}/popup.html`);
+  await selectEvent(page);
+  const pageCount = context.pages().length;
+  const actions: string[] = [];
+  await context.exposeBinding('recordBookingAction', (_source, label: string) => { actions.push(label); });
+  const audit = () => document.addEventListener('click', event => {
+    const button = (event.target as HTMLElement).closest('main button');
+    if (button) void (window as unknown as { recordBookingAction(label: string): Promise<void> }).recordBookingAction(button.textContent ?? '');
+  }, true);
+  await context.addInitScript(audit);
+  await existing.evaluate(audit);
+  if (state === 'event') {
+    await existing.evaluate(url => {
+      document.querySelector('main button')!.addEventListener('click', () => { location.href = url; });
+    }, booking);
+  }
+  await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  if (state === 'event') {
+    await expect(existing.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'READY');
+    await expect(existing).toHaveURL(target);
+    await existing.evaluate(() => {
+      document.querySelector('main h1')!.textContent = 'Giới thiệu sự kiện';
+      const button = document.querySelector<HTMLButtonElement>('[data-id="btn-by-ticket"]')!;
+      button.textContent = 'Mua vé'; button.disabled = false;
+    });
+  }
+  await expect(existing.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(existing.locator('main form')).toContainText('VIP · 1 vé');
+  const run = await worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1']);
+  expect(run.tabId).toBe(tabId);
+  expect(context.pages()).toHaveLength(pageCount);
+  await expect(other).toHaveURL(catalogUrl + '?calendarId=OTHER');
+  await expect(other.getByRole('button', { name: 'Dừng camp', exact: true })).toHaveCount(0);
+  await expect.poll(() => actions).toEqual(state === 'event' ? ['Mua vé', 'Chọn', 'Tiếp tục'] : ['Chọn', 'Tiếp tục']);
+});
+
 test('giá đổi trước khi bật camp: dừng trước khi mở/giữ vé', async () => {
   const page = await workspace(); await selectEvent(page);
   const mocks = defaults(); mocks[2]!.body = ticketReply([{ ...ticketData, finalPriceVn: 1300000 }]); await mockCatalog(mocks);

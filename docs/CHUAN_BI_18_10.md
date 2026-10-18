@@ -12,6 +12,10 @@ Phiên hết hạn sau một giờ tính từ mốc muộn hơn giữa lúc bậ
 
 ## Thiết bị và tab
 
+Mở sẵn trang sự kiện hoặc trang chọn vé rồi vào popup Bắt đầu camp được hỗ trợ. Tool tìm tab khớp cả sự kiện và calendarId, xác nhận content script cùng bản rồi dùng lại tab đó; chỉ tạo tab khi chưa có tab khớp. Hai E2E mở website trước cả lúc lưu cấu hình đã kiểm tra đúng tab/suất, không mở trùng, mua/chọn/tiếp tục đúng một lần và không bấm thanh toán cuối.
+
+Nếu bảng đang ghi Đã bật camp, đúng 12:00 ngày 18/10 và đúng hạng/số vé thì giữ phiên đó, không cần dừng hoặc Reload để bắt đầu lại. Sau khi vừa cập nhật extension, tab cũ cần tải lại trước khi bật; handshake sẽ báo nếu tab chưa có bản tương thích. Nên chỉ giữ một tab của suất đang camp để dễ theo dõi.
+
 Dùng Chrome trên máy tính; bản hiện tại được kiểm thử trên Windows/Chromium. Chrome điện thoại không cài extension này, kể cả bật giao diện desktop. [Google xác nhận giới hạn mobile](https://support.google.com/chrome_webstore/answer/1698338?hl=en).
 
 Giữ tab vé ở phía trước, máy cắm điện/không ngủ và mạng ổn định. Không chỉ để Chrome mở rồi chuyển tab cả buổi: browser có thể giảm nhịp timer của tab nền hoặc đóng băng tab. [Giải thích của Chrome](https://developer.chrome.com/blog/timer-throttling-in-chrome-88). Việc ẩn panel khác với đưa cả tab ra nền; ẩn panel vẫn giữ runner hoạt động.

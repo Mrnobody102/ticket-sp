@@ -7,7 +7,8 @@ Windows, Node.js 22.11.0, npm 10.9.0; WXT 0.21.4, Vite 6.4.4, Vitest 4.1.12; Chr
 | Lệnh | Kết quả |
 |---|---|
 | `npm run check` | PASS: TypeScript strict/noUnused, 185 unit tests / 17 files, build production; typecheck chạy lại sau sửa harness E2E |
-| E2E | 35 ca khác nhau đã qua: 9 catalog, 19 extension/diễn tập, 7 runtime. Lượt đủ bộ qua 34 ca; sau sửa harness nâng cấp, chạy lại toàn bộ runtime qua 7/7 |
+| E2E | 37 ca khác nhau đã qua: 11 catalog, 19 extension/diễn tập, 7 runtime. Lượt đủ bộ qua 34 ca; sau sửa harness nâng cấp, runtime qua 7/7; bổ sung hai ca mở tab trước cấu hình |
+| Mở trang trước khi bật từ popup | PASS cả event còn khóa và booking đã hiện vé: khớp calendarId dù có tab cùng event/suất khác, session giữ đúng tab ID, không tạo tab trùng, tới checkout 1 vé; mỗi bước chỉ click một lần và không bấm thanh toán cuối |
 | `npm run release` | PASS: ZIP bạn bè 214.231 byte, ZIP Store 209.846 byte; manifest/tài nguyên/cú pháp JS qua validator; 15 file production trong mỗi gói khớp SHA-256 output |
 | `node scripts/prepare-store.mjs --extension=artifacts/share-install-0.5.2-0724c860/tien-ich` | PASS từ chính ZIP cuối: diễn tập 2 vé tới checkout, 0 pageerror, 0 HTTP request; 2 ảnh 1280×800 |
 | Đính chính ngày bán | Unit giữ giờ tùy chỉnh/suất khác; E2E nâng phiên bản bằng profile lưu thật xác nhận 19/10 → 18/10 12:00, giữ ÚT CƯNG và 2 vé, không tự tạo phiên camp |
