@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { PageSnapshot, TaskConfig, WorkflowState } from '../core/models';
 import { countdown, isSameTaskPage, money } from '../core/preferences';
 import type { Recommendation } from '../core/workflow';
-import { autoActive, type AutoPhase, type AutoRun } from '../core/automation';
+import { autoActive, hasUnresolvedReservation, type AutoPhase, type AutoRun } from '../core/automation';
 import { EXTENSION_VERSION } from '../infrastructure/extension-runtime';
 
 const stateLabels: Record<WorkflowState, string> = {
@@ -41,6 +41,7 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
   const sameEvent = p && isSameTaskPage(snapshot.url, p);
   const running = autoActive(autoRun ?? null);
   const atCheckout = autoRun?.progress.phase === 'CHECKOUT';
+  const uncertain = !running && hasUnresolvedReservation(autoRun);
   const waitingForStock = running && autoRun?.progress.phase === 'READY' && snapshot.state === 'SELECTING' && !options.length;
   const routineScreen = sameEvent && snapshot.supported && ['NOT_READY', 'SELECTING', 'EVENT_PAGE'].includes(snapshot.state);
   return <aside className={`assistant ${collapsed ? 'collapsed' : ''}`} aria-label="Trợ lý camp vé">
@@ -62,7 +63,7 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
           <b>{running && snapshot.state === 'CHALLENGE' ? 'Chờ xác minh' : waitingForStock ? 'Chờ vé ưu tiên' : autoRun ? phaseLabels[autoRun.progress.phase] : 'Camp tới thanh toán'}</b>
           {running && snapshot.state === 'CHALLENGE' ? <p>Hoàn thành xác minh trên website.</p> : autoRun && !['READY', 'CHECKOUT'].includes(autoRun.progress.phase) && <p>{autoRun.progress.message}</p>}
           {autoRun?.progress.checkoutReachedAt && autoRun.progress.selectionStartedAt && <p>Chọn vé → thanh toán: {((autoRun.progress.checkoutReachedAt - autoRun.progress.selectionStartedAt) / 1000).toFixed(2)} giây (phiên này).</p>}
-          {onStartAuto && autoRun?.progress.phase !== 'CHECKOUT' && <button className={running ? 'danger-button' : 'primary'} disabled={!p || (autoBusy && !running)} onClick={running ? onStopAuto : onStartAuto}>{running ? 'Dừng camp' : 'Bắt đầu camp'}</button>}
+          {onStartAuto && autoRun?.progress.phase !== 'CHECKOUT' && <button className={running ? 'danger-button' : 'primary'} disabled={!p || (autoBusy && !running)} onClick={running ? onStopAuto : uncertain ? onRescan : onStartAuto}>{running ? 'Dừng camp' : uncertain ? 'Nhận diện lại' : 'Bắt đầu camp'}</button>}
         </div>}
         {!rehearsal && <p className={`event-match ${sameEvent ? 'ok' : ''}`}>{sameEvent ? 'Đúng link / suất đã lưu' : 'Chưa khớp sự kiện đã lưu'}</p>}
         {!rehearsal && !(running && (routineScreen || snapshot.state === 'CHALLENGE')) &&

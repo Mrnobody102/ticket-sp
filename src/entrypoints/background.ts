@@ -4,7 +4,7 @@ import { CONFIG_KEY, repository } from '../infrastructure/storage';
 import { validatePreferences } from '../core/preferences';
 import { reconcileReminder, SALE_ALARM } from '../infrastructure/reminders';
 import type { AutoCommand } from '../infrastructure/automation-messages';
-import { handleAutoCommand, readAutoRun, reconcileAutoRun, stopAutoRun } from '../infrastructure/automation-service';
+import { ensureNoUnresolvedReservation, handleAutoCommand, readAutoRun, reconcileAutoRun, stopAutoRun } from '../infrastructure/automation-service';
 import { openEventTab } from '../infrastructure/event-tab';
 import { handleCatalogCommand, type CatalogCommand } from '../infrastructure/catalog-service';
 import { RUNTIME_INFO } from '../infrastructure/extension-runtime';
@@ -49,6 +49,7 @@ export default defineBackground(() => {
       let config = await repository.load();
       switch (command.type) {
         case 'SAVE':
+          await ensureNoUnresolvedReservation();
           config = { ...config, preferences: validatePreferences(command.preferences), enabled: true };
           await stopAutoRun();
           await repository.save(config); break;

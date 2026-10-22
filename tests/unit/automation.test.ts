@@ -12,6 +12,32 @@ function page(patch: Partial<AutoPage> = {}): AutoPage {
   return { snapshot: { url: p.eventUrl, state: 'SELECTING', selectionMode: 'ZONE_ONLY', supported: true, reason: '', visibleOptions: [vip], maxQuantity: 2 }, enterCount: 0, advanceCount: 1, selectable: ['vip'], quantity: { value: 1, min: 1, max: 2, writable: true, stepper: false }, ...patch };
 }
 describe('máy trạng thái camp dùng chung', () => {
+  it.each(['READY', 'OPENING'] as const)('sơ đồ đã biết tải chậm: %s vẫn chờ sau 15 giây, không F5', phase => {
+    const view = page({ selectionPending: true }); view.snapshot.state = 'UNKNOWN'; view.snapshot.supported = false;
+    const current = run({ phase, actionAt: now - 60000 });
+    expect(decideAutomation(current, view, p, now)).toMatchObject({ type: 'WAIT', wakeAt: now + 1000 });
+    view.selectionPending = false; view.snapshot.unsupportedVariant = true;
+    expect(decideAutomation(current, view, p, now)).toMatchObject({ progress: { phase: 'PAUSED' } });
+  });
+  it('kết quả giữ vé tới muộn vẫn được nhận sau timeout, không bấm lại hoặc bỏ dấu giữ vé', () => {
+    const current = run({ phase: 'PAUSED', reservationAttemptedAt: now - 20000, chosen: vip });
+    current.expiresAt = now - 1;
+    const view = page(); view.snapshot.state = 'CHECKOUT'; view.snapshot.url = 'https://ticket.1zone.vn/checkout/order';
+    expect(decideAutomation(current, view, p, now)).toMatchObject({ progress: { phase: 'CHECKOUT', reservationAttemptedAt: now - 20000 } });
+    expect(decideAutomation(current, view, p, now)).not.toHaveProperty('action');
+    view.snapshot.url = 'https://other.test/checkout';
+    expect(decideAutomation(current, view, p, now)).toEqual({ type: 'WAIT' });
+    view.snapshot.url = 'https://ticket.1zone.vn/checkout/order';
+    expect(decideAutomation(run({ phase: 'PAUSED' }), view, p, now)).toEqual({ type: 'WAIT' });
+  });
+  it('đánh dấu yêu cầu giữ vé trước Tiếp tục; timeout không gửi lại', () => {
+    const view = page(); view.snapshot.visibleOptions = [{ ...vip, selected: true }];
+    const step = decideAutomation(run({ phase: 'QUANTITY', chosen: vip }), view, p, now);
+    expect(step).toMatchObject({ action: { kind: 'ADVANCE' }, progress: { reservationAttemptedAt: now } });
+    if (step.type !== 'STEP') throw new Error('Expected hold attempt');
+    expect(decideAutomation(run(step.progress), view, p, now + 16000)).toMatchObject({ progress: { phase: 'PAUSED', reservationAttemptedAt: now } });
+    expect(decideAutomation(run(step.progress), view, p, now + 16000)).not.toHaveProperty('action');
+  });
   it('chế độ theo web: nút mua đã xác minh mở sớm thì vào ngay; nhãn chung không đủ', () => {
     const configured = { ...p, startMode: 'WHEN_AVAILABLE' as const, saleStartAt: new Date(now + 120000).toISOString() };
     const session = { ...run(), preferencesKey: preferencesKey(configured) };
@@ -79,7 +105,11 @@ describe('máy trạng thái camp dùng chung', () => {
     view.selectionRetrySafe = false;
     expect(decideAutomation(current, view, p, now)).toMatchObject({ type: 'WAIT' });
     view.selectionRetrySafe = true;
-    expect(decideAutomation({ ...current, progress: { ...current.progress, selectionRetries: 5 } }, view, p, now)).toMatchObject({ progress: { phase: 'PAUSED' } });
+    const cooldown = decideAutomation({ ...current, progress: { ...current.progress, selectionRetries: 5 } }, view, p, now);
+    expect(cooldown).toMatchObject({ progress: { phase: 'READY', selectionRetries: 0, selectionRetryUntil: now + 1000 } });
+    if (cooldown.type !== 'STEP') throw new Error('Expected cooldown');
+    expect(decideAutomation(run(cooldown.progress), page(), p, now + 999)).toMatchObject({ type: 'WAIT', wakeAt: now + 1000 });
+    expect(decideAutomation(run(cooldown.progress), page(), p, now + 1000)).toMatchObject({ action: { kind: 'CHOOSE' } });
     expect(decideAutomation({ ...current, progress: { ...current.progress, phase: 'ADVANCING' } }, view, p, now)).toMatchObject({ type: 'WAIT' });
   });
   it('chỉ tiếp tục bước mua kèm đã xác minh một lần trong phiên đang chuyển checkout', () => {

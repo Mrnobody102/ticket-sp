@@ -1,4 +1,4 @@
-import { autoActive, decideAutomation, preferencesKey, SelectionUnavailableError, type AutoProgress, type AutoRun } from '../core/automation';
+import { autoWatching, decideAutomation, preferencesKey, retryUnavailableSelection, SelectionUnavailableError, type AutoProgress, type AutoRun } from '../core/automation';
 import type { TaskConfig } from '../core/models';
 import type { PlatformInspection } from '../platforms/contracts';
 
@@ -35,7 +35,7 @@ export function createAutomationRunner(options: RunnerOptions) {
     if (!disposed) options.changed();
   }
   async function tick(inspection: PlatformInspection) {
-    if (busy || disposed || !run || !autoActive(run) || !options.config().enabled) return;
+    if (busy || disposed || !run || !autoWatching(run) || !options.config().enabled) return;
     const p = options.config().preferences;
     if (!p || !inspection.automation) return;
     const before = run;
@@ -77,9 +77,9 @@ export function createAutomationRunner(options: RunnerOptions) {
     } catch (error) {
       if (run && run.id === before.id) {
         const current = run;
-        const retry = error instanceof SelectionUnavailableError && decision.action?.kind === 'CHOOSE' && (current.progress.selectionRetries ?? 0) < 5;
+        const retry = error instanceof SelectionUnavailableError && decision.action?.kind === 'CHOOSE';
         const progress: AutoProgress = retry
-          ? { ...current.progress, phase: 'READY', chosen: undefined, actionAt: undefined, selectionRetries: (current.progress.selectionRetries ?? 0) + 1, message: 'Khu vừa chọn hết vé. Đang tìm khu khác đúng ưu tiên.' }
+          ? retryUnavailableSelection(current.progress, Date.now())
           : { ...current.progress, phase: 'PAUSED', message: error instanceof Error ? error.message : 'Camp bị gián đoạn. Kiểm tra trang.' };
         try { run = await options.transport.commit(current, progress); }
         catch { run = { ...current, progress }; }

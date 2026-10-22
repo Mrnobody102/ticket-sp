@@ -1,4 +1,4 @@
-import { allowsAutoTransition, AUTO_TIMING, autoActive, isAutoProgress, preferencesKey, type AutoRun } from '../core/automation';
+import { allowsAutoTransition, AUTO_TIMING, autoActive, hasUnresolvedReservation, isAutoProgress, preferencesKey, type AutoRun } from '../core/automation';
 import { isSameTaskPage } from '../core/preferences';
 import type { AutoCommand } from './automation-messages';
 import { openEventTab } from './event-tab';
@@ -24,6 +24,9 @@ async function writeAutoRun(run: AutoRun | null, previous?: AutoRun | null) {
 export async function stopAutoRun(): Promise<void> {
   const run = await readAutoRun();
   if (run) await writeAutoRun(null, run);
+}
+export async function ensureNoUnresolvedReservation(current?: AutoRun | null): Promise<void> {
+  if (hasUnresolvedReservation(current === undefined ? await readAutoRun() : current)) throw new Error('Lượt trước đã gửi giữ vé nhưng chưa rõ kết quả. Kiểm tra tab vé trước; tắt công cụ chỉ dừng thao tác, không hủy đơn.');
 }
 export async function reconcileAutoRun(): Promise<void> {
   const [run, config] = await Promise.all([readAutoRun(), repository.load()]);
@@ -51,6 +54,7 @@ export async function handleAutoCommand(message: AutoCommand, sender: chrome.run
   const p = config.preferences;
   if (!p) throw new Error('Lưu link concert, giờ bán và ưu tiên trước khi bắt đầu camp.');
   if (message.type === 'AUTO_START' || message.type === 'AUTO_START_HERE') {
+    await ensureNoUnresolvedReservation(run);
     const startHere = message.type === 'AUTO_START_HERE';
     const senderMatches = !!sender.tab?.url && isSameTaskPage(sender.tab.url, p);
     if (startHere && (extensionPage || !senderMatches)) throw new Error('Chỉ chuyển camp từ đúng tab sự kiện hoặc phòng chờ.');
@@ -83,6 +87,7 @@ export async function handleAutoCommand(message: AutoCommand, sender: chrome.run
   if (!run || !owner || sender.tab?.id !== run.tabId || message.id !== run.id || message.revision !== run.revision) throw new Error('Phiên camp đã đổi hoặc thao tác cũ đã bị hủy.');
   if (!config.enabled || preferencesKey(p) !== run.preferencesKey) throw new Error('Cấu hình đã đổi hoặc camp đã dừng.');
   if (!isAutoProgress(message.progress) || !allowsAutoTransition(run.progress.phase, message.progress.phase)) throw new Error('Trạng thái hoặc chuyển bước camp không hợp lệ.');
+  if (run.progress.reservationAttemptedAt !== undefined && message.progress.reservationAttemptedAt !== run.progress.reservationAttemptedAt) throw new Error('Không được bỏ dấu yêu cầu giữ vé đã gửi.');
   const next = { ...run, revision: run.revision + 1, progress: message.progress };
   await writeAutoRun(next); return next;
 }

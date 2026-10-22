@@ -1,4 +1,32 @@
-# Kiểm thử · 0.6.1 · 18/10/2026
+# Kiểm thử · 0.6.2 · 22/10/2026
+
+Build cuối: `artifacts/release-0.6.2/chrome-mv3`. TypeScript PASS; unit **268/268 trong 21 file** (`npx vitest run --maxWorkers=2`); Chromium E2E **68/68, không retry, 4,5 phút**: 17 catalog, 28 extension, 16 Konva, 7 runtime. Một lần chạy unit với số worker mặc định gặp lỗi Windows `kill EPERM`; chạy lại đầy đủ với 2 worker đạt kết quả trên.
+
+Ba ca E2E bổ sung xác nhận:
+
+- Sơ đồ đã biết chậm hơn 15 giây vẫn giữ camp; khi render xong chọn đúng khu/số vé, không F5.
+- Khu đổi tồn kho liên tục hơn 5 lần: nghỉ ngắn rồi tiếp tục; chỉ gửi bước giữ vé 1 lần.
+- Giữ vé phản hồi muộn: không cho bắt đầu/lưu cấu hình để gửi lặp; vẫn nhận checkout cùng phiên sau timeout và khi ẩn panel.
+
+Đã thử từ ZIP giải nén thật tại `artifacts/share-install-0.6.2-01c108c9/tien-ich`: diễn tập 2 vé tới checkout, 0 pageerror, 0 HTTP request. ZIP bạn bè và ZIP Store khớp đủ **16 hash production**; manifest MV3, tài nguyên local, cú pháp JS hợp lệ, không inline script/private files.
+
+Benchmark trên extension đã bật camp trước khi mở giao diện, 12 mẫu sau làm nóng mỗi tình huống, **36 mẫu** tổng cộng; 0 pageerror/click lặp. Đây là fixture cục bộ, không gồm mạng thật, queue, CAPTCHA hoặc server giữ vé.
+
+| Tình huống | Mở CTA → click mua p50 / p95 | Mở giao diện → checkout p50 / p95 |
+|---|---:|---:|
+| DOM, phản hồi tức thì | 13,6 / 23,3 ms | 43,0 / 110,5 ms |
+| DOM, phản hồi mỗi bước 100 ms | 10,8 / 22,6 ms | 272,2 / 323,5 ms |
+| Konva, modal 2 vé, phản hồi tức thì | Không qua CTA | 79,3 / 148,0 ms |
+
+Mẫu gốc kèm version: `artifacts/camp-benchmark.json`, `artifacts/map-benchmark.json`. Không dùng số này để khẳng định tốc độ nhanh nhất trên website thật.
+
+Đã đưa đúng build đã test vào `.output/chrome-mv3`; bản 0.6.1 được giữ ở `artifacts/chrome-mv3-backup-0.6.1-87205737`. ZIP chia sẻ: `.output/Camp-ve-0.6.2.zip`, **229.916 byte**, SHA-256 `01c108c948b2f59336df072a2f98f21a42e1989081713f9e5ed89a60809db112`. Cần Reload extension rồi tải lại tab trước lượt mới; chưa thay đổi tab Chrome thật của người dùng.
+
+Chưa kiểm chứng checkout đã đăng nhập trên website thật. Lịch/link đợt bán kế tiếp còn chờ người dùng cập nhật; chưa kiểm tra lại tồn kho hiện tại. Các trường hợp chưa tự phục hồi, điều kiện chuẩn bị và nguồn Chrome/Queue-it được ghi riêng trong [ma trận rủi ro](RUI_RO_VA_KIEM_THU.md).
+
+---
+
+# Lưu trữ kiểm thử · 0.6.1 · 18/10/2026
 
 Build: `artifacts/release-0.6.1/chrome-mv3`. TypeScript PASS, unit **261/261 trong 21 file**. Chromium E2E **65/65, không retry, 3,4 phút**: 17 catalog, 28 extension, 13 Konva, 7 runtime. Bản cài giải nén ZIP chạy đúng 2 vé tới checkout mô phỏng, 0 pageerror và 0 HTTP request.
 

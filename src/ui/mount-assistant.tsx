@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client';
 import type { PageSnapshot, TaskConfig } from '../core/models';
 import { inspectPlatform } from '../platforms/registry';
 import { createAutomationRunner, type AutomationTransport } from '../application/automation-runner';
-import { autoActive, type AutoRun } from '../core/automation';
+import { autoWatching, type AutoRun } from '../core/automation';
 import type { PlatformInspection } from '../platforms/contracts';
 import { effectiveSnapshot, recommend } from '../core/workflow';
 import { Panel } from './Panel';
@@ -80,7 +80,7 @@ export function mountAssistant(options: MountOptions) {
   function scan() {
     if (stopped) return;
     lastRun = Date.now();
-    const inspection = config.enabled && (config.panelVisible || autoActive(runner?.run ?? null))
+    const inspection = config.enabled && (config.panelVisible || autoWatching(runner?.run ?? null))
       ? inspect()
       : { snapshot: { ...lastSnapshot, url: options.getUrl() }, optionElements: [] };
     const raw = inspection.snapshot;
@@ -107,7 +107,7 @@ export function mountAssistant(options: MountOptions) {
   }
   // Active automation runs at the next microtask; passive UI scans remain throttled.
   function schedule(urgent = false) {
-    const active = autoActive(runner?.run ?? null);
+    const active = autoWatching(runner?.run ?? null);
     if (stopped || !config.enabled || (!config.panelVisible && !active)) return;
     if (active || urgent) {
       view.clearTimeout(timeout); timeout = undefined;
@@ -128,6 +128,8 @@ export function mountAssistant(options: MountOptions) {
   view.addEventListener('scroll', drawSoon, true);
   view.addEventListener('resize', scheduleEvent);
   view.addEventListener('load', scheduleEvent);
+  view.addEventListener('online', scheduleEvent);
+  view.addEventListener('pageshow', scheduleEvent);
   view.addEventListener('popstate', scheduleEvent);
   view.addEventListener('hashchange', scheduleEvent);
   document.addEventListener('visibilitychange', scheduleEvent);
@@ -146,6 +148,8 @@ export function mountAssistant(options: MountOptions) {
       if (frame !== undefined) view.cancelAnimationFrame(frame);
       view.removeEventListener('scroll', drawSoon, true); view.removeEventListener('resize', scheduleEvent);
       view.removeEventListener('load', scheduleEvent);
+      view.removeEventListener('online', scheduleEvent);
+      view.removeEventListener('pageshow', scheduleEvent);
       view.removeEventListener('popstate', scheduleEvent); view.removeEventListener('hashchange', scheduleEvent);
       document.removeEventListener('visibilitychange', scheduleEvent);
       document.removeEventListener('input', scheduleEvent, true); document.removeEventListener('change', scheduleEvent, true);

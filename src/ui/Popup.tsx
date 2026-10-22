@@ -4,7 +4,7 @@ import { fromVietnamLocal, toVietnamLocal, validatePreferences, money, isSameEve
 import { repository, watchConfig } from '../infrastructure/storage';
 import { command, type Command } from '../infrastructure/messages';
 import { autoCommand } from '../infrastructure/automation-messages';
-import { autoActive, type AutoRun } from '../core/automation';
+import { autoActive, hasUnresolvedReservation, type AutoRun } from '../core/automation';
 import { platformForUrl } from '../core/platform-catalog';
 import { EventFinder, type LoadedConcert } from './EventFinder';
 import { TicketPriorities } from './TicketPriorities';
@@ -120,14 +120,14 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
   }
   async function startOrStopAuto() {
     setBusy(true); setError('');
-    try { setAutoRun(await autoCommand({ type: autoActive(autoRun) ? 'AUTO_STOP' : 'AUTO_START' })); }
+    try { setAutoRun(await autoCommand({ type: !autoActive(autoRun) && hasUnresolvedReservation(autoRun) ? 'AUTO_FOCUS' : autoActive(autoRun) ? 'AUTO_STOP' : 'AUTO_START' })); }
     catch (e) { setError(e instanceof Error ? e.message : 'Không bắt đầu được camp.'); }
     finally { setBusy(false); }
   }
   async function openRunTab() {
     setBusy(true); setError('');
     try {
-      if (autoActive(autoRun)) await autoCommand({ type: 'AUTO_FOCUS' });
+      if (autoRun) await autoCommand({ type: 'AUTO_FOCUS' });
       else await command({ type: 'OPEN_EVENT' });
     } catch (e) { setError(e instanceof Error ? e.message : 'Không mở được tab vé.'); }
     finally { setBusy(false); }
@@ -198,7 +198,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
         {error && <p className="error" role="alert">{error}</p>}
         {notice && <p className="success" role="status">{notice}</p>}
         <details className="display-settings"><summary>Trang vé và hiển thị</summary><div className="button-row">
-          <button type="button" disabled={busy || !config.preferences} onClick={() => void openRunTab()}>{running ? 'Đến tab đang camp' : 'Mở trang vé'}</button>
+          <button type="button" disabled={busy || !config.preferences} onClick={() => void openRunTab()}>{running ? 'Đến tab đang camp' : autoRun ? 'Đến tab vé' : 'Mở trang vé'}</button>
           <button type="button" disabled={busy || !config.preferences} onClick={() => void send({ type: 'ENABLE', enabled: !config.enabled })}>{config.enabled ? 'Tắt công cụ trên trang vé' : 'Bật công cụ trên trang vé'}</button>
         </div><label className="checkbox-label"><input type="checkbox" checked={config.panelVisible} disabled={!ready || busy} onChange={e => {
           const previous = config; setConfig({ ...config, panelVisible: e.target.checked }); void send({ type: 'PANEL', visible: e.target.checked }, previous);
@@ -206,8 +206,8 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
       </form>
     </div>
     <footer className="run-bar"><div className="run-summary"><b>{running ? 'Đang camp' : autoRun?.progress.phase === 'CHECKOUT' ? 'Đã tới thanh toán' : dirty ? 'Bản nháp' : config.preferences ? 'Đã lưu' : 'Chọn sự kiện'}</b>{autoRun && <p>{autoRun.progress.message}</p>}</div>
-      <div className="run-controls"><button type="submit" form="camp-setup-form" disabled={!ready || !runtimeReady || busy || !hasSelection}>{busy ? 'Đang xử lý…' : 'Lưu cấu hình'}</button>
-        <button type="button" className={running ? 'danger-button' : 'primary'} disabled={!ready || busy || (!running && (!runtimeReady || !config.preferences || dirty))} onClick={() => void startOrStopAuto()}>{running ? 'Dừng camp' : 'Bắt đầu camp'}</button></div>
+      <div className="run-controls"><button type="submit" form="camp-setup-form" disabled={!ready || !runtimeReady || busy || !hasSelection || hasUnresolvedReservation(autoRun)}>{busy ? 'Đang xử lý…' : 'Lưu cấu hình'}</button>
+        <button type="button" className={running ? 'danger-button' : 'primary'} disabled={!ready || busy || (!running && !hasUnresolvedReservation(autoRun) && (!runtimeReady || !config.preferences || dirty))} onClick={() => void startOrStopAuto()}>{running ? 'Dừng camp' : hasUnresolvedReservation(autoRun) ? 'Kiểm tra tab vé' : 'Bắt đầu camp'}</button></div>
     </footer>
   </main>;
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTO_KEY, handleAutoCommand } from '../../src/infrastructure/automation-service';
+import { AUTO_KEY, ensureNoUnresolvedReservation, handleAutoCommand } from '../../src/infrastructure/automation-service';
 import { CONFIG_KEY } from '../../src/infrastructure/storage';
 import type { TaskConfig } from '../../src/core/models';
 import type { AutoRun } from '../../src/core/automation';
@@ -19,6 +19,25 @@ beforeEach(() => {
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe('khóa phiên và CAS tại background', () => {
+  it('giữ vé chưa rõ kết quả: không bắt đầu hoặc lưu cấu hình mới, vẫn mở đúng tab cũ', async () => {
+    const run = (await handleAutoCommand({ type: 'AUTO_START' }, sender))!;
+    run.progress = { phase: 'PAUSED', message: '', reservationAttemptedAt: Date.now() };
+    session[AUTO_KEY] = run;
+    await expect(handleAutoCommand({ type: 'AUTO_START' }, sender)).rejects.toThrow('chưa rõ kết quả');
+    await expect(handleAutoCommand({ type: 'AUTO_START_HERE' }, { ...sender, tab: { ...sender.tab!, id: 2 } })).rejects.toThrow('chưa rõ kết quả');
+    await expect(ensureNoUnresolvedReservation()).rejects.toThrow('chưa rõ kết quả');
+    await handleAutoCommand({ type: 'AUTO_FOCUS' }, { ...sender, url: 'chrome-extension://ext/popup.html' });
+    expect(chrome.tabs.update).toHaveBeenCalledWith(1, { active: true });
+    run.progress.phase = 'CHECKOUT';
+    await expect(ensureNoUnresolvedReservation()).resolves.toBeUndefined();
+  });
+  it('không thể bỏ dấu giữ vé bằng một AUTO_STEP khác', async () => {
+    const run = (await handleAutoCommand({ type: 'AUTO_START' }, sender))!;
+    run.progress = { phase: 'ADVANCING', message: '', reservationAttemptedAt: 123 };
+    session[AUTO_KEY] = run;
+    await expect(handleAutoCommand({ type: 'AUTO_STEP', id: run.id, revision: 0, progress: { phase: 'PAUSED', message: '' } }, sender)).rejects.toThrow('dấu yêu cầu');
+    await expect(handleAutoCommand({ type: 'AUTO_STEP', id: run.id, revision: 0, progress: { ...run.progress, phase: 'PAUSED' } }, sender)).resolves.toMatchObject({ progress: { reservationAttemptedAt: 123 } });
+  });
   it('mở đúng tab đang camp không điều hướng lại URL; chỉ trang tiện ích được yêu cầu', async () => {
     await handleAutoCommand({ type: 'AUTO_START' }, sender);
     await handleAutoCommand({ type: 'AUTO_FOCUS' }, { ...sender, url: 'chrome-extension://ext/popup.html' });

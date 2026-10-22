@@ -5,7 +5,7 @@ import { recommend } from './workflow';
 export const AUTO_PHASES = ['READY', 'OPENING', 'CHOOSING', 'QUANTITY', 'SETTING_QUANTITY', 'ADVANCING', 'CHECKOUT', 'PAUSED'] as const;
 export type AutoPhase = typeof AUTO_PHASES[number];
 export const AUTO_TIMING = { confirmationMs: 5000, navigationMs: 15000, runMs: 3600000,
-  watchLeadMs: 120000, entryRetryMs: 1500, maxEntryAttempts: 3, rescanMs: 1000 } as const;
+  watchLeadMs: 120000, entryRetryMs: 1500, maxEntryAttempts: 3, rescanMs: 1000, retryCooldownMs: 1000 } as const;
 /** Only adapters that prove no reservation was sent may request a new selection. */
 export class SelectionUnavailableError extends Error {}
 export function isAutoProgress(value: unknown): value is AutoProgress {
@@ -14,7 +14,7 @@ export function isAutoProgress(value: unknown): value is AutoProgress {
   if (!AUTO_PHASES.includes(p.phase) || typeof p.message !== 'string' || p.message.length > 500) return false;
   if (p.selectionRetries !== undefined && (!Number.isInteger(p.selectionRetries) || p.selectionRetries < 0 || p.selectionRetries > 5)) return false;
   if (p.entryAttempts !== undefined && (!Number.isInteger(p.entryAttempts) || p.entryAttempts < 1 || p.entryAttempts > AUTO_TIMING.maxEntryAttempts)) return false;
-  if ([p.actionAt, p.quantityAfterAction, p.selectionStartedAt, p.checkoutReachedAt, p.releaseReloadedAt, p.lastReleaseReloadAt, p.addonsContinuedAt].some(v => v !== undefined && (typeof v !== 'number' || !Number.isFinite(v)))) return false;
+  if ([p.actionAt, p.quantityAfterAction, p.selectionStartedAt, p.checkoutReachedAt, p.releaseReloadedAt, p.lastReleaseReloadAt, p.addonsContinuedAt, p.reservationAttemptedAt, p.selectionRetryUntil].some(v => v !== undefined && (typeof v !== 'number' || !Number.isFinite(v)))) return false;
   const chosen = p.chosen;
   if (chosen === undefined) return true;
   return !!chosen && typeof chosen === 'object' && (typeof chosen.label === 'string' && chosen.label.length <= 100 && ['ZONE', 'SEAT'].includes(chosen.kind) &&
@@ -24,8 +24,9 @@ export function isAutoProgress(value: unknown): value is AutoProgress {
 }
 export function allowsAutoTransition(from: AutoPhase, to: AutoPhase): boolean {
   if (to === 'PAUSED') return true;
-  if (from === 'PAUSED' || from === 'CHECKOUT') return false;
+  if (from === 'CHECKOUT') return false;
   if (to === 'CHECKOUT') return true;
+  if (from === 'PAUSED') return false;
   const next: Record<AutoPhase, readonly AutoPhase[]> = {
     READY: ['READY', 'OPENING', 'CHOOSING', 'QUANTITY'], OPENING: ['READY', 'OPENING'], CHOOSING: ['QUANTITY', 'READY'],
     QUANTITY: ['SETTING_QUANTITY', 'ADVANCING'], SETTING_QUANTITY: ['QUANTITY'], ADVANCING: ['ADVANCING'], CHECKOUT: [], PAUSED: [],
@@ -45,6 +46,8 @@ export interface AutoProgress {
   addonsContinuedAt?: number;
   selectionRetries?: number;
   entryAttempts?: number;
+  reservationAttemptedAt?: number;
+  selectionRetryUntil?: number;
 }
 export interface AutoRun {
   id: string;
@@ -78,12 +81,23 @@ export interface AutoPage {
   entryRetrySafe?: boolean;
   loading?: boolean;
   documentStartedAt?: number;
+  selectionPending?: boolean;
 }
 export type AutoAction = { kind: 'ENTER' | 'ADVANCE' | 'RELOAD' } | { kind: 'CHOOSE'; optionId: string } | { kind: 'QUANTITY'; value: number };
 export type AutoDecision = { type: 'WAIT'; wakeAt?: number } | { type: 'STEP'; progress: AutoProgress; action?: AutoAction };
 
 export const preferencesKey = (p: EventPreferences) => JSON.stringify(p);
 export const autoActive = (run: AutoRun | null) => !!run && !['CHECKOUT', 'PAUSED'].includes(run.progress.phase);
+export const hasUnresolvedReservation = (run: AutoRun | null | undefined) => !!run && run.progress.reservationAttemptedAt !== undefined && run.progress.phase !== 'CHECKOUT';
+export const autoWatching = (run: AutoRun | null) => autoActive(run) || hasUnresolvedReservation(run);
+/** Only use after the adapter proves that no reservation was submitted. */
+export function retryUnavailableSelection(progress: AutoProgress, now: number): AutoProgress {
+  const count = (progress.selectionRetries ?? 0) + 1;
+  const cooldown = count >= 5;
+  return { ...progress, phase: 'READY', chosen: undefined, actionAt: undefined, selectionRetries: cooldown ? 0 : count,
+    selectionRetryUntil: cooldown ? now + AUTO_TIMING.retryCooldownMs : undefined,
+    message: cooldown ? 'Chờ cập nhật tình trạng khu vé.' : 'Khu vừa chọn hết vé. Đang tìm khu khác đúng ưu tiên.' };
+}
 export const sameOption = (a: NonNullable<AutoProgress['chosen']>, b: VisibleOption) =>
   normalize(a.label) === normalize(b.label) && a.kind === b.kind &&
   ((a.kind === 'ZONE' && a.zoneLabel === undefined) || normalize(a.zoneLabel ?? '') === normalize(b.zoneLabel ?? '')) && a.displayedPriceVnd === b.displayedPriceVnd &&
@@ -95,7 +109,16 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
   const { snapshot } = page;
   const progress = run.progress;
   const wait = (wakeAt?: number): AutoDecision => ({ type: 'WAIT', wakeAt: Math.min(wakeAt ?? run.expiresAt, run.expiresAt) });
-  if (!autoActive(run)) return { type: 'WAIT' };
+  if (!autoActive(run)) {
+    if (hasUnresolvedReservation(run) && run.preferencesKey === preferencesKey(p) && snapshot.state === 'CHECKOUT' && !page.problem) {
+      try {
+        if (new URL(snapshot.url).origin === new URL(p.eventUrl).origin) return { type: 'STEP', progress: {
+          ...progress, phase: 'CHECKOUT', checkoutReachedAt: now, message: 'Website đã chuyển tới thanh toán. Kiểm tra đơn và thanh toán.',
+        } };
+      } catch { /* Unrecognized URLs cannot confirm a late result. */ }
+    }
+    return { type: 'WAIT' };
+  }
   if (run.preferencesKey !== preferencesKey(p)) return pause(progress, 'Cấu hình đã đổi. Bắt đầu lại sau khi kiểm tra.');
   if (now >= run.expiresAt) return pause(progress, 'Phiên camp đã hết thời gian. Kiểm tra trang trước khi bắt đầu lại.');
   // CHECKOUT is an internal state classified by the platform adapter from DOM
@@ -132,6 +155,7 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
   const timedOut = (ms: number) => now - (progress.actionAt ?? now) >= ms;
   const pending = (ms: number, message: string) => timedOut(ms) ? pause(progress, message) : wait((progress.actionAt ?? now) + ms);
   if (progress.phase === 'ADVANCING') return pending(AUTO_TIMING.navigationMs, 'Chưa xác nhận đã tới checkout. Không bấm lại để tránh lặp giữ vé.');
+  if (snapshot.state === 'UNKNOWN' && page.selectionPending && ['READY', 'OPENING'].includes(progress.phase)) return wait(now + AUTO_TIMING.rescanMs);
   if (progress.phase === 'OPENING') {
     if (snapshot.state === 'SELECTING') return { type: 'STEP', progress: { ...progress, phase: 'READY', message: 'Đã vào bước chọn vé.' } };
     if (page.entryRetrySafe && (progress.entryAttempts ?? 1) < AUTO_TIMING.maxEntryAttempts) {
@@ -182,6 +206,7 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
       return permitted ? { type: 'STEP', progress: { ...progress, phase: 'QUANTITY', chosen: existing, actionAt: now, message: `Kiểm tra số lượng ${existing.label}.` } }
         : pause(progress, 'Trang đã có vé/ghế được chọn. Kiểm tra giỏ trước khi camp lại.');
     }
+    if (progress.selectionRetryUntil !== undefined && now < progress.selectionRetryUntil) return wait(progress.selectionRetryUntil);
     const choice = recommend(snapshot, p).find(r => page.selectable.includes(r.option.id));
     if (!choice) {
       // A sold-out preferred tier can reopen while other tiers remain on sale.
@@ -196,7 +221,7 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
     if (choice.option.kind === 'ZONE' && ['PICK_SEAT', 'MIXED'].includes(snapshot.selectionMode)) return pause(progress, 'Khu này có thể cần chọn ghế; cần adapter xác nhận cách chọn trước khi tự thao tác.');
     if (snapshot.visibleOptions.filter(o => sameOption(choice.option, o)).length !== 1) return pause(progress, 'Các lựa chọn trùng nhãn/giá, chưa phân biệt được vị trí chính xác.');
     return { type: 'STEP', action: { kind: 'CHOOSE', optionId: choice.option.id }, progress: {
-      ...progress, phase: 'CHOOSING', chosen: choice.option, message: `Đang chọn ${choice.option.label}…`, actionAt: now, selectionStartedAt: now,
+      ...progress, phase: 'CHOOSING', chosen: choice.option, selectionRetryUntil: undefined, message: `Đang chọn ${choice.option.label}…`, actionAt: now, selectionStartedAt: now,
     } };
   }
   if (selected.length > 1) return pause(progress, 'Website báo nhiều lựa chọn cùng được chọn. Kiểm tra giỏ trước khi tiếp tục.');
@@ -204,9 +229,7 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
   if (selected.some(o => !progress.chosen || !sameOption(progress.chosen, o))) return pause(progress, 'Có lựa chọn khác trong giỏ. Dừng để tránh đặt sai vé.');
   if (!chosen?.selected) {
     if (progress.phase === 'CHOOSING' && page.selectionRetrySafe && chosen?.displayedAvailability === 'UNAVAILABLE' && !selected.length) {
-      if ((progress.selectionRetries ?? 0) >= 5) return pause(progress, 'Các khu vừa chọn liên tục hết vé. Kiểm tra tình trạng vé trên website.');
-      return { type: 'STEP', progress: { ...progress, phase: 'READY', chosen: undefined, actionAt: undefined,
-        selectionRetries: (progress.selectionRetries ?? 0) + 1, message: 'Khu vừa chọn hết vé. Đang tìm khu khác đúng ưu tiên.' } };
+      return { type: 'STEP', progress: retryUnavailableSelection(progress, now) };
     }
     if (progress.phase === 'CHOOSING') return pending(AUTO_TIMING.confirmationMs, 'Website chưa xác nhận lựa chọn. Không tự bấm lại.');
     return pause(progress, 'Lựa chọn đã thay đổi hoặc chưa được website xác nhận.');
@@ -228,5 +251,5 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
   } else if (p.quantity !== 1 || selected.length !== 1) return pause(progress, 'Chưa hỗ trợ tự chọn nhóm nhiều ghế.');
   if (page.advanceCount > 1) return pause(progress, 'Có nhiều nút tiếp tục; chưa xác định chắc nút đi checkout.');
   if (!page.advanceCount) return pending(AUTO_TIMING.confirmationMs, 'Chưa có nút tiếp tục khả dụng tới checkout.');
-  return { type: 'STEP', action: { kind: 'ADVANCE' }, progress: { ...progress, phase: 'ADVANCING', actionAt: now, message: 'Đang chuyển tới bước thanh toán…' } };
+  return { type: 'STEP', action: { kind: 'ADVANCE' }, progress: { ...progress, phase: 'ADVANCING', reservationAttemptedAt: progress.reservationAttemptedAt ?? now, actionAt: now, message: 'Đang chuyển tới bước thanh toán…' } };
 }

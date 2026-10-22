@@ -26,6 +26,7 @@ export function createCampReport(version: string, p: EventPreferences | null, sn
       phase: progress.phase, message: progress.message, lastActionAt: progress.actionAt, selectionStartedAt: progress.selectionStartedAt,
       checkoutReachedAt: progress.checkoutReachedAt, releaseReloadedAt: progress.releaseReloadedAt, lastReleaseReloadAt: progress.lastReleaseReloadAt,
       selectionRetries: progress.selectionRetries, entryAttempts: progress.entryAttempts,
+      reservationAttemptedAt: progress.reservationAttemptedAt, selectionRetryUntil: progress.selectionRetryUntil,
       chosen: chosen ? { label: chosen.label, kind: chosen.kind, zoneLabel: chosen.zoneLabel, ticketTypeId: chosen.ticketTypeId, displayedPriceVnd: chosen.displayedPriceVnd } : undefined,
       selectionToCheckoutMs: elapsed(progress.selectionStartedAt, progress.checkoutReachedAt) } : null,
     error,

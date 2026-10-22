@@ -31,17 +31,21 @@ test.beforeEach(async () => {
 });
 test.afterEach(async () => { await context.close(); expect(errors).toEqual([]); });
 
-async function booking(verification = false, groupedLegend = false, addons: 'correct' | 'wrong' | false = false) {
+async function booking({ verification = false, groupedLegend = false, addons = false, delayed = false }: {
+  verification?: boolean; groupedLegend?: boolean; addons?: 'correct' | 'wrong' | false; delayed?: boolean;
+} = {}) {
   const konva = readFileSync('node_modules/konva/konva.min.js', 'utf8');
   await context.route(/^https:\/\/ticket\.1zone\.vn\//, route => {
     if (new URL(route.request().url()).pathname === '/fixture-konva.js') return route.fulfill({ contentType: 'application/javascript', body: konva });
     if (new URL(route.request().url()).pathname === '/checkout/add-ons') return route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><meta charset="utf-8"><h1>Vé mua kèm</h1><section><h2>Vé của bạn · Demo</h2><p>21/11/2030 · GA × 2 · đ900.000</p></section><article>Poster · đ99.000</article><footer><b>đ${addons === 'wrong' ? '1.899.000' : '1.800.000'}</b><button onclick="document.body.innerHTML='<h1>Thanh toán</h1><form><button type=button>Xác nhận đơn hàng</button></form>'">Tiếp tục</button></footer>` });
     const legend = groupedLegend ? '<div><p>GA</p><p>đ900.000</p></div>' : '<div><p>GA A</p><p>đ900.000</p></div><div><p>GA B</p><p>đ900.000</p></div>';
-    return route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><meta charset="utf-8"><main><h1>Chọn khu vực</h1><div id="seatmap-container-event-test-fixture" style="width:400px;height:220px"></div>${legend}<div><p>FANZONE A</p><p>đ1.500.000</p></div><div id="modal-host"></div></main><script src="/fixture-konva.js"></script><script>(${installOnezoneMapDemo.toString()})(document,${verification},${!!addons})</script>` });
+    const install = `(${installOnezoneMapDemo.toString()})(document,${verification},${!!addons})`;
+    const script = delayed ? `document.querySelector('[id^="seatmap-container-"]').append(document.createElement('canvas'));window.loadDelayedMap=()=>{document.querySelector('[id^="seatmap-container-"]').replaceChildren();${install}}` : install;
+    return route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><meta charset="utf-8"><main><h1>Chọn khu vực</h1><div id="seatmap-container-event-test-fixture" style="width:400px;height:220px"></div>${legend}<div><p>FANZONE A</p><p>đ1.500.000</p></div><div id="modal-host"></div></main><script src="/fixture-konva.js"></script><script>${script}</script>` });
   });
   page = await context.newPage(); await page.goto(catalogUrl.replace('/events/', '/booking/') + '?calendarId=HN');
-  await expect(page.locator('.status-line')).toContainText('Đang chọn vé');
-  await expect(page.locator('.recommendation')).toContainText('GA B');
+  await expect(page.locator('.status-line')).toContainText(delayed ? 'Chưa nhận diện' : 'Đang chọn vé');
+  if (!delayed) await expect(page.locator('.recommendation')).toContainText('GA B');
 }
 
 test('Konva thật: bỏ khu khóa, chọn GA B đúng class/giá, 2 vé tới checkout một lần', async () => {
@@ -56,8 +60,83 @@ test('Konva thật: bỏ khu khóa, chọn GA B đúng class/giá, 2 vé tới c
   await page.screenshot({ path: 'artifacts/konva-checkout.png' });
 });
 
+test('sơ đồ đúng renderer tải chậm quá 15 giây: vẫn camp rồi tiếp tục khi render xong', async () => {
+  await booking({ groupedLegend: true, delayed: true });
+  await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  const worker = context.serviceWorkers()[0]!;
+  await worker.evaluate(async () => {
+    const key = 'ticket-assistant.auto.session.v1', run = (await chrome.storage.session.get(key))[key];
+    run.startedAt -= 60000;
+    await chrome.storage.session.set({ [key]: run }); await chrome.tabs.sendMessage(run.tabId, { type: 'AUTO_UPDATED', run });
+  });
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'READY');
+  await expect(page.locator('main')).not.toHaveAttribute('data-selections');
+  await page.evaluate(() => (window as unknown as { loadDelayedMap(): void }).loadDelayedMap());
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(page.locator('main form')).toContainText('GA B · 2 vé');
+  await expect(page.locator('main')).toHaveAttribute('data-advances', '1');
+});
+
+test('khu đổi tồn kho liên tục hơn 5 lần: nghỉ ngắn rồi tiếp tục, chỉ giữ vé một lần', async () => {
+  await booking({ groupedLegend: true });
+  await page.evaluate(() => {
+    const host = window as unknown as { Konva: { stages: { find(selector: string): { getAttr(name: string): string; setAttr(name: string, value: boolean): void }[]; getLayers(): { draw(): void }[] }[] }; failedChoices: number };
+    const stage = host.Konva.stages[0]!, node = stage.find('.seat').find(n => n.getAttr('zoneId') === 'ga-a')!;
+    host.failedChoices = 0; node.setAttr('disabled', false); stage.getLayers()[0]!.draw();
+    document.addEventListener('camp-ve:onezone-zone-request', event => {
+      const request = JSON.parse((event as CustomEvent<string>).detail);
+      if (request.choose?.zoneId === 'ga-a') node.setAttr('disabled', ++host.failedChoices <= 6);
+      else if (!request.choose) node.setAttr('disabled', false);
+    }, true);
+  });
+  await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  expect(await page.evaluate(() => (window as unknown as { failedChoices: number }).failedChoices)).toBe(7);
+  await expect(page.locator('main form')).toContainText('GA A · 2 vé');
+  await expect(page.locator('main')).toHaveAttribute('data-selections', '1');
+  await expect(page.locator('main')).toHaveAttribute('data-advances', '1');
+});
+
+test('giữ vé phản hồi muộn: không camp hoặc lưu lại để gửi lặp; checkout tới muộn vẫn nhận kể cả ẩn panel', async () => {
+  await booking({ groupedLegend: true });
+  await page.evaluate(() => document.addEventListener('click', event => {
+    if (!(event.target as HTMLElement).closest('button[data-id="btn-continue"]')) return;
+    event.stopImmediatePropagation();
+    const main = document.querySelector('main')!;
+    main.setAttribute('data-advances', String(Number(main.getAttribute('data-advances') ?? 0) + 1));
+    (window as unknown as { finishDelayedHold(): void }).finishDelayedHold = () => {
+      document.querySelector('#modal-host')!.innerHTML = '<h1>Thanh toán</h1><form><p>GA B · 2 vé</p><button type="button">Xác nhận đơn hàng</button></form>';
+    };
+  }, true));
+  await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'ADVANCING');
+  const worker = context.serviceWorkers()[0]!;
+  const originalId = await worker.evaluate(async () => {
+    const key = 'ticket-assistant.auto.session.v1', run = (await chrome.storage.session.get(key))[key];
+    run.progress.actionAt = Date.now() - 16000;
+    await chrome.storage.session.set({ [key]: run }); await chrome.tabs.sendMessage(run.tabId, { type: 'AUTO_UPDATED', run });
+    return run.id;
+  });
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'PAUSED');
+  await expect(page.locator('.auto-status').getByRole('button', { name: 'Bắt đầu camp', exact: true })).toHaveCount(0);
+  const popup = await context.newPage(); await popup.goto(`chrome-extension://${new URL(worker.url()).host}/popup.html`);
+  await popup.getByRole('button', { name: 'Kiểm tra tab vé', exact: true }).click();
+  const rejection = await popup.evaluate(async () => {
+    const config = (await chrome.storage.local.get('ticket-assistant.config.v1'))['ticket-assistant.config.v1'];
+    return { start: await chrome.runtime.sendMessage({ type: 'AUTO_START' }), save: await chrome.runtime.sendMessage({ type: 'SAVE', preferences: config.preferences }) };
+  });
+  expect(rejection.start.error).toContain('chưa rõ kết quả'); expect(rejection.save.error).toContain('chưa rõ kết quả');
+  await page.getByRole('button', { name: 'Ẩn panel', exact: true }).click();
+  await page.evaluate(() => (window as unknown as { finishDelayedHold(): void }).finishDelayedHold());
+  await expect.poll(() => worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1'].progress.phase)).toBe('CHECKOUT');
+  expect(await worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1'].id)).toBe(originalId);
+  await expect(page.locator('main')).toHaveAttribute('data-advances', '1');
+  await expect(page.getByRole('button', { name: 'Xác nhận đơn hàng', exact: true })).toBeVisible();
+});
+
 test('khu ưu tiên hết rồi trả lại: giữ camp, đọc mới Konva không cần reload trang chọn vé', async () => {
-  await booking(false, true);
+  await booking({ groupedLegend: true });
   const changeStock = (disabled: boolean) => {
     const K = (window as unknown as { Konva: { stages: { find(selector: string): { getAttr(name: string): string; setAttr(name: string, value: boolean): void }[] }[] } }).Konva;
     K.stages[0]!.find('.seat').find(node => node.getAttr('zoneId') === 'ga-b')!.setAttr('disabled', disabled);
@@ -74,7 +153,7 @@ test('khu ưu tiên hết rồi trả lại: giữ camp, đọc mới Konva khô
 });
 
 test('khu vừa bấm đã hết vé trước modal: tự chọn khu khác, không lặp yêu cầu giữ vé', async () => {
-  await booking(false, true);
+  await booking({ groupedLegend: true });
   await page.evaluate(() => {
     const K = (window as unknown as { Konva: { stages: { find(selector: string): { getAttr(name: string): string; setAttr(name: string, value: boolean): void; on(name: string, handler: (event: { cancelBubble: boolean }) => void): void }[]; getLayers(): { draw(): void }[] }[] } }).Konva;
     const stage = K.stages[0]!, node = stage.find('.seat').find(n => n.getAttr('zoneId') === 'ga-a')!;
@@ -90,7 +169,7 @@ test('khu vừa bấm đã hết vé trước modal: tự chọn khu khác, khô
 });
 
 test('khu khóa ngay giữa kiểm tra và click: nhận lỗi trước giữ vé rồi chuyển khu', async () => {
-  await booking(false, true);
+  await booking({ groupedLegend: true });
   await page.evaluate(() => {
     const K = (window as unknown as { Konva: { stages: { find(selector: string): { getAttr(name: string): string; setAttr(name: string, value: boolean): void }[]; getLayers(): { draw(): void }[] }[] } }).Konva;
     const stage = K.stages[0]!, node = stage.find('.seat').find(n => n.getAttr('zoneId') === 'ga-a')!;
@@ -109,7 +188,7 @@ test('khu khóa ngay giữa kiểm tra và click: nhận lỗi trước giữ v�
 });
 
 for (const mode of ['correct', 'wrong'] as const) test(`bước mua kèm: ${mode === 'correct' ? 'tự tiếp tục tới thanh toán' : 'tổng tiền khác vé phải dừng'}`, async () => {
-  await booking(false, true, mode);
+  await booking({ groupedLegend: true, addons: mode });
   await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
   await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', mode === 'correct' ? 'CHECKOUT' : 'PAUSED', { timeout: 20000 });
   if (mode === 'correct') await expect(page.getByRole('button', { name: 'Xác nhận đơn hàng' })).toBeVisible();
@@ -117,7 +196,7 @@ for (const mode of ['correct', 'wrong'] as const) test(`bước mua kèm: ${mode
 });
 
 test('thẻ giá chỉ ghi tên hạng chung: chọn đúng khu khả dụng rồi xác nhận modal', async () => {
-  await booking(false, true);
+  await booking({ groupedLegend: true });
   await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
   await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
   await expect(page.locator('main form')).toContainText('GA B · 2 vé');
@@ -166,7 +245,7 @@ test('Konva đổi trạng thái khu không đổi DOM: redraw đánh thức cam
 });
 
 test('modal xác minh: chờ quá 5 giây, iframe còn hiện sau khi nút mở vẫn tiếp tục đúng vé', async () => {
-  await booking(true);
+  await booking({ verification: true });
   await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
   await expect(page.locator('.status-line')).toContainText('Cần xác minh');
   await expect(page.locator('.auto-status')).toContainText('Chờ xác minh');

@@ -119,6 +119,7 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
   return { page: { snapshot, enterCount: enter.length, advanceCount: advance.length, selectable: [...choices.keys()], quantity: quantity?.model, problem,
     loading: document.readyState !== 'complete',
     documentStartedAt: document.defaultView?.performance.timeOrigin,
+    selectionPending: snapshot.state === 'UNKNOWN' && snapshot.unsupportedVariant === false,
     entryRetrySafe: snapshot.state === 'EVENT_PAGE' && officialEnter.length === 1 && document.readyState === 'complete' && isSameEvent(snapshot.url, p.eventUrl),
     saleOpen: (snapshot.state === 'EVENT_PAGE' && officialEnter.length === 1 && isSameEvent(snapshot.url, p.eventUrl)) ||
       (snapshot.state === 'SELECTING' && snapshot.supported && (choices.size > 0 || !!modal)),
