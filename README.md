@@ -4,17 +4,19 @@ Chrome Extension MV3 trên máy tính, mặc định **1 vé**, ngân sách khô
 
 Adapter đối chiếu tên/ID/giá, khu trong modal, số lượng và lựa chọn đã được website xác nhận. Dữ liệu mâu thuẫn hoặc renderer chưa hỗ trợ thì dừng. `snapshot.state` là trạng thái nội bộ, không phải text nguyên văn trên website.
 
-**0.6.2**: chế độ **Theo giờ và khi web mở** tải lại trang chưa mở bán từ 2 phút trước giờ hẹn, mỗi giây trong phút cuối khi trang đã tải xong. Nút mua đã mở được ưu tiên dù tiêu đề trạng thái còn cũ; hủy F5 nếu website vừa chuyển bước. Không F5 phòng chờ hoặc trang đang chọn/giữ vé. Xác minh ở đúng queue.1zone.vn giữ phiên chạy để tiếp tục sau khi website cho vào. Hạng ưu tiên hết vé thì chờ thay đổi trên sơ đồ, không tự mua hạng khác. Khu vừa hết vé trước giữ chỗ được thử lại; sau mỗi 5 lần tranh chấp nghỉ 1 giây. Sơ đồ đã biết tải chậm vẫn được theo dõi. Khi giữ vé chưa rõ kết quả, chặn khởi động/lưu mới và tiếp tục nhận checkout đến muộn. **Lưu cấu hình** mới áp dụng thay đổi. [Cách đánh giá lượt chạy thật](docs/SAN_SANG_MO_BAN.md#đánh-giá-lượt-chạy-thật).
+**0.6.3** khởi tạo theo DOM, không chờ ảnh; lần cập nhật đúng mốc bán không bị nhịp F5 trước đó đẩy muộn. App giữ máy không tự ngủ và tab khỏi tự discard khi camp, chuẩn bị foreground trước giờ bán; nếu Chrome thay tab ID thì tự chuyển quyền, giữ nguyên tiến trình. Các bảo vệ chạy riêng, không thêm request vào từng bước chọn vé.
 
-Đóng popup vẫn camp; giữ tab vé ở phía trước và máy thức. Không hỗ trợ Chrome điện thoại. Phiên tự dừng ở checkout, tạm dừng khi cần xử lý, hoặc hết hạn một giờ sau mốc muộn hơn giữa lúc bật và giờ bán. Xem [chuẩn bị trước giờ bán](docs/SAN_SANG_MO_BAN.md).
+Chế độ **Theo giờ và khi web mở** tải mới trang còn khóa từ 2 phút trước giờ bán, mỗi giây trong phút cuối; mua ngay khi CTA đã xác minh mở. Không F5 queue/chọn vé/giữ chỗ. Khu vừa hết vé trước giữ chỗ được thử lại đúng ưu tiên; kết quả giữ vé tới muộn vẫn được nhận và không gửi lặp. [Tiêu chí hiệu quả và phục hồi tự động](docs/RUI_RO_VA_KIEM_THU.md).
+
+Đóng popup vẫn camp. App dùng quyền `power` giữ hệ thống hoạt động khi camp, trả lại chính sách tab và thả chống ngủ khi dừng/checkout/hết phiên. Không hỗ trợ Chrome điện thoại. Phiên hết hạn một giờ sau mốc muộn hơn giữa lúc bật và giờ bán. Xem [chuẩn bị trước giờ bán](docs/SAN_SANG_MO_BAN.md).
 
 **1Zone** có nguồn dữ liệu và adapter camp; **Ticketbox** chỉ tra cứu; **CTicket** chưa kết nối. Preset [Vương Bình Hà Nội](https://ticket.1zone.vn/events/vuong-binh-tiec-thanh-than-mam-2?calendarId=8h0YGm) chuẩn bị HAI QUÝ và 1 vé. Giờ bán lượt tiếp theo do người dùng cập nhật; không điền lại giờ đã qua. Ticketbox đã khảo sát API từng suất và luồng đăng nhập, chưa bật tự đặt vé; xem [kết quả nghiên cứu](docs/TICKETBOX.md). Xem [chuẩn bị và cách test](docs/SAN_SANG_MO_BAN.md).
 
 ## Cài bản gửi bạn bè
 
-Nhận **`Camp-ve-0.6.2.zip`**, giải nén và mở **`BAT-DAU.html`**. Trong Chrome → `chrome://extensions` → Developer mode → Load unpacked, chọn thư mục **`tien-ich`**. Không cần source, Node.js hoặc npm. Mỗi người tự đăng nhập website trên Chrome của mình.
+Nhận **`Camp-ve-0.6.3.zip`**, giải nén và mở **`BAT-DAU.html`**. Trong Chrome → `chrome://extensions` → Developer mode → Load unpacked, chọn thư mục **`tien-ich`**. Không cần source, Node.js hoặc npm. Mỗi người tự đăng nhập website trên Chrome của mình.
 
-Bản gửi bạn bè nằm ở `.output/Camp-ve-0.6.2.zip`. `.output/chrome-mv3` đã được cập nhật bằng đúng 16 file production đã kiểm thử ở `artifacts/release-0.6.2`; bản trước được sao lưu trong artifacts. Dừng phiên cũ, Reload tiện ích rồi tải lại tab sự kiện trước lượt mới; không cần nạp thêm tiện ích trùng.
+Bản gửi bạn bè nằm ở `.output/Camp-ve-0.6.3.zip`. `.output/chrome-mv3` đã được cập nhật bằng đúng 16 file production đã kiểm thử ở `artifacts/release-0.6.3`; bản trước được sao lưu trong artifacts. Dừng phiên cũ, Reload tiện ích rồi tải lại tab sự kiện trước lượt mới; không cần nạp thêm tiện ích trùng.
 
 Mở tool → **Diễn tập** → chọn số vé → **Chạy thử**. Kết quả cần thấy: **Đã tới thanh toán** và đúng số vé. **Làm lại** đặt lại bài thử; các màn queue/CAPTCHA/canvas nằm trong phần kiểm tra riêng.
 
@@ -34,7 +36,7 @@ npm run build
 3. Ghim icon **Camp vé**. Sau mỗi lần build/reload extension, tải lại tab website.
 4. **Diễn tập** → chọn số vé → **Chạy thử**.
 
-`npm run zip` tạo `.output/ticket-sp-0.6.2-chrome.zip`. Git chỉ lưu source/lockfile, không lưu output hay dữ liệu test.
+`npm run zip` tạo `.output/ticket-sp-0.6.3-chrome.zip`. Git chỉ lưu source/lockfile, không lưu output hay dữ liệu test.
 
 ### Tạo bản phát hành · dành cho người phát triển
 
@@ -42,7 +44,7 @@ npm run build
 npm run release
 ```
 
-Hoặc chạy workflow **Build tested extension** trong GitHub Actions. Đầu ra gồm **`.output/Camp-ve-0.6.2.zip`** để gửi, ZIP riêng để upload Web Store, `SHA256SUMS.txt` và `release.json`. Không gửi repo hoặc yêu cầu người nhận chạy lệnh build. Hướng dẫn cũng có trong menu tool. [Nội dung chuẩn bị Web Store](docs/WEB_STORE.md).
+Hoặc chạy workflow **Build tested extension** trong GitHub Actions. Đầu ra gồm **`.output/Camp-ve-0.6.3.zip`** để gửi, ZIP riêng để upload Web Store, `SHA256SUMS.txt` và `release.json`. Không gửi repo hoặc yêu cầu người nhận chạy lệnh build. Hướng dẫn cũng có trong menu tool. [Nội dung chuẩn bị Web Store](docs/WEB_STORE.md).
 
 ### Cập nhật khi đang nạp `.output/chrome-mv3`
 
@@ -50,7 +52,7 @@ Build mới chỉ thay file trên đĩa; Chrome có thể vẫn chạy tiến tr
 
 1. Đóng popup và tab cấu hình cũ. Mở `chrome://extensions`.
 2. Ở **Camp vé · 1Zone Assistant**, bấm biểu tượng **Tải lại / Reload**.
-3. **Tải lại tab 1Zone** để thay content script cũ. Mở lại tiện ích, kiểm tra **v0.6.2** ở cửa sổ cấu hình và bảng camp trên tab vé.
+3. **Tải lại tab 1Zone** để thay content script cũ. Mở lại tiện ích, kiểm tra **v0.6.3** ở cửa sổ cấu hình và bảng camp trên tab vé.
 4. Tải lại hạng vé, chọn ưu tiên và lưu lại để nhận đầy đủ các khu của từng hạng. Bản cũ chỉ lưu một tên khu đại diện.
 
 Không cần tải ZIP nếu Chrome đang nạp trực tiếp `.output/chrome-mv3` của project này. Nếu nạp thư mục giải nén ZIP ở nơi khác, cập nhật đầy đủ các file trong chính thư mục đó rồi Reload.
@@ -103,7 +105,7 @@ npm run zip
 
 `check` gồm typecheck, unit tests, build production. E2E chạy extension thật trên Chromium với website mô phỏng, không tạo đơn thật. `npm run dev` dùng `.output/chrome-mv3-dev`, không dùng bản này cho buổi bán.
 
-`npm run bench:camp` đo 24 mẫu với extension production và website/API mô phỏng. Báo cáo p50/p95 ở `artifacts/camp-benchmark.json`. **Diễn tập → Chạy thử** để thử bằng UI. `node scripts/smoke-target.mjs` chỉ đo nhận diện trên trang Hà Nội công khai bằng profile tạm, không khởi động camp/giữ vé. Kết quả fixture không chứng minh nhanh nhất hoặc mua được vé thật.
+`npm run bench:camp` đo phản ứng DOM/Konva và toàn luồng trang cũ → F5 → queue → đúng vé → checkout. Các báo cáo `artifacts/{camp,map,entry}-benchmark.json` ghi p50/p95, lựa chọn và số lần giữ vé của fixture. **Diễn tập → Chạy thử** để thử bằng UI. `node scripts/smoke-target.mjs` chỉ đọc trang Hà Nội công khai, không khởi động camp/giữ vé. Kết quả fixture không chứng minh nhanh nhất hoặc mua được vé thật.
 
 `npm run smoke:live -- https://ticket.1zone.vn/events/…`, `node scripts/inspect-public-cases.mjs` và `npm run smoke:catalog` chỉ đọc trang/API công khai. Smoke catalog chạy UI thật với profile tạm, không lưu cấu hình hay khởi động camp.
 

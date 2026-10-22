@@ -8,6 +8,7 @@ import { hasOnezoneVerification, readOnezoneModal } from './onezone-modal';
 import { chooseOnezoneMap, hasMapChoice } from './onezone-map';
 import { readOnezoneAddons } from './onezone-addons';
 import { isOnezoneQueueFor } from './onezone-queue';
+import { documentBootPending } from './document-readiness';
 
 interface QuantityBinding {
   model: AutoQuantity;
@@ -117,7 +118,7 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
     : /het thoi gian (giu cho|dat ve)|phien (dat ve )?(da )?het han|reservation expired|khong the giu ve|khong the giu cho/.test(headings)
       ? 'Phiên giữ chỗ đã hết hạn hoặc giữ vé thất bại. Kiểm tra trên website.' : undefined;
   return { page: { snapshot, enterCount: enter.length, advanceCount: advance.length, selectable: [...choices.keys()], quantity: quantity?.model, problem,
-    loading: document.readyState !== 'complete',
+    loading: snapshot.state === 'NOT_READY' && documentBootPending(document),
     documentStartedAt: document.defaultView?.performance.timeOrigin,
     selectionPending: snapshot.state === 'UNKNOWN' && snapshot.unsupportedVariant === false,
     entryRetrySafe: snapshot.state === 'EVENT_PAGE' && officialEnter.length === 1 && document.readyState === 'complete' && isSameEvent(snapshot.url, p.eventUrl),

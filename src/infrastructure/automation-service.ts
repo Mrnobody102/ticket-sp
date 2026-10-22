@@ -28,10 +28,25 @@ export async function stopAutoRun(): Promise<void> {
 export async function ensureNoUnresolvedReservation(current?: AutoRun | null): Promise<void> {
   if (hasUnresolvedReservation(current === undefined ? await readAutoRun() : current)) throw new Error('Lượt trước đã gửi giữ vé nhưng chưa rõ kết quả. Kiểm tra tab vé trước; tắt công cụ chỉ dừng thao tác, không hủy đơn.');
 }
+/** Chrome can replace a WebContents/tab ID while restoring a discarded tab. */
+export async function replaceAutoRunTab(addedTabId: number, removedTabId: number): Promise<void> {
+  const [run, config] = await Promise.all([readAutoRun(), repository.load()]);
+  if (!run || run.tabId !== removedTabId || !config.preferences) return;
+  const tab = await chrome.tabs.get(addedTabId);
+  const url = tab.url ?? tab.pendingUrl;
+  const sameTask = !!url && isSameTaskPage(url, config.preferences);
+  // A checkout route may have lost its slug; replacement still must preserve
+  // the unresolved reservation and must never restart selection.
+  const finishing = (hasUnresolvedReservation(run) || run.progress.phase === 'CHECKOUT') && !!url && new URL(url).origin === new URL(config.preferences.eventUrl).origin;
+  await writeAutoRun({ ...run, tabId: addedTabId, revision: run.revision + 1,
+    progress: sameTask || finishing ? run.progress : { ...run.progress, phase: 'PAUSED', message: 'Tab thay thế không còn đúng sự kiện đã lưu.' } });
+}
 export async function reconcileAutoRun(): Promise<void> {
   const [run, config] = await Promise.all([readAutoRun(), repository.load()]);
   if (!run) return;
   if (!config.enabled || !config.preferences || preferencesKey(config.preferences) !== run.preferencesKey) await stopAutoRun();
+  else if (autoActive(run) && run.expiresAt <= Date.now()) await writeAutoRun({ ...run, revision: run.revision + 1,
+    progress: { ...run.progress, phase: 'PAUSED', message: 'Phiên camp đã hết thời gian.' } });
 }
 
 /** Called inside the background's serialized queue. Revision checks prevent stale clicks. */

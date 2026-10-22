@@ -4,11 +4,12 @@ import { CONFIG_KEY, repository } from '../infrastructure/storage';
 import { validatePreferences } from '../core/preferences';
 import { reconcileReminder, SALE_ALARM } from '../infrastructure/reminders';
 import type { AutoCommand } from '../infrastructure/automation-messages';
-import { ensureNoUnresolvedReservation, handleAutoCommand, readAutoRun, reconcileAutoRun, stopAutoRun } from '../infrastructure/automation-service';
+import { ensureNoUnresolvedReservation, handleAutoCommand, readAutoRun, reconcileAutoRun, replaceAutoRunTab, stopAutoRun } from '../infrastructure/automation-service';
 import { openEventTab } from '../infrastructure/event-tab';
 import { handleCatalogCommand, type CatalogCommand } from '../infrastructure/catalog-service';
 import { RUNTIME_INFO } from '../infrastructure/extension-runtime';
 import { correctHanoiSaleDate } from '../core/config-migrations';
+import { CAMP_GUARD_ALARM, reconcileCampGuard } from '../infrastructure/camp-guard';
 
 export default defineBackground(() => {
   // Serialize mutations in this worker; durable configuration lives in storage.
@@ -18,7 +19,15 @@ export default defineBackground(() => {
     pending = result.catch(() => undefined);
     return result;
   };
-  const reconcile = () => { void enqueue(async () => { await reconcileAutoRun(); await reconcileReminder(); }).catch(() => undefined); };
+  // Browser lifecycle work has its own queue; it must never hold up AUTO_STEP.
+  let guardPending: Promise<unknown> = Promise.resolve();
+  const guard = () => {
+    guardPending = guardPending.catch(() => undefined).then(async () => {
+      const [run, config] = await Promise.all([readAutoRun(), repository.load()]);
+      await reconcileCampGuard(run, config.enabled ? config.preferences : null, Date.now(), readAutoRun);
+    }).catch(() => undefined);
+  };
+  const reconcile = () => { void enqueue(async () => { await reconcileAutoRun(); await reconcileReminder(); guard(); }).catch(() => undefined); };
   chrome.runtime.onMessage.addListener((raw: unknown, sender, respond) => {
     if (sender.id !== chrome.runtime.id || !raw || typeof raw !== 'object') return;
     const message = raw as Command | AutoCommand | CatalogCommand | { type: 'RUNTIME_INFO' };
@@ -36,7 +45,11 @@ export default defineBackground(() => {
       return true;
     }
     if (message.type.startsWith('AUTO_')) {
-      void enqueue(() => handleAutoCommand(message as AutoCommand, sender)).then(run => respond({ run }), error => respond({ error: error instanceof Error ? error.message : 'Không thực hiện được camp.' }));
+      void enqueue(() => handleAutoCommand(message as AutoCommand, sender)).then(run => {
+        respond({ run });
+        if (['AUTO_START', 'AUTO_START_HERE', 'AUTO_STOP'].includes(message.type) ||
+            (message.type === 'AUTO_STEP' && run && ['CHECKOUT', 'PAUSED'].includes(run.progress.phase))) guard();
+      }, error => respond({ error: error instanceof Error ? error.message : 'Không thực hiện được camp.' }));
       return true;
     }
     if (!['SAVE', 'ENABLE', 'PANEL', 'OPEN_EVENT', 'OPEN_DEMO', 'OPEN_WORKSPACE'].includes(message.type)) return;
@@ -72,21 +85,34 @@ export default defineBackground(() => {
       await chrome.action.setBadgeText({ text: '' });
       await reconcileReminder();
       return config;
-    }).then(config => respond({ config }), error => respond({ error: error instanceof Error ? error.message : 'Không thể lưu cấu hình.' }));
+    }).then(config => {
+      respond({ config });
+      if (command.type === 'SAVE' || command.type === 'ENABLE') guard();
+    }, error => respond({ error: error instanceof Error ? error.message : 'Không thể lưu cấu hình.' }));
     return true;
   });
   chrome.storage.onChanged.addListener((changes, area) => { if (area === 'local' && changes[CONFIG_KEY]) reconcile(); });
-  chrome.alarms.onAlarm.addListener(alarm => { if (alarm.name === SALE_ALARM) reconcile(); });
+  chrome.alarms.onAlarm.addListener(alarm => {
+    if (alarm.name === SALE_ALARM || alarm.name === CAMP_GUARD_ALARM) reconcile();
+  });
   chrome.runtime.onStartup.addListener(reconcile);
   chrome.runtime.onInstalled.addListener(details => {
     void enqueue(async () => {
       const config = await repository.load();
       const corrected = correctHanoiSaleDate(config, details.previousVersion);
       if (corrected !== config) { await stopAutoRun(); await repository.save(corrected); }
-      await reconcileAutoRun(); await reconcileReminder();
+      await reconcileAutoRun(); await reconcileReminder(); guard();
     }).catch(() => undefined);
   });
-  chrome.tabs.onRemoved.addListener(tabId => { void enqueue(async () => { if ((await readAutoRun())?.tabId === tabId) await stopAutoRun(); }).catch(() => undefined); });
+  chrome.tabs.onRemoved.addListener(tabId => { void enqueue(async () => { if ((await readAutoRun())?.tabId === tabId) { await stopAutoRun(); guard(); } }).catch(() => undefined); });
+  chrome.tabs.onReplaced.addListener((added, removed) => {
+    void enqueue(() => replaceAutoRunTab(added, removed)).then(guard).catch(() => undefined);
+  });
+  chrome.tabs.onUpdated.addListener((tabId, change) => {
+    if (change.discarded || change.status === 'complete') {
+      void readAutoRun().then(run => { if (run?.tabId === tabId) guard(); }).catch(() => undefined);
+    }
+  });
   // Reconcile on every worker evaluation as alarms may be lost across browser restarts.
   reconcile();
 });

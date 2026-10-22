@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTO_KEY, ensureNoUnresolvedReservation, handleAutoCommand } from '../../src/infrastructure/automation-service';
+import { AUTO_KEY, ensureNoUnresolvedReservation, handleAutoCommand, reconcileAutoRun, replaceAutoRunTab } from '../../src/infrastructure/automation-service';
 import { CONFIG_KEY } from '../../src/infrastructure/storage';
 import type { TaskConfig } from '../../src/core/models';
 import type { AutoRun } from '../../src/core/automation';
@@ -15,10 +15,33 @@ beforeEach(() => {
     set: async (value: object) => { Object.assign(store, value); },
     remove: async (key: string) => { delete store[key]; },
   });
-  vi.stubGlobal('chrome', { storage: { local: area(local), session: area(session) }, tabs: { sendMessage: vi.fn(async () => undefined), update: vi.fn(async () => ({ windowId: 1 })) }, windows: { update: vi.fn(async () => undefined) }, runtime: { getURL: (path: string) => `chrome-extension://ext${path}` } });
+  vi.stubGlobal('chrome', { storage: { local: area(local), session: area(session) }, tabs: { get: vi.fn(async () => ({ id: 2, url: prefs.eventUrl })), sendMessage: vi.fn(async () => undefined), update: vi.fn(async () => ({ windowId: 1 })) }, windows: { update: vi.fn(async () => undefined) }, runtime: { getURL: (path: string) => `chrome-extension://ext${path}` } });
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe('khóa phiên và CAS tại background', () => {
+  it('Chrome thay tab ID: chuyển đúng chủ, giữ dấu giữ vé và từ chối chủ cũ', async () => {
+    const run = (await handleAutoCommand({ type: 'AUTO_START' }, sender))!;
+    run.progress = { phase: 'ADVANCING', message: '', reservationAttemptedAt: 123 };
+    session[AUTO_KEY] = run;
+    await replaceAutoRunTab(2, 99); expect(session[AUTO_KEY]).toBe(run);
+    await replaceAutoRunTab(2, 1);
+    expect(session[AUTO_KEY]).toMatchObject({ id: run.id, tabId: 2, revision: 1, progress: { phase: 'ADVANCING', reservationAttemptedAt: 123 } });
+    await expect(handleAutoCommand({ type: 'AUTO_STEP', id: run.id, revision: 0, progress: run.progress }, sender)).rejects.toThrow('đã đổi');
+  });
+  it('tab thay thế sai sự kiện: không tự chạy mua ở trang khác', async () => {
+    const run = (await handleAutoCommand({ type: 'AUTO_START' }, sender))!;
+    vi.mocked(chrome.tabs.get).mockResolvedValue({ id: 2, url: 'https://ticket.1zone.vn/events/other' } as chrome.tabs.Tab);
+    await replaceAutoRunTab(2, 1);
+    expect(session[AUTO_KEY]).toMatchObject({ id: run.id, tabId: 2, progress: { phase: 'PAUSED' } });
+  });
+  it('watchdog hết hạn khi content không chạy: ghi tạm dừng nhưng không xóa dấu giữ vé', async () => {
+    const run = (await handleAutoCommand({ type: 'AUTO_START' }, sender))!;
+    run.expiresAt = Date.now() - 1;
+    run.progress = { phase: 'ADVANCING', message: '', reservationAttemptedAt: 123 };
+    session[AUTO_KEY] = run;
+    await reconcileAutoRun();
+    expect(session[AUTO_KEY]).toMatchObject({ id: run.id, revision: run.revision + 1, progress: { phase: 'PAUSED', reservationAttemptedAt: 123 } });
+  });
   it('giữ vé chưa rõ kết quả: không bắt đầu hoặc lưu cấu hình mới, vẫn mở đúng tab cũ', async () => {
     const run = (await handleAutoCommand({ type: 'AUTO_START' }, sender))!;
     run.progress = { phase: 'PAUSED', message: '', reservationAttemptedAt: Date.now() };

@@ -179,7 +179,9 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
       // Retry only on this exact NOT_READY event, with decreasing frequency.
       const interval = now >= saleAt - 60000 && now <= saleAt + 15000 ? 1000 : now - saleAt < 30000 ? 2500 : now - saleAt < 120000 ? 5000 : 15000;
       const last = progress.lastReleaseReloadAt ?? progress.releaseReloadedAt;
-      const next = last === undefined ? watchAt : last + interval;
+      // A refresh just before sale must not push the release-time refresh into
+      // the next interval. The deadline takes precedence over periodic cadence.
+      const next = last === undefined ? watchAt : Math.min(last + interval, last < saleAt ? saleAt : Infinity);
       if (now < next) return wait(next);
       return { type: 'STEP', action: { kind: 'RELOAD' }, progress: { ...progress, releaseReloadedAt: progress.releaseReloadedAt ?? now, lastReleaseReloadAt: now, message: 'Trang vẫn chưa mở bán. Đang cập nhật lại.' } };
     }

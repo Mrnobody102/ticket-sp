@@ -19,7 +19,8 @@ Hỗ trợ camp trên một số giao diện 1Zone; Ticketbox hiện chỉ tra c
 | Quyền | Mục đích trong bản hiện tại |
 |---|---|
 | storage | Cấu hình và bản nháp cục bộ; một phiên camp tạm thời trong session |
-| alarms, notifications | Thông báo tới giờ mở bán đã lưu |
+| alarms, notifications | Thông báo tới giờ bán; kiểm tra bảo vệ phiên camp và chuẩn bị tab trước giờ bán |
+| power | Giữ máy không tự ngủ khi camp; thả khi Dừng, tới thanh toán hoặc hết phiên |
 | ticket.1zone.vn | Đọc metadata sự kiện; content script đọc và thao tác giao diện đặt vé |
 | queue.1zone.vn | Nhận diện phòng chờ đúng sự kiện và giữ/chuyển tab camp; không lấy token để tạo yêu cầu riêng |
 | marketplace.1zone.vn, prod.1zone.vn | GET tìm sự kiện và hạng/giá/số lượng tối đa |

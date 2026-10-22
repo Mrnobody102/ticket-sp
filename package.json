@@ -1,7 +1,7 @@
 {
   "name": "ticket-sp",
   "description": "Concert ticket automation and event catalog extension",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "license": "UNLICENSED",
   "private": true,
   "type": "module",

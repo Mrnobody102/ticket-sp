@@ -12,6 +12,13 @@ function page(patch: Partial<AutoPage> = {}): AutoPage {
   return { snapshot: { url: p.eventUrl, state: 'SELECTING', selectionMode: 'ZONE_ONLY', supported: true, reason: '', visibleOptions: [vip], maxQuantity: 2 }, enterCount: 0, advanceCount: 1, selectable: ['vip'], quantity: { value: 1, min: 1, max: 2, writable: true, stepper: false }, ...patch };
 }
 describe('máy trạng thái camp dùng chung', () => {
+  it('F5 sát trước mốc bán không dời lượt kiểm tra đúng giờ sang giây kế tiếp', () => {
+    const configured = { ...p, startMode: 'WHEN_AVAILABLE' as const, refreshAtSale: true };
+    const session = { ...run({ lastReleaseReloadAt: now - 50 }), preferencesKey: preferencesKey(configured) };
+    const view = page(); view.snapshot.state = 'NOT_READY';
+    expect(decideAutomation(session, view, configured, now - 1)).toMatchObject({ type: 'WAIT', wakeAt: now });
+    expect(decideAutomation(session, view, configured, now)).toMatchObject({ action: { kind: 'RELOAD' } });
+  });
   it.each(['READY', 'OPENING'] as const)('sơ đồ đã biết tải chậm: %s vẫn chờ sau 15 giây, không F5', phase => {
     const view = page({ selectionPending: true }); view.snapshot.state = 'UNKNOWN'; view.snapshot.supported = false;
     const current = run({ phase, actionAt: now - 60000 });

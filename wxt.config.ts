@@ -10,7 +10,7 @@ export default defineConfig({
   manifest: {
     name: 'Camp vé · 1Zone Assistant',
     description: 'Camp vé theo ưu tiên: tự chọn khu/ghế, đặt số lượng và đi tới checkout.',
-    permissions: ['storage', 'alarms', 'notifications'],
+    permissions: ['storage', 'alarms', 'notifications', 'power'],
     host_permissions: [...contentMatches, ...[...ONEZONE_READ_ORIGINS, TICKETBOX_READ_ORIGIN].map(origin => `${origin}/*`)],
     icons: { 128: 'icon-128.png' },
     action: { default_title: 'Camp vé · 1Zone Assistant' },

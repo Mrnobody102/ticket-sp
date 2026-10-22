@@ -280,12 +280,12 @@ test('chuyển camp sang một tab duy nhất trước chọn vé; ẩn panel v�
 });
 
 test('camp dừng ở CAPTCHA; dừng camp hủy phiên và không thao tác khi vào chọn vé sau đó', async () => {
-  const { event } = await prepareAuto('1', 'challenge');
+  const { popup, event } = await prepareAuto('1', 'challenge');
   await event.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
   await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'PAUSED');
   await expect(event.locator('.auto-status')).toContainText('xác minh');
   const worker = context.serviceWorkers()[0]!;
-  await worker.evaluate(async () => chrome.storage.session.remove('ticket-assistant.auto.session.v1'));
+  await popup.evaluate(async () => chrome.runtime.sendMessage({ type: 'AUTO_STOP' }));
   await event.reload();
   await event.evaluate(() => { document.querySelector('h1')!.textContent = 'Phòng chờ'; });
   await event.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();

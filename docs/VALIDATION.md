@@ -1,4 +1,39 @@
-# Kiểm thử · 0.6.2 · 22/10/2026
+# Kiểm thử · 0.6.3 · 22/10/2026
+
+Build cuối `artifacts/release-0.6.3/chrome-mv3`. TypeScript PASS; unit **286/286 trong 23 file** (`npx vitest run --maxWorkers=2`); Chromium E2E **72/72, không retry, 4,4 phút**: 17 catalog, 28 extension, 16 Konva, 4 vận hành, 7 runtime.
+
+Các ca mới đã tái hiện và xác nhận tự phục hồi: ảnh pending không chặn khởi tạo hoặc F5, refresh trước mốc bán 50 ms vẫn kiểm tra đúng mốc, Chrome discard rồi thay tab ID vẫn giữ phiên, chuẩn bị foreground một lần, Dừng trả lại chính sách tab ban đầu. Guard kiểm tra phiên mới nhất trước thông báo, không phát lại phiên đã dừng.
+
+Thước đo chính: **mở bán khi trang còn trạng thái cũ → app tự F5 → mua → queue → chọn đúng VIP × 2 → checkout**. Một lượt làm nóng, sau đó 6 lượt đo; chỉ công bố sau khi vòng F5 đã nhận ít nhất 2 phản hồi còn khóa. Thời điểm mở được rải 0/190/380/570/760/950 ms trong nhịp kiểm tra, tránh chỉ đo ngay lần tải đầu sau START.
+
+| Phép đo fixture | Kết quả |
+|---|---:|
+| Lượt hoàn thành đúng vé/số lượng | 6/6 |
+| Giữ vé mỗi lượt / click thanh toán cuối | 1 / 0 |
+| Mở bán → vào queue p50 / p95 | 635 / 1.072 ms |
+| Mở bán → checkout p50 / p95 | 1.186 / 1.618 ms |
+| Cấu hình độ trễ mô phỏng | Phản hồi trang 50 ms; queue 200 ms |
+| Ngưỡng test bắt buộc | Queue <1.500 ms; checkout <2.200 ms; giữ vé đúng 1 lần |
+
+Mẫu gốc `artifacts/entry-benchmark.json` ghi từng lượt, hạng/số vé quan sát được, số phản hồi cũ và số lần giữ vé. Đây là phép thử quy trình có điều hướng thật trong Chromium; không phải queue hay server giữ vé thật của 1Zone.
+
+Các benchmark DOM/Konva có 12 mẫu sau làm nóng mỗi tình huống, 36 mẫu tổng cộng; 0 pageerror/click lặp:
+
+| Tình huống | Mở CTA → click mua p50 / p95 | Mở giao diện → checkout p50 / p95 |
+|---|---:|---:|
+| DOM, phản hồi tức thì | 15,1 / 44,8 ms | 72,7 / 109,5 ms |
+| DOM, phản hồi mỗi bước 100 ms | 11,7 / 80,7 ms | 268,3 / 659,4 ms |
+| Konva, modal 2 vé, phản hồi tức thì | Không qua CTA | 87,7 / 117,7 ms |
+
+Đã kiểm tra cả hai ZIP khớp **16 hash production**. Cài từ ZIP bạn bè đã giải nén `artifacts/share-install-0.6.3-237ddf73/tien-ich`: diễn tập 2 vé tới checkout, 0 pageerror, 0 HTTP request. Bản phát hành thêm quyền `power` để app chống ngủ do không hoạt động, có giải thích trong hướng dẫn/quyền riêng tư; không thêm API vào từng bước chọn vé. Lockfile chỉ đổi phiên bản app, không đổi dependency.
+
+Đã cập nhật `.output/chrome-mv3` bằng đúng build đã test, hash khớp đủ 16 file; backup 0.6.2 tại `artifacts/chrome-mv3-backup-0.6.2-1ccf7f0a`. ZIP chia sẻ `.output/Camp-ve-0.6.3.zip`: **231.314 byte**, SHA-256 `237ddf7332c28e3b1c4f733fe148cd68be043f1c6f4cc9296974e5d29fccd9be`. Cần Reload extension và tab trước lượt mới; chưa điều khiển tab Chrome thật của người dùng.
+
+Chưa đo/kiểm chứng checkout đăng nhập thật ở đợt bán tiếp theo. Các khoảng trống hệ thống vẫn được giữ là chưa hoàn thiện trong [rủi ro và tiêu chí vận hành](RUI_RO_VA_KIEM_THU.md), không tính thông báo lỗi là phục hồi thành công.
+
+---
+
+# Lưu trữ kiểm thử · 0.6.2 · 22/10/2026
 
 Build cuối: `artifacts/release-0.6.2/chrome-mv3`. TypeScript PASS; unit **268/268 trong 21 file** (`npx vitest run --maxWorkers=2`); Chromium E2E **68/68, không retry, 4,5 phút**: 17 catalog, 28 extension, 16 Konva, 7 runtime. Một lần chạy unit với số worker mặc định gặp lỗi Windows `kill EPERM`; chạy lại đầy đủ với 2 worker đạt kết quả trên.
 

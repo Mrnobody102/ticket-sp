@@ -11,7 +11,8 @@ import { RUNTIME_INFO, verifyExtensionRuntime } from '../infrastructure/extensio
 
 export default defineContentScript({
   matches: [...contentMatches],
-  runAt: 'document_idle',
+  // Observe the usable DOM without waiting for images/fonts/window.load.
+  runAt: 'document_end',
   async main(ctx) {
     let disposed = false;
     ctx.onInvalidated(() => { disposed = true; });
