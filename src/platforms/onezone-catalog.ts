@@ -71,7 +71,8 @@ export function parseOnezoneTickets(value: unknown, eventId: string, performance
       requiresChallenge: ticket.isCaptchaEnable === true };
   });
   if (new Set(tickets.map(t => t.id)).size !== tickets.length) throw new Error('Hạng vé trùng ID; chưa thể chọn chính xác.');
-  return { eventId, performanceId, fetchedAt: now, tickets };
+  const graphical = values.some(value => ['seatmap', 'seatmap_zone'].includes(string(record(value).ticketType)));
+  return { eventId, performanceId, fetchedAt: now, tickets, ...(graphical ? { layout: 'SEAT_MAP' as const } : {}) };
 }
 
 /** A grouped ticket's zoneName is only one representative. Join every physical

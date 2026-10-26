@@ -15,15 +15,15 @@
 
   <h2>Cài một lần</h2>
   <ol>
-    <li>Giải nén toàn bộ file ZIP vào một thư mục cố định.</li>
+    <li>Trên GitHub, tải <code>dist/Camp-ve-latest.zip</code> bằng <b>Download raw file</b>, rồi giải nén toàn bộ vào một thư mục cố định.</li>
     <li>Mở Chrome, nhập <code>chrome://extensions</code>.</li>
     <li>Bật <b>Chế độ dành cho nhà phát triển / Developer mode</b>.</li>
-    <li>Bấm <b>Tải tiện ích đã giải nén / Load unpacked</b>. Trong bộ gửi bạn bè, chọn thư mục <b>tien-ich</b> có <code>manifest.json</code>. Với bản build trong project, chọn <code>.output/chrome-mv3</code>.</li>
+    <li>Bấm <b>Tải tiện ích đã giải nén / Load unpacked</b>, chọn thư mục <b>tien-ich</b> có <code>manifest.json</code> trong ZIP vừa giải nén. Không chọn thư mục <code>dist</code>. Với bản build trong project, chọn <code>.output/chrome-mv3</code>.</li>
     <li>Ghim icon <b>Camp vé</b>. Không cần cài Node.js hay chạy source.</li>
   </ol>
 
   <h2>Chuẩn bị đặt vé</h2>
-  <p class="note">Nếu đã cài bản cũ: Reload tiện ích, tải lại tab vé, kiểm tra <b>v0.6.3</b> rồi bật camp lại. Nhập giờ bán của đợt sắp tới; giờ cũ không được điền lại tự động. Nếu cập nhật từ trước 0.5.1, tải lại hạng vé và lưu để nhận đủ các khu.</p>
+  <p class="note">Nếu đã cài bản cũ: thay toàn bộ file bằng bản mới, Reload tiện ích, tải lại tab vé, kiểm tra <b>v0.6.4</b> rồi bật camp lại. Nhập giờ bán của đợt sắp tới; giờ diễn không phải giờ mở bán.</p>
   <ol>
     <li>Đăng nhập 1Zone trước. Mở Camp vé, tìm tên sự kiện hoặc dán link bán vé vào ô tìm.</li>
     <li>Chọn đúng suất diễn. Chọn hạng trong danh sách; dùng ↑ ↓ để xếp ưu tiên.</li>
@@ -33,7 +33,7 @@
   </ol>
   <p class="note">Đóng popup vẫn giữ bản nháp. Bấm <b>Lưu cấu hình</b> để áp dụng thay đổi cho lượt camp.</p>
   <p class="note">Khi camp, tool tự giữ máy không ngủ do để lâu và giữ tab khỏi bị Chrome tự bỏ. Từ 2 phút trước giờ bán, tab camp được đưa ra trước một lần. Dừng hoặc tới thanh toán sẽ trả lại cài đặt. Không đóng Chrome hoặc đổi tài khoản/mạng trong phiên.</p>
-  <p class="note">Suất Hà Nội có sẵn ở thẻ cấu hình nhanh: mặc định 1 vé, HAI QUÝ; giờ bán do bạn cập nhật. Các giá trị đều sửa được. Ticketbox hiện chỉ tra cứu.</p>
+  <p class="note">Test CAPITANEUS MUTABILIS: dán https://ticket.1zone.vn/events/capitaneus-mutabilis-2026?calendarId=XDacU6 vào ô tìm, chọn hạng và 1–2 vé. API hiện khai báo cấp ghế tự động; nếu website yêu cầu chọn từng ghế trong iframe, thao tác trực tiếp khi tool báo chưa hỗ trợ. Ticketbox hiện chỉ tra cứu.</p>
   <p class="note">Camp tự hết hạn sau 1 giờ tính từ mốc muộn hơn giữa lúc bật và giờ bán. Đóng Chrome, Reload tiện ích hoặc đóng tab chủ sẽ hủy phiên; cần bật lại. Dừng camp không tự hủy chỗ/đơn mà website đã giữ.</p>
 
   <p class="note">Nếu mở tay tab mua hoặc phòng chờ mới, bấm <b>Bắt đầu camp</b> trong tab đó để chuyển phiên chưa chọn vé sang. Không chuyển khi tab cũ đang xử lý giữ vé. Trong popup, <b>Đến tab đang camp</b> mở đúng tab mà tool đang điều khiển.</p>

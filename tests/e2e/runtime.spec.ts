@@ -1,7 +1,18 @@
 import { test, expect, chromium } from '@playwright/test';
-import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 const { version } = JSON.parse(readFileSync(resolve('package.json'), 'utf8')) as { version: string };
+
+// Node 25's native cpSync on Windows mangles non-ASCII destination paths.
+// Playwright derives these paths from Vietnamese test titles; copy bytes instead.
+function copyExtension(source: string, destination: string) {
+  mkdirSync(destination, { recursive: true });
+  for (const entry of readdirSync(source, { withFileTypes: true })) {
+    const from = join(source, entry.name), to = join(destination, entry.name);
+    if (entry.isDirectory()) copyExtension(from, to);
+    else writeFileSync(to, readFileSync(from));
+  }
+}
 
 async function launch(extensionPath: string, profile = '') {
   const context = await chromium.launchPersistentContext(profile, { channel: 'chromium', headless: true,
@@ -13,7 +24,7 @@ async function launch(extensionPath: string, profile = '') {
 test('cập nhật bản mới: giữ ngày đợt bán mới, hạng/số vé, không tự bật camp', async ({}, info) => {
   const extensionPath = info.outputPath('upgrade-extension');
   const profile = info.outputPath('upgrade-profile');
-  cpSync(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'), extensionPath, { recursive: true });
+  copyExtension(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'), extensionPath);
   const manifestPath = resolve(extensionPath, 'manifest.json');
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   writeFileSync(manifestPath, JSON.stringify({ ...manifest, version: '0.5.8' }));
@@ -60,7 +71,7 @@ test('Mở rộng mở trang cấu hình bằng link thật, không cần lệnh
 test('UI mới + worker cũ: báo reload rõ ràng, khóa camp nhưng Mở rộng vẫn hoạt động', async ({}, info) => {
   // Reproduce a mixed installation without touching the actual release or user profile.
   const extensionPath = info.outputPath('legacy-extension');
-  cpSync(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'), extensionPath, { recursive: true });
+  copyExtension(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'), extensionPath);
   writeFileSync(resolve(extensionPath, 'background.js'), `chrome.runtime.onMessage.addListener((_message, _sender, reply) => { reply({ error: 'Lệnh không được hỗ trợ.' }); });`);
   const { context, extensionId } = await launch(extensionPath);
   try {
@@ -80,7 +91,7 @@ test('UI mới + worker cũ: báo reload rõ ràng, khóa camp nhưng Mở rộn
 
 test('content bị worker cũ từ chối: có lỗi trên panel, không Uncaught hoặc tự camp', async ({}, info) => {
   const extensionPath = info.outputPath('legacy-content-extension');
-  cpSync(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'), extensionPath, { recursive: true });
+  copyExtension(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'), extensionPath);
   writeFileSync(resolve(extensionPath, 'background.js'), `chrome.runtime.onMessage.addListener((_message, _sender, reply) => { reply({ error: 'Lệnh chỉ dùng trong trang cấu hình tiện ích.' }); });`);
   const { context } = await launch(extensionPath);
   const errors: string[] = [];
@@ -115,7 +126,7 @@ test('hướng dẫn mở được từ tool và đủ bước cài bản gửi 
 
 test('worker từ chối lệnh khi bấm camp: lỗi được bắt, không Uncaught hoặc click vé', async ({}, info) => {
   const extensionPath = info.outputPath('legacy-start-extension');
-  cpSync(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'), extensionPath, { recursive: true });
+  copyExtension(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'), extensionPath);
   writeFileSync(resolve(extensionPath, 'background.js'), `chrome.runtime.onMessage.addListener((message, _sender, reply) => {
     if (message.type === 'RUNTIME_INFO') reply({ info: { version: ${JSON.stringify(version)}, protocolVersion: 1 } });
     else if (message.type === 'AUTO_GET') reply({ run: null });
@@ -142,7 +153,7 @@ test('worker từ chối lệnh khi bấm camp: lỗi được bắt, không Unc
 
 test('worker mới nhưng tab chỉ có content cũ: không tạo phiên camp giả', async ({}, info) => {
   const extensionPath = info.outputPath('legacy-tab-extension');
-  cpSync(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'), extensionPath, { recursive: true });
+  copyExtension(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'), extensionPath);
   writeFileSync(resolve(extensionPath, 'content-scripts/tickets.js'), '// Legacy content without readiness handshake.');
   const { context, extensionId } = await launch(extensionPath);
   const errors: string[] = [];

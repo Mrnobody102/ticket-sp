@@ -35,6 +35,8 @@ export function readOnezoneModal(document: Document, p: EventPreferences, reader
     const names = p.catalog.tickets.filter(q => [...root.querySelectorAll('p,h3,span')].some(e => reader.isVisible(e) && ticketHasLabel(q, reader.text(e))));
     if (names.length !== 1) return;
     const quote = names[0]!;
+    // A quantity dialog does not prove which individual seats were selected.
+    if (quote.seatMode === 'PICK') return;
     const namedZones = quote.zones?.filter(z => [...root.querySelectorAll('p,h3,span')].some(e => reader.isVisible(e) && normalize(reader.text(e)) === normalize(z.name))) ?? [];
     if (namedZones.length > 1) return;
     const identified = [root, ...root.querySelectorAll('[data-ticket-class-id],[data-ticket-type-id],[data-zone-id]')];

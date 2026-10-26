@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join, relative, resolve } from 'node:path';
 import { createZip } from '@aklinker1/zero-zip';
@@ -45,3 +45,12 @@ const report = { version, artifacts, files: hashes };
 await writeFile(join(output, 'release.json'), JSON.stringify(report, null, 2) + '\n');
 await writeFile(join(output, 'SHA256SUMS.txt'), artifacts.map(item => `${item.sha256}  ${item.file.replaceAll('\\', '/').split('/').at(-1)}`).join('\n') + '\n');
 console.log(JSON.stringify({ version, artifacts, install: 'Unzip → BAT-DAU.html → Load unpacked tien-ich' }, null, 2));
+
+// Stable GitHub download path: overwrite the latest package, never accumulate versions.
+const distribution = resolve('dist');
+await mkdir(distribution, { recursive: true });
+const friendBytes = await readFile(friendFile);
+await writeFile(join(distribution, 'Camp-ve-latest.zip.tmp'), friendBytes);
+await rename(join(distribution, 'Camp-ve-latest.zip.tmp'), join(distribution, 'Camp-ve-latest.zip'));
+await writeFile(join(distribution, 'SHA256SUMS.txt'), `${sha256(friendBytes)}  Camp-ve-latest.zip\n`);
+await writeFile(join(distribution, 'release.json'), JSON.stringify({ version, file: 'Camp-ve-latest.zip', sha256: sha256(friendBytes), bytes: friendBytes.length, installDirectory: 'tien-ich', files: hashes }, null, 2) + '\n');

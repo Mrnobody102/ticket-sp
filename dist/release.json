@@ -1,0 +1,25 @@
+{
+  "version": "0.6.4",
+  "file": "Camp-ve-latest.zip",
+  "sha256": "479553ca853551fe8741d03f6474de3ffb0d346d1f51db2744d5ea76564098d4",
+  "bytes": 232208,
+  "installDirectory": "tien-ich",
+  "files": {
+    "assets/styles-8qepgBvE.css": "4977c95194315bae74f54fd307e33238add7c3926fe00d7edce35f2940a18cd5",
+    "background.js": "428bbb833a07a0181adcd5edb7d7d545fb62fd296b0247461ae13f1d67ef7c07",
+    "chunks/demo-BYodTy8g.js": "b9b1ca09ed55ac599558a09135cd5a8b9c54d28227183ee1d659907c9b5601e5",
+    "chunks/popup-D8U-Zj4q.js": "070cc738bfe6b1228978c05543d10b8862101f1c329abce031200ae7cdc50b89",
+    "chunks/Popup-DFrgZwKX.js": "b353590025aba5f1f6dd1c83d23cb5d5492398bbda09c310cfffe00fab4fbfff",
+    "chunks/styles-BILymKaq.js": "78daf4227b48e4f84b5ce5f0e183d57758fa05314a8c957ec1a3528aa1e2a0aa",
+    "chunks/workspace-DZm3lK-D.js": "2ebfc025d342bd26b2710d880fc95b20a7967257cea1b069b804497142c60a1c",
+    "content-scripts/onezone-map.js": "5d97ab19c6cb97b61d841829ac9888ecbaa4aa7cbb03ba0aaaed5bd6dfc05093",
+    "content-scripts/tickets.js": "a2fbc700fa4995eae5e7cc9467b0dfd6230311d6a93b1254dd3ca00d82458bf6",
+    "demo.html": "19cbeb1c5b2e331c41d04077fc365a065f432a753d8911488b7a5c9ba8d50279",
+    "huong-dan.html": "7abaf0935809e0e990371dfee659a06bf666f5c97fd0ebcb9a840de82e90fe31",
+    "icon-128.png": "f23c543cfea9372c6b9726db5083b86f4c06faa9ff74528064174772320bcc70",
+    "manifest.json": "26e623bbaa970c29da0a4d02a3f6715ec3c7b1bd98ac8823ee363ebdcb76201b",
+    "popup.html": "3af63617a684d10129e069782aff208892f2f2893198e99d6a0612c9d4862e3c",
+    "quyen-rieng-tu.html": "db0abfb6803ea71ca5d2e8a53bd3946aa095adc298be496f46cab0db7e859f7f",
+    "workspace.html": "6005d85e595454ff82819f35018c0dbe6bb45d374869becb1e32ec5c4910c718"
+  }
+}

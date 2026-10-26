@@ -1,4 +1,18 @@
-# Kiểm thử · 0.6.3 · 22/10/2026
+# Kiểm thử · 0.6.4 · 26/10/2026
+
+Typecheck/build production PASS; unit **290/290 trong 24 file**. Chromium E2E: **74 ca ngoài runtime PASS**, **7/7 runtime PASS khi chạy lại riêng** sau khi sửa lỗi `cpSync` của Node 25 trên Windows làm sai đường dẫn chứa tiếng Việt. Kiểm tra UI được chạy lại sau lần sửa CSS cuối và PASS ở 390×600, 820×500, 1280×720.
+
+Ca CAPITANEUS dùng metadata công khai `kAapup / XDacU6`, 4 hạng và giá tương ứng. Mỗi hạng chạy 1 và 2 vé: chưa mở bán → CTA mở → thẻ tự cấp cạnh iframe → modal → chờ CAPTCHA → checkout; giữ vé đúng một lần, không click thanh toán. Đây là **UI mô phỏng**, không phải bản sao phiên đăng nhập hay xác nhận luồng Seats.io thật.
+
+Kiểm tra trang thật bằng extension production (`smoke:live`): `Chưa mở bán`, 1 panel, 0 gợi ý, 0 pageerror. Không bật camp, không gửi yêu cầu giữ vé. [Phạm vi và giới hạn CAPITANEUS](CAPITANEUS.md).
+
+Gói GitHub nằm ở `dist/Camp-ve-latest.zip`, bản 0.6.4; checksum và hash 16 file production ở `dist/release.json`. ZIP được giải nén và đối chiếu hash với build; không có source map, cấu hình hay thông tin đăng nhập.
+
+Cài trực tiếp từ ZIP cuối đã giải nén: **10/10 E2E PASS**, gồm 8 ca CAPITANEUS, bố cục 3 kích thước cửa sổ và diễn tập 1/2 vé. SHA-256 ZIP: `479553ca853551fe8741d03f6474de3ffb0d346d1f51db2744d5ea76564098d4` (232.208 byte).
+
+---
+
+## Lịch sử · 0.6.3 · 22/10/2026
 
 Build cuối `artifacts/release-0.6.3/chrome-mv3`. TypeScript PASS; unit **286/286 trong 23 file** (`npx vitest run --maxWorkers=2`); Chromium E2E **72/72, không retry, 4,4 phút**: 17 catalog, 28 extension, 16 Konva, 4 vận hành, 7 runtime.
 

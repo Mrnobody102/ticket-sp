@@ -75,6 +75,8 @@ export function inspectOnezonePage(document: Document, url: URL, p?: EventPrefer
   const details = { ...base, selectionMode, maxQuantity, visibleOptions: entries.map(e => e.option) };
   const unreadableMap = [...document.querySelectorAll('canvas, iframe')].some(isVisible);
   if (unreadableMap && (selectionMode === 'PICK_SEAT' || selectionMode === 'MIXED' || !entries.length)) {
+    const seatsio = [...document.querySelectorAll('#seatio,iframe')].some(e => isVisible(e) && (e.id === 'seatio' || /seatsio\.(net|com)/i.test(e.getAttribute('src') ?? '')));
+    if (seatsio) return finish({ ...details, unsupportedVariant: true, reason: 'Sơ đồ Seats.io chưa có điều khiển chọn hạng/ghế đọc được. Chọn ghế trực tiếp trên website và kiểm tra đơn; tool không tự chọn trong iframe này.' });
     const knownContainer = p?.catalog && [...document.querySelectorAll('[id^="seatmap-container-"]')].some(e => e.id.startsWith(`seatmap-container-${p.catalog!.eventId}-`));
     return finish({ ...details, unsupportedVariant: !knownContainer, reason: knownContainer ? 'Đang chờ sơ đồ và giá vé hiển thị đầy đủ.' : 'Chưa đọc được các khu trên sơ đồ này. Chọn khu trên website; tool chỉ tiếp tục nếu xác minh được hạng và giá.' });
   }
