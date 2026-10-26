@@ -12,7 +12,7 @@ const inventory = capitaneusTypes.flatMap(t => ['A', 'B'].flatMap(rowName => Arr
   zoneName: t.name, rowName, code: String(i + 1), priceVnd: t.finalPriceVn,
 }))));
 
-async function booking(tier = capitaneusTypes[0]!, quantity = 2, options: Parameters<typeof installOnezoneSeatsDemo>[1] = {}) {
+async function booking(tier = capitaneusTypes[0]!, quantity = 2, options: Parameters<typeof installOnezoneSeatsDemo>[1] = {}, queue = false) {
   errors.length = 0;
   const extension = resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3');
   context = await chromium.launchPersistentContext('', { channel: 'chromium', headless: true, args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`] });
@@ -28,11 +28,55 @@ async function booking(tier = capitaneusTypes[0]!, quantity = 2, options: Parame
   await context.route('https://prod.1zone.vn/**', route => route.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ errorCode: 0, data: inventory }) }));
   const legend = capitaneusTypes.map(t => `<div><p>${t.name}</p><p>${t.finalPriceVn.toLocaleString('vi-VN')} ₫</p></div>`).join('');
   await context.route('https://ticket.1zone.vn/**', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><meta charset="utf-8"><main><h1>Chọn ghế</h1>${legend}<div id="seatio"><div style="height:100px"><iframe title="seating chart" srcdoc=""></iframe></div></div><div class="ticket-list-fixed-bar"></div></main><script>(${installOnezoneSeatsDemo.toString()})(document,${JSON.stringify(options)})</script>` }));
-  const page = await context.newPage(); await page.goto(capitaneusUrl.replace('/events/', '/booking/'));
-  await expect(page.locator('.status-line')).toContainText('Đang chọn vé');
+  const bookingUrl = capitaneusUrl.replace('/events/', '/booking/');
+  await context.route('https://queue.1zone.vn/**', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><meta charset="utf-8"><h1>Bạn đang trong hàng chờ</h1><a href="${bookingUrl}">Đến lượt · mô phỏng</a>` }));
+  const page = await context.newPage(); await page.goto(queue ? 'https://queue.1zone.vn/?c=eventista&e=kaapup&t=' + encodeURIComponent(bookingUrl) : bookingUrl);
+  await expect(page.locator('.status-line')).toContainText(queue ? 'Đang xếp hàng' : options.initialVerification ? 'Cần xác minh' : options.readHangAlways || options.readHangOnce ? 'Chưa nhận diện' : 'Đang chọn vé');
   return { page, worker };
 }
 async function start(page: Page) { await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click(); }
+
+test('qua queue và xác minh đầu trang: tự tiếp tục chọn đúng ghế cuối rồi tới thanh toán', async () => {
+  const { page } = await booking(undefined, 1, { initialVerification: true, onlyAvailableLabel: 'SUMMER-B-6' }, true);
+  await start(page);
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'READY');
+  await page.getByRole('link', { name: 'Đến lượt · mô phỏng' }).click();
+  await expect(page.locator('.status-line')).toContainText('Cần xác minh');
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'READY');
+  await page.getByRole('button', { name: 'Xác minh xong · vào chọn ghế' }).click();
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(page.locator('main form')).toContainText('SUMMER-B-6');
+  await expect(page.locator('main')).toHaveAttribute('data-selections', '1');
+  await expect(page.locator('main')).toHaveAttribute('data-holds', '1');
+});
+
+test('còn 1 ghế nhưng yêu cầu 2: báo thiếu số lượng, tiếp tục chờ và không tự đổi đơn', async () => {
+  const { page } = await booking(undefined, 2, { onlyAvailableLabel: 'SUMMER-B-6' });
+  await start(page);
+  await expect(page.locator('.auto-status')).toContainText('Không đủ 2 ghế');
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'READY');
+  await expect(page.locator('main')).not.toHaveAttribute('data-selections');
+  await expect(page.locator('[data-ticket-assistant] .highlight')).toHaveCount(0);
+});
+
+test('SDK mất một phản hồi sau admission: hết timeout tự đọc lại và tới checkout', async () => {
+  const { page } = await booking(undefined, 1, { readHangOnce: true });
+  await start(page);
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(page.locator('main')).toHaveAttribute('data-selections', '1');
+});
+
+test('SDK không phản hồi liên tục: hiện lỗi cụ thể, không đơ im lặng hoặc tự gửi chọn ghế', async () => {
+  const { page } = await booking(undefined, 1, { readHangAlways: true });
+  await start(page);
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'PAUSED', { timeout: 15000 });
+  await expect(page.locator('.auto-status')).toContainText('Sơ đồ không phản hồi sau 3 lần đọc');
+  await expect(page.locator('main')).not.toHaveAttribute('data-selections');
+  await page.evaluate(() => (window as unknown as { seatDemo: { resumeReads(): void } }).seatDemo.resumeReads());
+  await start(page);
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(page.locator('main')).toHaveAttribute('data-selections', '1');
+});
 
 for (const tier of capitaneusTypes) for (const quantity of [1, 2]) test(`Seats.io ${tier.name} × ${quantity}: tự chọn ghế đúng khu qua SDK, kiểm tra chip/giá rồi tới checkout`, async () => {
   const { page } = await booking(tier, quantity, { readViaXhr: quantity === 2 });

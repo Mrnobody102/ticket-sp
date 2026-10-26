@@ -1,4 +1,16 @@
-# Kiểm thử · 0.7.0 · 26/10/2026
+# Kiểm thử · 0.7.1 · 26/10/2026
+
+Typecheck, production build và **305/305 unit test trong 25 file PASS**. Bộ E2E đầy đủ: 98/99 PASS; ca còn lại phát hiện request đầu tiên từ tab do extension tạo lọt khỏi route fixture Playwright. Đã sửa harness để mở sẵn trang fixture được intercept và ca Lưu và camp PASS khi chạy riêng.
+
+**ZIP cuối 0.7.1: 27/27 E2E PASS**, gồm toàn bộ ca CAPITANEUS/SDK Seats.io: queue → xác minh đầu trang → ghế duy nhất → checkout; yêu cầu 2 vé khi chỉ còn 1 ghế; mất một phản hồi rồi tự phục hồi; SDK treo hiện lỗi, bắt đầu lại sau khi SDK hồi phục; 4 hạng × 1/2 vé; đổi tồn kho; xác minh lâu; sai tổng tiền; phản hồi không rõ; dừng trước phản hồi muộn; UI 3 kích thước và chống bấm trùng. Đây là mô phỏng, không phải giao dịch thật.
+
+ZIP **237.571 byte**, SHA-256 `8213eb9c23ad0a49cc97a642e6a31a24e168c4cb88698cb25e123e27816b88f6`; hash đủ 16 file khớp bản đã giải nén. `npm run release` kiểm tra cú pháp JS, tài nguyên local và không chứa file phát triển.
+
+Kiểm tra thật ẩn danh: trang sự kiện CAPITANEUS có CTA; trang booking chuyển tới Queue-it `eventista / kaapup` với đích đúng suất `XDacU6`. Không giữ/chọn vé thật; không có log phiên cũ để kết luận nguyên nhân map tối. [Điều tra queue và lỗi ghế](QUEUE_VA_GHE.md).
+
+---
+
+## Lịch sử · 0.7.0 · 26/10/2026
 
 Typecheck/build production PASS; unit **301/301 trong 25 file**. Bộ Chromium 95 ca: 93 ca PASS ở lượt toàn bộ; hai ca phát hiện đã sửa (vòng đời iframe diễn tập và race chờ phiên trong test Konva), chạy lại cả hai cùng preset 12:00 và đều PASS.
 

@@ -1,6 +1,6 @@
 /** Synthetic SDK contract + website cart UI using observed public 1Zone markers.
  * There are no real hold, auth, verification or payment requests here. */
-export async function installOnezoneSeatsDemo(document: Document, options: { quantityDelay?: number; verification?: boolean; wrongTotal?: boolean; readViaXhr?: boolean; rejectSelection?: boolean } = {}) {
+export async function installOnezoneSeatsDemo(document: Document, options: { quantityDelay?: number; verification?: boolean; wrongTotal?: boolean; readViaXhr?: boolean; rejectSelection?: boolean; onlyAvailableLabel?: string; readHangOnce?: boolean; readHangAlways?: boolean; initialVerification?: boolean } = {}) {
   interface Inventory { _id: string; ticketClassId: string; zoneId: string; zoneName: string; rowName: string; code: string; priceVnd: number }
   interface ObjectValue { id: string; label: string; labels: { section: string; parent: string; own: string }; category: { key: number; label: string }; objectType: string; status: string; selectable: boolean; forSale: boolean }
   const view = document.defaultView! as Window & typeof globalThis & { seatsio: { charts: object[] }; seatDemo: { disable(label: string): void; selects: number; submits: number; paymentClicks: number; orderDelay: number; selectionDelay: number; release(): void } };
@@ -13,14 +13,25 @@ export async function installOnezoneSeatsDemo(document: Document, options: { qua
   const objects: ObjectValue[] = inventory.map(s => ({ id: `${s.zoneName}-${s.rowName}-${s.code}`, label: `${s.zoneName}-${s.rowName}-${s.code}`,
     labels: { section: s.zoneName, parent: s.rowName, own: s.code }, category: { key: ['WINTER', 'AUTUMN', 'SUMMER', 'SPRING'].indexOf(s.zoneName) + 1, label: s.zoneName }, objectType: 'Seat', status: 'free', selectable: true, forSale: true }));
   const selected: ObjectValue[] = [];
+  if (options.onlyAvailableLabel) for (const object of objects) {
+    if (object.label !== options.onlyAvailableLabel) { object.selectable = false; object.status = 'booked'; }
+  }
   const bar = document.querySelector('.ticket-list-fixed-bar')!;
   let release = () => {};
   const metrics = { selects: 0, submits: 0, paymentClicks: 0, orderDelay: 0, selectionDelay: options.quantityDelay ?? 0, release: () => release(), disable: (label: string) => { const object = objects.find(o => o.label === label); if (object) { object.selectable = false; object.status = 'booked'; } } };
   view.seatDemo = metrics;
+  let reads = 0;
+  let readBlocked = !!options.readHangAlways;
+  Object.assign(metrics, { resumeReads: () => { readBlocked = false; } });
   const chart = {
     config: { event: 'capitaneus-mutabilis-2026-XDacU6', mode: 'normal', session: 'none', onObjectSelected: () => {} }, state: 'RENDERED', selectedObjects: [] as string[],
     container: () => document.querySelector<HTMLElement>('#seatio > div')!,
-    listSelectedObjects: async () => selected.map(o => ({ ...o })),
+    listSelectedObjects: async () => {
+      reads++;
+      if (readBlocked || (options.readHangOnce && reads === 1)) return new Promise<ObjectValue[]>(() => {});
+      return selected.map(o => ({ ...o }));
+    },
+    getReportBySelectability: async () => ({ selectable: { byCategoryLabel: Object.fromEntries(['WINTER', 'AUTUMN', 'SUMMER', 'SPRING'].map(name => [name, objects.filter(o => o.category.label === name && o.selectable).length])) } }),
     findObject: async (label: string) => { const object = objects.find(o => o.label === label); if (!object) throw new Error('not found'); return { ...object }; },
     doSelectObjects: async (labels: string[]) => {
       metrics.selects++; main.setAttribute('data-selections', String(metrics.selects));
@@ -55,5 +66,12 @@ export async function installOnezoneSeatsDemo(document: Document, options: { qua
     },
   };
   view.seatsio = { charts: [chart] };
+  if (options.initialVerification) {
+    main.hidden = true;
+    const gate = document.createElement('section');
+    gate.innerHTML = '<h2>Xác minh bạn là con người</h2><iframe title="captcha" srcdoc=""></iframe><button>Xác minh xong · vào chọn ghế</button>';
+    gate.querySelector('button')!.addEventListener('click', () => { gate.remove(); main.hidden = false; });
+    document.body.append(gate);
+  }
   document.dispatchEvent(new view.Event('change', { bubbles: true }));
 }

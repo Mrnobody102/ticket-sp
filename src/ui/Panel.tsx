@@ -61,7 +61,7 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
       <div className="panel-body">
         {(onStartAuto || autoRun) && <div className="auto-status" role="status" data-auto-phase={autoRun?.progress.phase} data-auto-pending={autoBusy ? 'true' : 'false'}>
           <b>{running && snapshot.state === 'CHALLENGE' ? 'Chờ xác minh' : waitingForStock ? 'Chờ vé ưu tiên' : autoRun ? phaseLabels[autoRun.progress.phase] : 'Camp tới thanh toán'}</b>
-          {running && snapshot.state === 'CHALLENGE' ? <p>Hoàn thành xác minh trên website.</p> : autoRun && !['READY', 'CHECKOUT'].includes(autoRun.progress.phase) && <p>{autoRun.progress.message}</p>}
+          {running && snapshot.state === 'CHALLENGE' ? <p>Chờ website xác minh; tool tự tiếp tục.</p> : waitingForStock ? <p>{snapshot.reason}</p> : autoRun && !['READY', 'CHECKOUT'].includes(autoRun.progress.phase) && <p>{autoRun.progress.message}</p>}
           {autoRun?.progress.checkoutReachedAt && autoRun.progress.selectionStartedAt && <p>Chọn vé → thanh toán: {((autoRun.progress.checkoutReachedAt - autoRun.progress.selectionStartedAt) / 1000).toFixed(2)} giây (phiên này).</p>}
           {onStartAuto && autoRun?.progress.phase !== 'CHECKOUT' && <button className={running ? 'danger-button' : 'primary'} disabled={!p || (autoBusy && !running)} onClick={running ? onStopAuto : uncertain ? onRescan : onStartAuto}>{running ? 'Dừng camp' : uncertain ? 'Nhận diện lại' : 'Bắt đầu camp'}</button>}
         </div>}

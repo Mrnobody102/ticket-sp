@@ -72,6 +72,7 @@ export function inspectOnezonePage(document: Document, url: URL, p?: EventPrefer
   const seats = p ? readOnezoneSeats(document, p, reader) : undefined;
   if (seats?.state.problem) return finish({ ...base, reason: seats.state.problem, unsupportedVariant: true });
   if (seats?.entries.length) return finish({ ...base, state: 'SELECTING', supported: true, selectionMode: 'PICK_SEAT', visibleOptions: seats.entries.map(e => e.option), reason: 'Tự chọn ghế.' }, seats.entries);
+  if (seats?.state.ready && !seats.state.groups.length) return finish({ ...base, state: 'SELECTING', supported: true, selectionMode: 'PICK_SEAT', reason: seats.state.note ?? 'Chưa có ghế phù hợp. Đang chờ ghế.' });
   const mapEntries = p ? readOnezoneMap(document, p, reader) : [];
   const entries = mapEntries.length ? mapEntries : readOptionElements(document, selectionMode, reader, p?.catalog?.tickets);
   if (mapEntries.length) selectionMode = 'ZONE_ONLY';
@@ -80,7 +81,7 @@ export function inspectOnezonePage(document: Document, url: URL, p?: EventPrefer
   const unreadableMap = [...document.querySelectorAll('canvas, iframe')].some(isVisible);
   if (unreadableMap && (selectionMode === 'PICK_SEAT' || selectionMode === 'MIXED' || !entries.length)) {
     const seatsio = [...document.querySelectorAll('#seatio,iframe')].some(e => isVisible(e) && (e.id === 'seatio' || /seatsio\.(net|com)/i.test(e.getAttribute('src') ?? '')));
-    if (seatsio) return finish({ ...details, unsupportedVariant: false, reason: 'Đang tải ghế.' });
+    if (seatsio) return finish({ ...details, unsupportedVariant: false, reason: seats?.state.note ?? 'Đang tải ghế.' });
     const knownContainer = p?.catalog && [...document.querySelectorAll('[id^="seatmap-container-"]')].some(e => e.id.startsWith(`seatmap-container-${p.catalog!.eventId}-`));
     return finish({ ...details, unsupportedVariant: !knownContainer, reason: knownContainer ? 'Đang chờ sơ đồ và giá vé hiển thị đầy đủ.' : 'Chưa đọc được các khu trên sơ đồ này. Chọn khu trên website; tool chỉ tiếp tục nếu xác minh được hạng và giá.' });
   }

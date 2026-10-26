@@ -13,6 +13,14 @@ beforeEach(() => {
   document.body.innerHTML = readFileSync('fixtures/booking.html', 'utf8');
 });
 describe('hợp đồng adapter và thao tác 1Zone', () => {
+  it('xác minh sau queue trước chọn ghế: chờ tự tiếp tục, không áp dụng cho lựa chọn cũ chưa rõ kết quả', () => {
+    document.body.innerHTML = '<h2>Xác minh bạn là con người</h2><iframe title="Cloudflare security challenge"></iframe>';
+    const url = new URL(p.eventUrl.replace('/events/', '/booking/'));
+    const inspection = inspectOnezonePage(document, url, p);
+    expect(inspectAutoControls(document, inspection, p, progress).page.verificationPending).toBe(true);
+    expect(inspectAutoControls(document, inspection, p, { ...progress, chosen: { label: 'VIP', kind: 'ZONE' } }).page.verificationPending).toBe(false);
+    expect(inspectAutoControls(document, inspection, p, { ...progress, reservationAttemptedAt: 1 }).page.verificationPending).toBe(false);
+  });
   it('xác minh ở đúng queue: giữ camp chờ rồi tự tiếp tục; queue sai không được chờ tự động', () => {
     document.body.innerHTML = '<h1>Bạn đang trong hàng chờ</h1><iframe title="Widget containing a Cloudflare security challenge"></iframe>';
     const queue = new URL('https://queue.1zone.vn/?t=' + encodeURIComponent(p.eventUrl.replace('/events/', '/booking/')));

@@ -3,7 +3,7 @@
 Đối chiếu công khai ngày 26/10/2026, không đăng nhập hoặc tạo đơn thật.
 
 - Event: `kAapup`, suất `XDacU6`, 22/11/2026 lúc 19:00 UTC+7.
-- Trang hiển thị **Sắp mở bán**. Không suy giờ bán từ giờ diễn.
+- Trước giờ bán trang hiển thị **Sắp mở bán**. Kiểm tra lại sau đó: trang sự kiện có nút mua; `/booking/...XDacU6` chuyển tới queue `eventista / kaapup`. [Kết quả điều tra queue và ghế](QUEUE_VA_GHE.md).
 - API summary và zones cùng trả 4 hạng: SPRING 990.000đ, SUMMER 1.690.000đ, AUTUMN 2.690.000đ, WINTER 3.690.000đ.
 - Mỗi hạng khai báo `seatType: auto`, tối đa 2 vé và bật CAPTCHA. Đây là dữ liệu cấu hình, không chứng minh tồn kho thật.
 - Preset mặc định mở bán **12:00 ngày 26/10/2026 UTC+7**, theo yêu cầu người dùng; không suy từ giờ diễn.
@@ -15,7 +15,7 @@ Tool tìm chart đúng `capitaneus-mutabilis-2026-XDacU6`, chế độ `normal`,
 
 Trước CTA tạo đơn, tool đối chiếu từng chip ghế, đơn giá và tổng tiền trong `.ticket-list-fixed-bar`. Sau đó bấm nút của website để mở xác minh và tạo đơn. Không giải CAPTCHA, không tự thanh toán. Xác minh lâu không làm gửi giữ vé lần hai; hết ghế trước khi chọn được đọc lại, phản hồi không rõ kết quả không được gửi lặp.
 
-Kiểm thử có 4 hạng × 1/2 ghế qua SDK, cả fetch/XHR; tồn kho đổi, giá sai, xác minh lâu, SDK lỗi và dừng khi phản hồi muộn. **Chưa xác minh checkout đăng nhập thật**, vì trang còn khóa. API inventory/seatmap công khai khi chưa mở hiện trả lỗi nghiệp vụ; schema được đối chiếu từ mã giao diện công khai. Không coi fixture là chứng nhận mua thành công.
+Kiểm thử có 4 hạng × 1/2 ghế qua SDK, cả fetch/XHR; tồn kho đổi, giá sai, xác minh lâu, SDK lỗi và dừng khi phản hồi muộn. **Chưa xác minh checkout đăng nhập thật**; lần kiểm tra mới dừng ở queue. Schema được đối chiếu từ mã giao diện và SDK công khai. Không coi fixture là chứng nhận mua thành công.
 
 SDK chính thức: [chọn nhóm](https://docs.seats.io/docs/renderer/chart-properties-chartdoselectobjects/), [đọc ghế](https://docs.seats.io/docs/renderer/chart-properties-chartfindobject/), [đọc lựa chọn](https://docs.seats.io/docs/renderer/chartlistselectedobjects/). Không dùng `holdBestAvailable` vì website tự tạo đơn sau bước xác minh, với phiên Seats.io không tự giữ ghế.
 

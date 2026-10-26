@@ -110,11 +110,14 @@ test('Lưu và camp: một nút lưu đúng bản nháp rồi chạy, bấm hai 
   await page.getByLabel('Số vé', { exact: true }).fill('2');
   await page.getByLabel('Cách bắt đầu camp').selectOption('IMMEDIATE');
   await context.route('https://ticket.1zone.vn/**', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><meta charset="utf-8"><main><h1>Chọn khu vực</h1><p>Ghế được tự động cấp</p><div id="ticket-list"><div><p>${tier.name}</p><p>${tier.finalPriceVn.toLocaleString('vi-VN')} ₫</p><button>Chọn</button></div></div><div id="modal-host"></div></main><script>(${installBooking.toString()})(document,${JSON.stringify(tier)})</script>` }));
-  const opened = context.waitForEvent('page');
+  // Seed the intercepted fixture through Playwright. An extension-created tab
+  // can issue its first request before Playwright attaches routing to that tab.
+  const event = await context.newPage();
+  await event.goto(capitaneusUrl);
+  await expect(event.locator('#ticket-list')).toBeVisible();
   const start = page.getByRole('button', { name: 'Lưu và camp', exact: true });
   await expect(start).toBeEnabled();
   await start.evaluate((button: HTMLButtonElement) => { button.click(); button.click(); });
-  const event = await opened;
   await expect(event.locator('.auto-status')).toContainText('Chờ xác minh');
   await event.getByRole('button', { name: 'Xác minh xong · mô phỏng' }).click();
   await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');

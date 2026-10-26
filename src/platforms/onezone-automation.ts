@@ -138,7 +138,8 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
     selectionRetrySafe: !modal && (optionElements.some(entry => hasMapChoice(entry.element, entry.option.id)) || seatsState?.retrySafe === true),
     ...(addons ? { verifiedAddons: true } : {}),
     ...(modal ? { resumeSelection: modal.entry.option.id } : {}),
-    verificationPending: (!!progress.chosen?.seatLabels && progress.phase === 'ADVANCING' && snapshot.state === 'CHALLENGE' && isSameEvent(snapshot.url, p.eventUrl) && hasOnezoneVerification(document, reader)) ||
+    verificationPending: (['READY', 'OPENING'].includes(progress.phase) && !progress.chosen && progress.reservationAttemptedAt === undefined && snapshot.state === 'CHALLENGE' && isSameEvent(snapshot.url, p.eventUrl) && hasOnezoneVerification(document, reader)) ||
+      (!!progress.chosen?.seatLabels && progress.phase === 'ADVANCING' && snapshot.state === 'CHALLENGE' && isSameEvent(snapshot.url, p.eventUrl) && hasOnezoneVerification(document, reader)) ||
       (!!modal && hasOnezoneVerification(document, reader) && !enabled(modal.advance, reader)) ||
       (snapshot.state === 'CHALLENGE' && isOnezoneQueueFor(snapshot.url, p)) },
     bindings: { enter, advance, choices, quantity, reader, reload: () => document.defaultView!.location.reload(), chooseMap: (element, optionId) => chooseOnezoneMap(element, optionId, p), chooseSeats: (element, optionId) => chooseOnezoneSeats(element, optionId, p) } };

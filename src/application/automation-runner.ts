@@ -66,9 +66,17 @@ export function createAutomationRunner(options: RunnerOptions) {
           // refresh and inspect again; it must not interrupt admission or pause it.
           const cancelRefresh = decision.action.kind === 'RELOAD' && verified &&
             (verified.type === 'WAIT' || verified.progress.phase !== 'PAUSED');
+          // No selection command has been sent yet. If the SDK replans while
+          // storage is pending, discard this plan and re-read on the next tick.
+          const replanSeats = decision.action.kind === 'CHOOSE' && !!decision.progress.chosen?.seatLabels &&
+            !before.progress.chosen && before.progress.reservationAttemptedAt === undefined &&
+            verified && (verified.type === 'WAIT' || verified.progress.phase === 'CHOOSING') &&
+            !fresh.snapshot.visibleOptions.some(option => option.selected) &&
+            fresh.snapshot.state === 'SELECTING';
           run = await options.transport.commit(committed, recovery && recovery.type === 'STEP' && !recovery.action
             ? recovery.progress
             : cancelRefresh ? before.progress
+              : replanSeats ? retryUnavailableSelection(before.progress, Date.now())
               : { ...committed.progress, phase: 'PAUSED', message: 'Trang đã đổi trong lúc chuẩn bị thao tác. Kiểm tra rồi bắt đầu lại.' });
           return;
         }

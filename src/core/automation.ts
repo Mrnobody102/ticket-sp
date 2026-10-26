@@ -132,7 +132,7 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
   if (snapshot.state === 'CHALLENGE') {
     if (!page.verificationPending) return pause(progress, 'Hoàn thành xác minh trên website rồi bắt đầu lại.');
     if (progress.phase === 'ADVANCING' && progress.chosen?.seatLabels && progress.verificationStartedAt === undefined) return { type: 'STEP', progress: { ...progress, verificationStartedAt: now, message: 'Chờ xác minh.' } };
-    return progress.phase === 'OPENING' ? { type: 'STEP', progress: { ...progress, phase: 'READY', message: 'Chờ xác minh trên website.' } } : wait();
+    return progress.phase === 'OPENING' ? { type: 'STEP', progress: { ...progress, phase: 'READY', message: 'Chờ xác minh trên website.' } } : wait(now + AUTO_TIMING.rescanMs);
   }
   if (progress.verificationStartedAt !== undefined && progress.phase === 'ADVANCING') return { type: 'STEP', progress: { ...progress, verificationStartedAt: undefined, actionAt: now, message: 'Đang tạo đơn…' } };
   if (snapshot.state === 'WAITING_ROOM') {
@@ -141,7 +141,7 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
     if (progress.phase === 'OPENING') return { type: 'STEP', progress: {
       ...progress, phase: 'READY', message: 'Đang xếp hàng. Chờ website cho vào.',
     } };
-    return wait();
+    return wait(now + AUTO_TIMING.rescanMs);
   }
   if (page.verifiedAddons && progress.phase === 'ADVANCING') {
     if (progress.addonsContinuedAt !== undefined) return now - progress.addonsContinuedAt < AUTO_TIMING.navigationMs

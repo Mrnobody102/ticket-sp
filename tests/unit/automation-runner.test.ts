@@ -6,6 +6,23 @@ import type { PlatformInspection } from '../../src/platforms/contracts';
 
 afterEach(() => vi.useRealTimers());
 describe('runner độc lập platform', () => {
+  it('SDK đổi ghế trước khi gửi lệnh: bỏ kế hoạch cũ, tự tìm lại thay vì tạm dừng', async () => {
+    const config: TaskConfig = { schemaVersion: 1, enabled: true, panelVisible: true, preferences: { platform: 'onezone', eventUrl: 'https://ticket.1zone.vn/events/demo', saleStartAt: new Date(0).toISOString(), quantity: 1, preferredZoneLabels: ['VIP'], allowAlternatives: false } };
+    const run: AutoRun = { id: 'seat-replan', tabId: 1, revision: 0, preferencesKey: preferencesKey(config.preferences!), startedAt: Date.now(), expiresAt: Date.now() + 3600000, progress: { phase: 'READY', message: '' } };
+    const execute = vi.fn();
+    const inspection: PlatformInspection = { snapshot: { url: config.preferences!.eventUrl, state: 'SELECTING', supported: true, selectionMode: 'PICK_SEAT', reason: '', visibleOptions: [{ id: 'vip', label: 'VIP', kind: 'ZONE', seatLabels: ['VIP-A-1'], displayedPriceVnd: 1000000, displayedAvailability: 'AVAILABLE' }] }, optionElements: [] };
+    inspection.automation = { page: { snapshot: inspection.snapshot, enterCount: 0, advanceCount: 0, selectable: ['vip'] }, execute };
+    const runner = createAutomationRunner({ initialRun: run, config: () => config, inspect: () => inspection, changed: vi.fn(), transport: {
+      start: async () => run, stop: async () => null, commit: async (previous, progress) => {
+        if (progress.phase === 'CHOOSING') inspection.snapshot.visibleOptions = [{ ...inspection.snapshot.visibleOptions[0]!, seatLabels: ['VIP-B-6'] }];
+        return { ...previous, revision: previous.revision + 1, progress };
+      },
+    } });
+    await runner.tick(inspection);
+    expect(runner.run?.progress.phase).toBe('READY'); expect(execute).not.toHaveBeenCalled();
+    await runner.tick(inspection);
+    expect(runner.run?.progress.chosen?.seatLabels).toEqual(['VIP-B-6']); expect(execute).toHaveBeenCalledOnce(); runner.destroy();
+  });
   it('đã timeout giữ vé: checkout đến muộn chỉ cập nhật kết quả, không gửi hành động', async () => {
     const config: TaskConfig = { schemaVersion: 1, enabled: true, panelVisible: true, preferences: { platform: 'onezone', eventUrl: 'https://ticket.1zone.vn/events/demo', saleStartAt: new Date(0).toISOString(), quantity: 1, preferredZoneLabels: [], allowAlternatives: false } };
     const run: AutoRun = { id: 'late-hold', tabId: 1, revision: 0, preferencesKey: preferencesKey(config.preferences!), startedAt: Date.now() - 60000, expiresAt: Date.now() - 1, progress: { phase: 'PAUSED', reservationAttemptedAt: Date.now() - 30000, message: '' } };

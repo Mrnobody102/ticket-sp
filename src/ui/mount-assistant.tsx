@@ -42,6 +42,7 @@ export function mountAssistant(options: MountOptions) {
   const root = createRoot(container);
   let config = options.initialConfig;
   let error = options.initialError;
+  let inspectionFailed = false;
   let stopped = false;
   let timeout: number | undefined;
   let microtaskQueued = false;
@@ -62,7 +63,9 @@ export function mountAssistant(options: MountOptions) {
 
   function drawHighlights() {
     overlay.replaceChildren();
-    for (const element of highlighted) {
+    for (const element of new Set(highlighted)) {
+      // Keep the interactive iframe completely unobstructed.
+      if (element.matches('#seatio') || element.closest('#seatio')) continue;
       if (!element.isConnected) continue;
       const rect = element.getBoundingClientRect();
       if (!rect.width || !rect.height || rect.bottom < 0 || rect.top > view.innerHeight) continue;
@@ -81,9 +84,17 @@ export function mountAssistant(options: MountOptions) {
   function scan() {
     if (stopped) return;
     lastRun = Date.now();
-    const inspection = config.enabled && (config.panelVisible || autoWatching(runner?.run ?? null))
-      ? inspect()
-      : { snapshot: { ...lastSnapshot, url: options.getUrl() }, optionElements: [] };
+    let inspection: PlatformInspection;
+    try {
+      inspection = config.enabled && (config.panelVisible || autoWatching(runner?.run ?? null))
+        ? inspect()
+        : { snapshot: { ...lastSnapshot, url: options.getUrl() }, optionElements: [] };
+      if (inspectionFailed) { inspectionFailed = false; error = undefined; }
+    } catch {
+      inspectionFailed = true;
+      error = 'Chưa đọc được trang vé. Đang thử lại.';
+      inspection = { snapshot: { ...lastSnapshot, url: options.getUrl(), state: 'UNKNOWN', supported: false, unsupportedVariant: false, visibleOptions: [], reason: error }, optionElements: [] };
+    }
     const raw = inspection.snapshot;
     // Start the state transition before computing highlights and rendering the panel.
     void runner?.tick(inspection).catch(e => { error = e instanceof Error ? e.message : 'Không đọc được trang vé.'; });
@@ -137,6 +148,11 @@ export function mountAssistant(options: MountOptions) {
   document.addEventListener('input', scheduleEvent, true);
   document.addEventListener('change', scheduleEvent, true);
   document.addEventListener(MAP_CHANGED, scheduleEvent);
+  // SDK readiness/queue admission can change without a parent-DOM mutation.
+  // Also retry a passive panel after a timed-out read, before camp is armed.
+  const heartbeat = view.setInterval(() => {
+    if (autoWatching(runner?.run ?? null) || lastSnapshot.unsupportedVariant === false) schedule();
+  }, 1000);
   scan();
   return {
     update(next: TaskConfig) { config = next; scan(); },
@@ -144,7 +160,7 @@ export function mountAssistant(options: MountOptions) {
     rescan: scheduleEvent,
     startAuto: () => runAction(async () => { await runner?.start(); }),
     destroy() {
-      stopped = true; observer.disconnect(); view.clearTimeout(timeout);
+      stopped = true; observer.disconnect(); view.clearTimeout(timeout); view.clearInterval(heartbeat);
       document.dispatchEvent(new CustomEvent(SEATS_CANCEL));
       runner?.destroy();
       if (frame !== undefined) view.cancelAnimationFrame(frame);

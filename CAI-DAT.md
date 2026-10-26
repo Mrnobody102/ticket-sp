@@ -5,7 +5,7 @@
 3. Mở Chrome trên máy tính, nhập **`chrome://extensions`**.
 4. Bật **Developer mode / Chế độ dành cho nhà phát triển** ở góc trên bên phải.
 5. Bấm **Load unpacked / Tải tiện ích đã giải nén**, chọn **`Downloads/Camp-ve/tien-ich`** — thư mục có **`manifest.json`**. Không chọn ZIP hoặc thư mục `dist`.
-6. Ghim icon **Camp vé**. Mở tool và kiểm tra **v0.7.0**.
+6. Ghim icon **Camp vé**. Mở tool và kiểm tra **v0.7.1**.
 
 Nếu tải cả repo bằng **Code → Download ZIP**, giải nén repo rồi lấy **`dist/Camp-ve-latest.zip`** và tiếp tục từ bước 2. Không cần cài Node.js hay chạy lệnh.
 
@@ -20,6 +20,8 @@ https://ticket.1zone.vn/events/capitaneus-mutabilis-2026?calendarId=XDacU6
 Chọn hạng ưu tiên, **1 hoặc 2 vé** → kiểm tra giờ mặc định **12:00 hôm nay, 26/10/2026** → **Lưu và camp**. Nếu đang bán, chọn **Ngay khi bật camp**. Tool tự chọn ghế và đi tới checkout. Giữ Chrome mở, máy thức; widget tự xác nhận xong thì tool tiếp tục.
 
 Tới checkout, kiểm tra đơn rồi thanh toán. “Đang camp” chưa có nghĩa đã giữ được vé. Có thể thử trước bằng **Diễn tập → Chạy thử**.
+
+Nếu vào queue, giữ nguyên tab: đến lượt và xác minh xong, tool tự tiếp tục. Muốn mua ghế lẻ cuối cùng thì đặt **1 vé**; tool không tự giảm đơn 2 vé thành 1.
 
 Test tham khảo: dán `https://ticket.1zone.vn/booking/van-am-vang?calendarId=QD6Rnn` vào ô tìm. Chọn đúng hạng và **Ngay khi bật camp**. Hai event có sơ đồ ghế; cấu hình và tồn vé vẫn được kiểm tra riêng.
 

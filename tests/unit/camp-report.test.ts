@@ -12,6 +12,10 @@ const run: AutoRun = { id: 'run', revision: 4, tabId: 123, preferencesKey: prefe
     chosen: { label: 'VIP', kind: 'ZONE', displayedPriceVnd: 1000000 } } };
 
 describe('báo cáo phiên camp', () => {
+  it('ghi chính xác nhóm ghế đã chọn để chẩn đoán lỗi ghế cuối', () => {
+    const seats = { ...run, progress: { ...run.progress, chosen: { ...run.progress.chosen!, seatLabels: ['SUMMER-B-6'] } } };
+    expect(createCampReport('0.7.1', p, snapshot, seats).run?.chosen?.seatLabels).toEqual(['SUMMER-B-6']);
+  });
   it('giữ số vé yêu cầu, bằng chứng thực tế và thời gian; không xuất cấu hình thô hoặc URL token', () => {
     const report = createCampReport('0.5.5', p, snapshot, run, undefined, undefined, 3000);
     expect(report.requested).toMatchObject({ quantity: 2, eventUrl: 'https://ticket.1zone.vn/events/demo?calendarId=HN' });
