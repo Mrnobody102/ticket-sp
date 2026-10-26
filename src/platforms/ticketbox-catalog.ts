@@ -1,4 +1,5 @@
-import type { CatalogProvider, CatalogReadResource, ConcertDetail, TicketCatalog } from '../core/catalog';
+import type { CatalogProvider, CatalogReadResource, ConcertDetail, ConcertSummary, TicketCatalog } from '../core/catalog';
+import { normalize } from '../core/preferences';
 
 export const TICKETBOX_READ_ORIGIN = 'https://api-v2.ticketbox.vn';
 const record = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {};
@@ -22,6 +23,21 @@ function iso(v: unknown) {
 const positiveId = (v: unknown) => { if (number(v) === undefined || v === 0) throw new Error('ID Ticketbox không hợp lệ.'); return String(v); };
 const optionalDate = (value: unknown) => value === undefined || value === null || value === '' ? undefined : iso(value);
 export function createTicketboxCatalog(read: CatalogReadResource): CatalogProvider {
+  const comingSoon = async (): Promise<ConcertSummary[]> => {
+    const data = body(await read(`${TICKETBOX_READ_ORIGIN}/gin/api/v2/discovery/onsale-sections/coming-soon`, 'json'), 'detail');
+    if (!Array.isArray(data.results)) throw new Error('Chưa đọc được mục sắp mở bán Ticketbox.');
+    return data.results.flatMap(value => {
+      const item = record(value);
+      try {
+        const url = new URL(text(item.deeplink)), id = eventId(url.href);
+        if (String(item.id) !== id || !text(item.name) || item.saleStage !== 'coming_soon') return [];
+        url.search = ''; url.hash = '';
+        // Announcement cards aren't a published showing or an authoritative ticket price.
+        return [{ platform: 'ticketbox' as const, id, title: text(item.name), url: url.href,
+          venue: text(record(item.city).vi), imageUrl: text(item.imageUrl), status: 'COMING_SOON' }];
+      } catch { return []; }
+    });
+  };
   const detailData = async (id: string) => {
     if (!/^\d{1,16}$/.test(id)) throw new Error('ID Ticketbox không hợp lệ.');
     return record(body(await read(`${TICKETBOX_READ_ORIGIN}/gin/api/v2/events/${id}`, 'json'), 'detail').result);
@@ -30,7 +46,11 @@ export function createTicketboxCatalog(read: CatalogReadResource): CatalogProvid
     platform: 'ticketbox',
     async search(query, page) {
       const params = new URLSearchParams({ q: query, filter: 'upcoming', page: String(page), limit: '8' });
-      const data = body(await read(`${TICKETBOX_READ_ORIGIN}/search/v3/events?${params}`, 'json'));
+      const [response, announcements] = await Promise.all([
+        read(`${TICKETBOX_READ_ORIGIN}/search/v3/events?${params}`, 'json'),
+        page === 1 ? comingSoon().catch(() => []) : Promise.resolve([]),
+      ]);
+      const data = body(response);
       if (!Array.isArray(data.results)) throw new Error('Không đọc được kết quả tìm Ticketbox.');
       const items = data.results.flatMap(value => {
         const item = record(value);
@@ -43,10 +63,21 @@ export function createTicketboxCatalog(read: CatalogReadResource): CatalogProvid
         } catch { return []; }
       });
       const total = number(record(data.total).filtered) ?? items.length;
-      return { items, page, totalItems: total, totalPages: Math.max(1, Math.ceil(total / 8)), fetchedAt: Date.now() };
+      const words = normalize(query).split(' ').filter(Boolean);
+      const added = announcements.filter(item => !items.some(existing => existing.id === item.id) && words.every(word => normalize(item.title).includes(word)));
+      return { items: [...added, ...items], page, totalItems: total + added.length,
+        totalPages: Math.max(1, Math.ceil(total / 8)), fetchedAt: Date.now() };
     },
     async detail(url): Promise<ConcertDetail> {
-      const id = eventId(url), data = await detailData(id);
+      const id = eventId(url);
+      let data: Record<string, unknown>;
+      try { data = await detailData(id); }
+      catch (error) {
+        if (new URL(url).pathname.startsWith('/events/')) throw error;
+        const announcement = (await comingSoon().catch(() => [])).find(item => item.id === id);
+        if (!announcement) throw error;
+        return { ...announcement, currency: 'VND', performances: [] };
+      }
       if (String(data.id) !== id || !Array.isArray(data.showings)) throw new Error('Chi tiết Ticketbox không khớp sự kiện.');
       const explicitShowing = new URL(url).pathname.match(/^\/events\/\d+\/bookings\/([1-9]\d{0,15})\//)?.[1];
       if (explicitShowing && !data.showings.some(value => String(record(value).id) === explicitShowing)) throw new Error('Suất trong link không thuộc sự kiện Ticketbox.');

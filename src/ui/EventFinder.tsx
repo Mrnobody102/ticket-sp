@@ -84,7 +84,7 @@ export function EventFinder({ onLoad, onReset, requestedUrl, shortcut, saved, in
     {result && <div className="result-meta">{result.items.length} kết quả{query && ` cho “${query}”`}</div>}
     {result && showResults && <><div className="event-results">
       {result.items.map(event => <button type="button" className="event-result" key={event.id} disabled={busy} onClick={() => void load(event.url, event.platform)}>
-        <strong>{event.title}</strong><span>{eventDate(event.startsAt)}{event.venue && ` · ${event.venue}`}</span><small>{event.priceFromVnd !== undefined ? `Từ ${money(event.priceFromVnd)}` : 'Xem hạng vé'}{event.status === 'CLOSE' ? ' · Chưa mở/đã đóng bán' : ''}</small>
+        <strong>{event.title}</strong><span>{eventDate(event.startsAt)}{event.venue && ` · ${event.venue}`}</span><small>{event.status === 'COMING_SOON' ? 'Sắp mở bán · Chưa công bố suất và hạng vé' : event.priceFromVnd !== undefined ? `Từ ${money(event.priceFromVnd)}` : 'Xem hạng vé'}{event.status === 'CLOSE' ? ' · Chưa mở/đã đóng bán' : ''}</small>
       </button>)}
       {!result.items.length && <p className="empty-note">Không có kết quả. Thử tên khác hoặc dán link sự kiện.</p>}
     </div>{result.totalPages > 1 && <div className="pagination"><button type="button" disabled={busy || result.page <= 1} onClick={() => void search(result.page - 1)}>Trước</button><span>Trang {result.page} / {result.totalPages}</span><button type="button" disabled={busy || result.page >= result.totalPages} onClick={() => void search(result.page + 1)}>Sau</button></div>}</>}
@@ -98,7 +98,7 @@ export function EventFinder({ onLoad, onReset, requestedUrl, shortcut, saved, in
       }}><option value="">Chọn đúng ngày và địa điểm</option>{detail.performances.map(p => <option key={p.id} value={p.id}>{eventDate(p.startsAt)} · {p.venue}</option>)}</select></label>
       {!detail.performances.length && <p className="empty-note">Nguồn chưa công bố suất diễn để chọn.</p>}
       {detail.platform === 'onezone' && tickets?.layout === 'SEAT_MAP' && <p className="source-note">Tool nhận diện cách chọn khu/ghế trên trang đặt vé.</p>}
-      {!platformForUrl(detail.url)?.integration && <><p className="source-note">Đã đọc được hạng và giá vé {PLATFORM_CATALOG.find(p => p.id === detail.platform)?.name}. Luồng camp chưa được xác minh.</p><a className="external-link" href={detail.url} target="_blank" rel="noreferrer">Mở sự kiện trên website ↗</a>
+      {!platformForUrl(detail.url)?.integration && <><p className="source-note">{detail.status === 'COMING_SOON' ? 'Sắp mở bán. Ticketbox mới công bố banner, chưa có dữ liệu để camp.' : `Đã đọc thông tin ${PLATFORM_CATALOG.find(p => p.id === detail.platform)?.name}. Luồng camp chưa được xác minh.`}</p><a className="external-link" href={detail.url} target="_blank" rel="noreferrer">Mở sự kiện trên website ↗</a>
         {tickets && <><p className="source-note">{tickets.layout === 'SEAT_MAP' ? 'Có sơ đồ chọn chỗ' : tickets.layout === 'TICKET_TYPES' ? 'Chọn hạng và số vé' : 'Chưa xác định cách chọn chỗ'}{tickets.requiresQueue ? ' · Có phòng chờ' : ''}{detail.requiresAttendeeForm ? ' · Có biểu mẫu người tham dự' : ''}</p><ul className="ticket-preview">{tickets.tickets.map(t => <li key={t.id}><span>{t.name}{t.available === 0 ? ' · Đang đóng/hết vé' : ''}{t.minQuantity && t.minQuantity > 1 ? ` · Tối thiểu ${t.minQuantity} vé` : ''}</span><b>{money(t.priceVnd)}</b></li>)}</ul></>}</>}
     </div>}
   </section>;

@@ -62,6 +62,32 @@ describe('đọc nguồn 1Zone', () => {
 });
 
 describe('Ticketbox là nguồn tra cứu riêng', () => {
+  it('tìm banner chưa vào search; không suy ra suất, giá hoặc giờ bán khi chi tiết chưa công bố', async () => {
+    const announcement = { id: 26757, name: '2026 ANNYEONG HỒ CHÍ MINH', deeplink: 'https://ticketbox.vn/annyeong-26757?utm_source=home', saleStage: 'coming_soon', price: 1800000, day: '2026-11-29T18:00:00Z' };
+    const provider = createTicketboxCatalog(async url => {
+      if (url.includes('/search/')) return { code: 200, data: { results: [], total: { filtered: 0 } } };
+      if (url.includes('/coming-soon')) return { status: 1, data: { results: [announcement, { ...announcement, deeplink: 'https://evil.test/annyeong-26757' }] } };
+      throw new Error('HTTP 404');
+    });
+    const result = await provider.search('ho chi minh annyeong', 1);
+    expect(result.items).toHaveLength(1);
+    expect(result).toMatchObject({ totalItems: 1, totalPages: 1, items: [{ id: '26757', status: 'COMING_SOON', url: 'https://ticketbox.vn/annyeong-26757' }] });
+    const detail = await provider.detail(result.items[0]!.url);
+    expect(detail.performances).toEqual([]);
+    expect(detail.startsAt).toBeUndefined(); expect(detail.priceFromVnd).toBeUndefined();
+    await expect(provider.detail('https://ticketbox.vn/events/26757/bookings/123/select-ticket')).rejects.toThrow('404');
+  });
+  it('gộp banner không trùng ID; nguồn banner lỗi không làm mất kết quả search', async () => {
+    const read = vi.fn(async (url: string) => {
+      if (url.includes('/search/')) return { code: 200, data: { results: [{ id: 26657, name: 'Thử nghiệm', deeplink: ticketboxUrl, day: calendar().startDate }], total: { filtered: 8 } } };
+      return { status: 1, data: { results: [{ id: 26657, name: 'Thử nghiệm', deeplink: ticketboxUrl, saleStage: 'coming_soon' }] } };
+    });
+    expect((await createTicketboxCatalog(read).search('thử', 1)).items).toHaveLength(1);
+    const provider = createTicketboxCatalog(async url => { if (url.includes('/coming-soon')) throw new Error('Unavailable'); return read(url); });
+    expect((await provider.search('thử', 1)).items).toHaveLength(1);
+    read.mockClear(); await provider.search('thử', 2);
+    expect(read).toHaveBeenCalledTimes(1);
+  });
   it('nhận link booking đúng showing; không tự đổi sang suất khác hoặc nhận event từ đường dẫn giả', async () => {
     const provider = createTicketboxCatalog(async () => ticketboxReply());
     const url = 'https://ticketbox.vn/events/26657/bookings/53858377012103/select-ticket';
