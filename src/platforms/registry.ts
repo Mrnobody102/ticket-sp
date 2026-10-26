@@ -1,6 +1,7 @@
 import type { BrowserPlatformAdapter, PlatformInspection } from './contracts';
 import { inspectOnezonePage, onezoneAdapter } from './onezone';
 import { executeAutoAction, inspectAutoControls } from './onezone-automation';
+import { inspectTicketboxPage } from './ticketbox';
 
 const adapters: readonly BrowserPlatformAdapter[] = [{
   platform: 'onezone',
@@ -12,6 +13,9 @@ const adapters: readonly BrowserPlatformAdapter[] = [{
     const auto = inspectAutoControls(document, inspection, context.preferences, context.progress);
     return { ...inspection, automation: { page: auto.page, execute: action => executeAutoAction(action, auto.bindings) } };
   },
+}, {
+  platform: 'ticketbox', capabilities: { zone: false, singleSeat: false, adjacentSeats: false },
+  matches: url => url.origin === 'https://ticketbox.vn', inspect: inspectTicketboxPage,
 }];
 export const adapterForUrl = (url: URL) => adapters.find(adapter => adapter.matches(url));
 export function inspectPlatform(document: Document, url: URL, context?: Parameters<BrowserPlatformAdapter['inspect']>[2]): PlatformInspection {

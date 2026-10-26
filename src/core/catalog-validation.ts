@@ -28,5 +28,6 @@ export function verifyCatalogSelection(p: EventPreferences, detail: ConcertDetai
     } else if (preference.zoneName !== undefined && ticket.zoneName !== preference.zoneName) throw new Error('Tên zone đã đổi. Tải lại hạng vé rồi lưu lại.');
     if (preference.seatMode && preference.seatMode !== ticket.seatMode) throw new Error('Cách chọn ghế đã đổi. Tải lại hạng vé rồi lưu lại.');
     if (ticket.maxQuantity !== undefined && p.quantity > ticket.maxQuantity) throw new Error(`Hạng ${ticket.name} chỉ cho phép tối đa ${ticket.maxQuantity} vé.`);
+    if (ticket.minQuantity !== undefined && p.quantity < ticket.minQuantity) throw new Error(`Hạng ${ticket.name} yêu cầu ít nhất ${ticket.minQuantity} vé.`);
   }
 }

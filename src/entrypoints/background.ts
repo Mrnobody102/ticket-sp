@@ -10,6 +10,8 @@ import { handleCatalogCommand, type CatalogCommand } from '../infrastructure/cat
 import { RUNTIME_INFO } from '../infrastructure/extension-runtime';
 import { correctHanoiSaleDate } from '../core/config-migrations';
 import { CAMP_GUARD_ALARM, reconcileCampGuard } from '../infrastructure/camp-guard';
+import { readCampJournal, recordCampJournal } from '../infrastructure/camp-journal';
+import { journalEntry } from '../core/camp-journal';
 
 export default defineBackground(() => {
   // Serialize mutations in this worker; durable configuration lives in storage.
@@ -30,13 +32,28 @@ export default defineBackground(() => {
   const reconcile = () => { void enqueue(async () => { await reconcileAutoRun(); await reconcileReminder(); guard(); }).catch(() => undefined); };
   chrome.runtime.onMessage.addListener((raw: unknown, sender, respond) => {
     if (sender.id !== chrome.runtime.id || !raw || typeof raw !== 'object') return;
-    const message = raw as Command | AutoCommand | CatalogCommand | { type: 'RUNTIME_INFO' };
+    const message = raw as Command | AutoCommand | CatalogCommand | { type: 'RUNTIME_INFO' } | { type: 'CAMP_OBSERVE'; runId: string; entry: unknown } | { type: 'CAMP_JOURNAL' };
     if (typeof message.type !== 'string') return;
     if (message.type === 'RUNTIME_INFO') {
       // Build metadata is readable by our own content scripts too. It conveys no
       // configuration or session data and lets stale tabs fail before arming.
       respond({ info: RUNTIME_INFO });
       return;
+    }
+    if (message.type === 'CAMP_OBSERVE' || message.type === 'CAMP_JOURNAL') {
+      if (sender.frameId !== undefined && sender.frameId !== 0) return;
+      void readAutoRun().then(async run => {
+        const extensionPage = sender.url?.startsWith(chrome.runtime.getURL('/'));
+        const owner = !!run && sender.tab?.id === run.tabId;
+        if (message.type === 'CAMP_JOURNAL') {
+          respond({ journal: extensionPage || owner ? await readCampJournal(extensionPage ? undefined : run!.id) : null });
+        } else {
+          const entry = journalEntry(message.entry);
+          if (owner && run!.id === message.runId && entry && ['PAGE', 'ACTION', 'ACTION_ERROR', 'ORDER'].includes(entry.kind)) recordCampJournal(run!, entry);
+          respond({ ok: true });
+        }
+      }).catch(() => respond({ journal: null }));
+      return true;
     }
     if (message.type.startsWith('CATALOG_')) {
       if (!sender.url?.startsWith(chrome.runtime.getURL('/'))) { respond({ error: 'Mở tiện ích để tìm sự kiện.' }); return; }

@@ -4,7 +4,7 @@ Chưa đăng Store. Cần tài khoản nhà phát triển, email hỗ trợ và 
 
 ## Nội dung listing
 
-**Tên:** Camp vé · 1Zone Assistant — BETA
+**Tên:** Camp vé · Ticket Assistant — BETA
 
 **Mô tả ngắn:** Chuẩn bị hạng vé, số lượng và giờ bán; tự chọn vé trên giao diện 1Zone được hỗ trợ và dừng ở thanh toán.
 
@@ -18,13 +18,14 @@ Hỗ trợ camp trên một số giao diện 1Zone; Ticketbox hiện chỉ tra c
 
 | Quyền | Mục đích trong bản hiện tại |
 |---|---|
-| storage | Cấu hình và bản nháp cục bộ; một phiên camp tạm thời trong session |
+| storage | Cấu hình/bản nháp và 3 nhật ký cục bộ, mỗi nhật ký tối đa 200 bản ghi; một phiên camp tạm thời trong session |
 | alarms, notifications | Thông báo tới giờ bán; kiểm tra bảo vệ phiên camp và chuẩn bị tab trước giờ bán |
 | power | Giữ máy không tự ngủ khi camp; thả khi Dừng, tới thanh toán hoặc hết phiên |
 | ticket.1zone.vn | Đọc metadata sự kiện; content script đọc và thao tác giao diện đặt vé |
 | queue.1zone.vn | Nhận diện phòng chờ đúng sự kiện và giữ/chuyển tab camp; không lấy token để tạo yêu cầu riêng |
 | marketplace.1zone.vn, prod.1zone.vn | GET tìm sự kiện và hạng/giá/số lượng tối đa |
 | api-v2.ticketbox.vn | GET tìm sự kiện, suất và hạng vé |
+| ticketbox.vn | Nhận diện giao diện và xuất báo cáo cục bộ; không tự đặt vé |
 
 Không có server riêng, analytics, quảng cáo hay bán dữ liệu trong bản này. Từ khóa và ID sự kiện được gửi tới nền tảng tương ứng để lấy dữ liệu. Phiên mua do website quản lý; extension không xuất cookie, mật khẩu hoặc thông tin thẻ. Không khai báo “không truyền bất kỳ dữ liệu nào” vì các yêu cầu tra cứu vẫn đi tới website bán vé.
 

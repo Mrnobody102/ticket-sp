@@ -615,6 +615,7 @@ test('mở tay phòng chờ ở tab mới: bấm camp tại đó chuyển quyề
     await chrome.storage.local.set({ [key]: config });
   });
   await popup.reload(); await popup.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(popup.getByRole('button', { name: 'Dừng camp', exact: true })).toBeVisible();
   const original = await context.serviceWorkers()[0]!.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1']);
   const booking = target.replace('/events/', '/booking/');
   const queueUrl = 'https://queue.1zone.vn/?t=' + encodeURIComponent(booking);

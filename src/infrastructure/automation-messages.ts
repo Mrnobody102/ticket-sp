@@ -4,7 +4,12 @@ import { sendToBackground } from './extension-runtime';
 export type AutoCommand = { type: 'AUTO_GET' } | { type: 'AUTO_FOCUS' } | { type: 'AUTO_START' } | { type: 'AUTO_START_HERE' } | { type: 'AUTO_STOP' } |
   { type: 'AUTO_STEP'; id: string; revision: number; progress: AutoProgress };
 export async function autoCommand(message: AutoCommand): Promise<AutoRun | null> {
-  const reply = await sendToBackground<{ run?: AutoRun | null; error?: string }>(message);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = ['AUTO_START', 'AUTO_START_HERE'].includes(message.type) ? 30000 : 8000;
+  const reply = await Promise.race([
+    sendToBackground<{ run?: AutoRun | null; error?: string }>(message),
+    new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error('Bộ camp không phản hồi. Kiểm tra tab vé; không tự gửi lại thao tác.')), timeout); }),
+  ]).finally(() => clearTimeout(timer));
   if (!reply || reply.error || !('run' in reply)) throw new Error(reply?.error ?? 'Mất kết nối bộ camp. Tải lại tab.');
   return reply.run ?? null;
 }

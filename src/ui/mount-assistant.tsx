@@ -11,7 +11,10 @@ import { createCampReport } from '../core/camp-report';
 import { saveCampReport } from './save-camp-report';
 import { EXTENSION_VERSION } from '../infrastructure/extension-runtime';
 import { MAP_CHANGED } from '../platforms/onezone-map-bridge';
-import { SEATS_CANCEL } from '../platforms/onezone-seats-bridge';
+import { ORDER_ACTIVITY, SEATS_CANCEL } from '../platforms/onezone-seats-bridge';
+import { getCampJournal, observeCamp } from '../infrastructure/camp-journal';
+import type { CampJournalEntry } from '../core/camp-journal';
+import { readSeatsState } from '../platforms/onezone-seats';
 
 interface MountOptions {
   document: Document;
@@ -19,6 +22,7 @@ interface MountOptions {
   initialConfig: TaskConfig;
   initialError?: string;
   rehearsal?: boolean;
+  observationOnly?: boolean;
   onStop: () => Promise<unknown>;
   onHide: () => Promise<unknown>;
   onOpen: () => Promise<unknown>;
@@ -49,6 +53,7 @@ export function mountAssistant(options: MountOptions) {
   let frame: number | undefined;
   let highlighted: Element[] = [];
   let lastRun = 0;
+  let lastObserved = '';
   let lastSnapshot: PageSnapshot = {
     url: options.getUrl(), state: 'UNKNOWN', selectionMode: 'UNKNOWN', visibleOptions: [], supported: false, reason: '',
   };
@@ -58,6 +63,7 @@ export function mountAssistant(options: MountOptions) {
   }
   const runner = options.automation ? createAutomationRunner({
     ...options.automation, config: () => config, inspect,
+    observe: observeCamp,
     changed: () => { if (!stopped) schedule(true); },
   }) : undefined;
 
@@ -86,7 +92,7 @@ export function mountAssistant(options: MountOptions) {
     lastRun = Date.now();
     let inspection: PlatformInspection;
     try {
-      inspection = config.enabled && (config.panelVisible || autoWatching(runner?.run ?? null))
+      inspection = (config.enabled || options.observationOnly) && (config.panelVisible || autoWatching(runner?.run ?? null))
         ? inspect()
         : { snapshot: { ...lastSnapshot, url: options.getUrl() }, optionElements: [] };
       if (inspectionFailed) { inspectionFailed = false; error = undefined; }
@@ -96,31 +102,46 @@ export function mountAssistant(options: MountOptions) {
       inspection = { snapshot: { ...lastSnapshot, url: options.getUrl(), state: 'UNKNOWN', supported: false, unsupportedVariant: false, visibleOptions: [], reason: error }, optionElements: [] };
     }
     const raw = inspection.snapshot;
+    const run = runner?.run;
+    if (run && autoWatching(run) && !options.rehearsal) {
+      const seats = readSeatsState(document);
+      const entry: CampJournalEntry = { at: Date.now(), kind: 'PAGE', url: raw.url, state: raw.state,
+        phase: run.progress.phase, optionCount: raw.visibleOptions.length,
+        selectedCount: raw.visibleOptions.filter(o => o.selected).length, quantity: inspection.automation?.page.quantity?.value,
+        code: inspectionFailed ? 'PAGE_READ_FAILED' : raw.state === 'CHALLENGE' ? 'VERIFICATION' : raw.state === 'WAITING_ROOM' ? 'QUEUE' : raw.state === 'CHECKOUT' ? 'CHECKOUT'
+          : inspection.automation?.page.problem?.startsWith('Đăng nhập') ? 'LOGIN' : seats?.problem ? 'SDK_ERROR'
+          : seats?.ready && !seats.groups.length ? 'SDK_NO_STOCK' : seats?.groups.length && !raw.visibleOptions.length ? 'PRICE_UNVERIFIED'
+          : seats && !seats.ready ? 'SDK_LOADING' : raw.unsupportedVariant ? 'UNSUPPORTED_MAP' : undefined };
+      const key = run.id + JSON.stringify({ ...entry, at: 0 });
+      if (key !== lastObserved) { lastObserved = key; observeCamp(run, entry); }
+    }
     // Start the state transition before computing highlights and rendering the panel.
     void runner?.tick(inspection).catch(e => { error = e instanceof Error ? e.message : 'Không đọc được trang vé.'; });
     lastSnapshot = raw;
-    const snapshot = effectiveSnapshot(raw, config);
+    const snapshot = options.observationOnly ? raw : effectiveSnapshot(raw, config);
     const recommendations = config.preferences && config.panelVisible ? recommend(snapshot, config.preferences) : [];
     const entries = inspection.optionElements;
     const ids = new Set(recommendations.slice(0, 4).map(r => r.option.id));
     highlighted = config.panelVisible ? entries.filter(e => ids.has(e.option.id)).map(e => e.element) : [];
     drawHighlights();
     host.style.display = config.panelVisible ? '' : 'none';
-    root.render(<Panel config={config} snapshot={snapshot} recommendations={recommendations} error={error} onRescan={scan}
+    root.render(<Panel config={config} snapshot={snapshot} recommendations={recommendations} error={error} onRescan={scan} observationOnly={options.observationOnly}
       rehearsal={options.rehearsal} background={document.visibilityState === 'hidden'} autoRun={runner?.run} autoBusy={runner?.pendingControl} onStartAuto={runner && !options.rehearsal ? () => void runAction(() => runner.start()) : undefined}
       onStopAuto={runner ? () => void runAction(() => runner.stop()) : undefined}
-      onSaveReport={() => {
+      onSaveReport={() => void runAction(async () => {
         try {
           const current = inspect();
-          saveCampReport(document, createCampReport(EXTENSION_VERSION, config.preferences, current.snapshot, runner?.run ?? null, current.automation?.page.quantity?.value, error));
+          const journal = await getCampJournal().catch(() => null);
+          saveCampReport(document, { ...createCampReport(EXTENSION_VERSION, options.observationOnly ? null : config.preferences, current.snapshot, runner?.run ?? null, current.automation?.page.quantity?.value, error), journal,
+            seatMap: readSeatsState(document)?.diagnostics });
         } catch (e) { error = e instanceof Error ? e.message : 'Không lưu được báo cáo.'; scan(); }
-      }}
+      })}
       onStop={() => void runAction(options.onStop)} onHide={() => void runAction(options.onHide)} onOpen={() => void runAction(options.onOpen)} />);
   }
   // Active automation runs at the next microtask; passive UI scans remain throttled.
   function schedule(urgent = false) {
     const active = autoWatching(runner?.run ?? null);
-    if (stopped || !config.enabled || (!config.panelVisible && !active)) return;
+    if (stopped || (!config.enabled && !options.observationOnly) || (!config.panelVisible && !active)) return;
     if (active || urgent) {
       view.clearTimeout(timeout); timeout = undefined;
       if (!microtaskQueued) {
@@ -132,6 +153,14 @@ export function mountAssistant(options: MountOptions) {
     }
   }
   const scheduleEvent = () => schedule();
+  const observeOrder = (event: Event) => {
+    const run = runner?.run;
+    if (!run || options.rehearsal || (!autoWatching(run) && (run.progress.phase !== 'CHECKOUT' || Date.now() - (run.progress.checkoutReachedAt ?? 0) > 10000))) return;
+    try {
+      const value = JSON.parse((event as CustomEvent<string>).detail);
+      if (value.kind === 'ORDER') observeCamp(run, { ...value, at: Date.now(), phase: run.progress.phase });
+    } catch { /* Ignore unrelated page events. */ }
+  };
   const observer = new MutationObserver(records => {
     if (records.some(r => r.target !== host && !host.contains(r.target))) schedule();
   });
@@ -148,6 +177,7 @@ export function mountAssistant(options: MountOptions) {
   document.addEventListener('input', scheduleEvent, true);
   document.addEventListener('change', scheduleEvent, true);
   document.addEventListener(MAP_CHANGED, scheduleEvent);
+  document.addEventListener(ORDER_ACTIVITY, observeOrder);
   // SDK readiness/queue admission can change without a parent-DOM mutation.
   // Also retry a passive panel after a timed-out read, before camp is armed.
   const heartbeat = view.setInterval(() => {
@@ -172,6 +202,7 @@ export function mountAssistant(options: MountOptions) {
       document.removeEventListener('visibilitychange', scheduleEvent);
       document.removeEventListener('input', scheduleEvent, true); document.removeEventListener('change', scheduleEvent, true);
       document.removeEventListener(MAP_CHANGED, scheduleEvent);
+      document.removeEventListener(ORDER_ACTIVITY, observeOrder);
       root.unmount(); host.remove();
     },
   };

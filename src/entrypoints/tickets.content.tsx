@@ -14,6 +14,7 @@ export default defineContentScript({
   // Observe the usable DOM without waiting for images/fonts/window.load.
   runAt: 'document_end',
   async main(ctx) {
+    const observationOnly = location.origin === 'https://ticketbox.vn';
     let disposed = false;
     ctx.onInvalidated(() => { disposed = true; });
     // Subscribe before the initial async load to avoid missing a concurrent save.
@@ -37,10 +38,11 @@ export default defineContentScript({
     if (disposed) return;
     mounted = mountAssistant({
       document, getUrl: () => location.href, initialConfig: latest ?? initial.config, initialError: initial.error,
+      observationOnly,
       onStop: () => command({ type: 'ENABLE', enabled: false }),
       onHide: () => command({ type: 'PANEL', visible: false }),
       onOpen: () => command({ type: 'OPEN_EVENT' }),
-      automation: initial.error ? undefined : { initialRun: latestRun !== undefined ? latestRun : initial.run, transport: chromeAutomationTransport },
+      automation: initial.error || observationOnly ? undefined : { initialRun: latestRun !== undefined ? latestRun : initial.run, transport: chromeAutomationTransport },
     });
     ctx.addEventListener(window, 'wxt:locationchange', () => mounted?.rescan());
     ctx.onInvalidated(() => mounted?.destroy());

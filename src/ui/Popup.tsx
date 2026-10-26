@@ -13,6 +13,8 @@ import { catalogQuantityLimit } from '../core/catalog-validation';
 import { EXTENSION_VERSION, verifyExtensionRuntime } from '../infrastructure/extension-runtime';
 import { emptyBookingDraft, type BookingDraft } from '../core/booking-draft';
 import { clearBookingDraft, loadBookingDraft, saveBookingDraft } from '../infrastructure/booking-draft';
+import { getCampJournal } from '../infrastructure/camp-journal';
+import { saveCampReport } from './save-camp-report';
 
 const isOnSale = (value: LoadedConcert) => value.performance.saleStatus === 'OPEN' ||
   (value.detail.performances.length === 1 && value.detail.status === 'OPEN');
@@ -142,6 +144,13 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
     } catch (e) { setError(e instanceof Error ? e.message : 'Không mở được tab vé.'); }
     finally { setBusy(false); }
   }
+  async function exportJournal() {
+    try {
+      const journal = await getCampJournal();
+      if (!journal) throw new Error('Chưa có nhật ký camp. Bật camp để ghi tự động.');
+      saveCampReport(document, { capturedAt: new Date().toISOString(), version: EXTENSION_VERSION, scope: 'Local diagnostic history; actions are attempts, not server confirmation', journal });
+    } catch (e) { setError(e instanceof Error ? e.message : 'Không lưu được nhật ký.'); }
+  }
   function resetConcert(targetUrl?: string) {
     const patch: Partial<BookingDraft> = { loaded: null, retainedCatalog: undefined, selectedTickets: [], manualMode: false };
     if (targetUrl && (!draftEvent.current || !isSameEvent(targetUrl, draftEvent.current))) {
@@ -205,6 +214,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
         {notice && <p className="success" role="status">{notice}</p>}
         <details className="display-settings"><summary>Trang vé và hiển thị</summary><div className="button-row">
           <button type="button" disabled={busy || !config.preferences} onClick={() => void openRunTab()}>{running ? 'Đến tab đang camp' : autoRun ? 'Đến tab vé' : 'Mở trang vé'}</button>
+          <button type="button" onClick={() => void exportJournal()}>Lưu nhật ký camp</button>
           <button type="button" disabled={busy || !config.preferences} onClick={() => void send({ type: 'ENABLE', enabled: !config.enabled })}>{config.enabled ? 'Tắt công cụ trên trang vé' : 'Bật công cụ trên trang vé'}</button>
         </div><label className="checkbox-label"><input type="checkbox" checked={config.panelVisible} disabled={!ready || busy} onChange={e => {
           const previous = config; setConfig({ ...config, panelVisible: e.target.checked }); void send({ type: 'PANEL', visible: e.target.checked }, previous);

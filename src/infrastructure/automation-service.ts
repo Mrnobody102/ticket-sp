@@ -6,6 +6,7 @@ import { repository } from './storage';
 import { getCatalogProvider } from './catalog-service';
 import { verifyCatalogSelection } from '../core/catalog-validation';
 import { ensureEventRuntime } from './event-runtime';
+import { recordCampJournal } from './camp-journal';
 
 export const AUTO_KEY = 'ticket-assistant.auto.session.v1';
 export async function readAutoRun(): Promise<AutoRun | null> {
@@ -18,6 +19,8 @@ export async function readAutoRun(): Promise<AutoRun | null> {
 async function writeAutoRun(run: AutoRun | null, previous?: AutoRun | null) {
   if (run) await chrome.storage.session.set({ [AUTO_KEY]: run });
   else await chrome.storage.session.remove(AUTO_KEY);
+  if (run) recordCampJournal(run, { at: Date.now(), kind: run.revision === 0 ? 'START' : 'STEP', phase: run.progress.phase });
+  else if (previous) recordCampJournal(previous, { at: Date.now(), kind: 'STOP', phase: previous.progress.phase });
   const tabId = run?.tabId ?? previous?.tabId;
   if (tabId !== undefined) await chrome.tabs.sendMessage(tabId, { type: 'AUTO_UPDATED', run }).catch(() => undefined);
 }

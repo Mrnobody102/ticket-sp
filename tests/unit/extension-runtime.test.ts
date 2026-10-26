@@ -9,6 +9,13 @@ beforeEach(() => { sendMessage.mockReset(); vi.stubGlobal('chrome', { runtime: {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe('giao diện và tiến trình nền cùng phiên bản', () => {
+  it('AUTO_STEP mất phản hồi: hết deadline, không treo runner hoặc gửi lại lệnh', async () => {
+    vi.useFakeTimers(); sendMessage.mockImplementation(() => new Promise(() => undefined));
+    const assertion = expect(autoCommand({ type: 'AUTO_GET' })).rejects.toThrow('không phản hồi');
+    await vi.advanceTimersByTimeAsync(8000);
+    await assertion;
+    expect(sendMessage).toHaveBeenCalledOnce();
+  });
   it('chấp nhận đúng build/protocol và chỉ gửi một lệnh kiểm tra', async () => {
     sendMessage.mockResolvedValue({ info: RUNTIME_INFO });
     await expect(verifyExtensionRuntime()).resolves.toBeUndefined();

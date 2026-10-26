@@ -5,9 +5,11 @@ import { seatLabel, seatPlans, type SeatRecord } from './onezone-seat-plans';
 export const SEATS_REQUEST = 'camp-ve:seats-request';
 export const SEATS_REPLY = 'camp-ve:seats-reply';
 export const SEATS_CANCEL = 'camp-ve:seats-cancel';
+export const ORDER_ACTIVITY = 'camp-ve:order-activity';
 interface SeatQuote { id: string; name: string; zones?: { id: string; name: string }[] }
 export interface SeatGroup { ticketClassId: string; zoneId: string; zoneName: string; labels: string[]; names: string[]; selected: boolean; unavailable?: boolean }
-export interface SeatsState { ready: boolean; pending?: boolean; groups: SeatGroup[]; problem?: string; note?: string; retrySafe?: boolean }
+export interface SeatsState { ready: boolean; pending?: boolean; groups: SeatGroup[]; problem?: string; note?: string; retrySafe?: boolean;
+  diagnostics?: { inventoryCount: number; sdkReads: number; readMs: number; readFailures: number } }
 interface SeatObject { id?: string; label: string; labels?: { section?: string; parent?: string; own?: string }; category?: { key: string | number; label: string }; selectable?: boolean; forSale?: boolean; selected?: boolean; objectType?: string; status?: string }
 interface Chart {
   state: string; config: { event?: string; mode?: string; container?: HTMLElement; session?: string; onObjectSelected?: unknown };
@@ -30,7 +32,9 @@ export function installOnezoneSeatsBridge(window: Window & typeof globalThis) {
   view.__campSeatsCleanup?.();
   let disposed = false;
   let controlEpoch = 0;
+  let waiting: { key: string; since: number } | undefined;
   const inventory = new Map<string, SeatRecord[]>();
+  const unsupportedInventory = new Map<string, Set<string>>();
   let current: { key: string; chart: Chart; state: SeatsState; at: number; loading: boolean; revision: number; readFailures: number } | undefined;
   const changed = () => { if (!disposed) view.document.dispatchEvent(new view.CustomEvent(MAP_CHANGED)); };
   // An iframe can disappear during queue admission or a chart rerender. Its
@@ -53,26 +57,53 @@ export function installOnezoneSeatsBridge(window: Window & typeof globalThis) {
     const target = endpoint(url);
     if (!target || !payload || typeof payload !== 'object' || disposed) return;
     const data = payload as { errorCode?: number; data?: unknown };
-    inventory.delete(target.key);
+    // Inventory maps seat identity, not live availability. Keep a verified map
+    // for this exact performance when a later website GET fails transiently.
     if (data.errorCode !== 0 || !Array.isArray(data.data) || data.data.length > 20000) return;
     const seats: SeatRecord[] = [];
+    const unsupported = new Set<string>();
     for (const item of data.data as Record<string, unknown>[]) {
       if (!item || typeof item !== 'object' || (item.eventId && item.eventId !== target.event) || (item.calendarId && item.calendarId !== target.calendar)) return;
       const id = item._id ?? item.id;
       const code = typeof item.code === 'number' && Number.isInteger(item.code) && item.code >= 0 ? String(item.code) : item.code;
-      if (!validId(id) || !validId(item.ticketClassId) || !validId(item.zoneId) || !short(item.zoneName) || !short(item.rowName) || !short(code)) continue;
+      if (!validId(id) || !validId(item.ticketClassId) || !validId(item.zoneId) || !short(item.zoneName) || !short(item.rowName) || !short(code)) {
+        if (validId(item.ticketClassId)) unsupported.add(item.ticketClassId);
+        continue;
+      }
       seats.push({ id, ticketClassId: item.ticketClassId, zoneId: item.zoneId, zoneName: item.zoneName, rowName: item.rowName, code });
     }
     if (new Set(seats.map(s => normalize(seatLabel(s)))).size !== seats.length || new Set(seats.map(s => s.id)).size !== seats.length) return;
-    inventory.set(target.key, seats); if (current?.key.startsWith(`${target.key}|`)) current.at = 0;
+    inventory.set(target.key, seats); unsupportedInventory.set(target.key, unsupported);
+    if (current?.key.startsWith(`${target.key}|`)) current.at = 0;
     changed();
+  }
+  const isOrder = (url: string, method: string) => {
+    try { const u = new URL(url, view.location.href); return method.toUpperCase() === 'POST' && u.origin === 'https://prod.1zone.vn' && u.pathname === '/ticketing/api/v3/order/add-to-cart'; }
+    catch { return false; }
+  };
+  // Observe the site's real reservation boundary, without reading request
+  // bodies/headers, replaying a request, or exporting account/order information.
+  function orderActivity(url: string, code: string, started: number, httpStatus?: number, resultCode?: number) {
+    if (!disposed) view.document.dispatchEvent(new view.CustomEvent(ORDER_ACTIVITY, { detail: JSON.stringify({ kind: 'ORDER', url, code,
+      elapsedMs: Date.now() - started, httpStatus, resultCode }) }));
+  }
+  function orderResult(url: string, started: number, status: number, payload: unknown) {
+    const code = payload && typeof payload === 'object' && 'errorCode' in payload ? payload.errorCode : undefined;
+    orderActivity(url, status >= 400 || (typeof code === 'number' && code !== 0) ? 'ORDER_REJECTED' : code === 0 ? 'ORDER_ACCEPTED' : 'ORDER_UNKNOWN', started, status, typeof code === 'number' ? code : undefined);
   }
   const originalFetch = view.fetch;
   const wrappedFetch: typeof fetch = function (...args) {
     const promise = originalFetch.apply(view, args);
     const input = args[0], url = typeof input === 'string' ? input : input instanceof view.URL ? input.href : input.url;
-    if ((args[1]?.method ?? (input instanceof view.Request ? input.method : 'GET')).toUpperCase() === 'GET' && endpoint(url)) {
+    const method = (args[1]?.method ?? (input instanceof view.Request ? input.method : 'GET')).toUpperCase();
+    if (method === 'GET' && endpoint(url)) {
       void promise.then(response => { if (response.ok) void response.clone().json().then(value => capture(url, value)).catch(() => {}); }).catch(() => {});
+    }
+    if (isOrder(url, method)) {
+      const started = Date.now(), page = view.location.href;
+      orderActivity(page, 'ORDER_SENT', started);
+      void promise.then(response => { void response.clone().json().then(value => orderResult(page, started, response.status, value)).catch(() => orderResult(page, started, response.status, null)); })
+        .catch(() => orderActivity(page, 'ORDER_UNKNOWN', started));
     }
     return promise;
   };
@@ -80,8 +111,11 @@ export function installOnezoneSeatsBridge(window: Window & typeof globalThis) {
   const xhrOpen = view.XMLHttpRequest.prototype.open;
   const xhrSend = view.XMLHttpRequest.prototype.send;
   const xhrUrls = new WeakMap<XMLHttpRequest, string>();
+  const xhrOrders = new WeakSet<XMLHttpRequest>();
   const wrappedOpen = function (this: XMLHttpRequest, method: string, url: string | URL, ...rest: unknown[]) {
     xhrUrls.delete(this);
+    xhrOrders.delete(this);
+    if (isOrder(String(url), method)) xhrOrders.add(this);
     if (method.toUpperCase() === 'GET' && endpoint(String(url))) xhrUrls.set(this, String(url));
     return Reflect.apply(xhrOpen, this, [method, url, ...rest]);
   } as typeof xhrOpen;
@@ -91,6 +125,14 @@ export function installOnezoneSeatsBridge(window: Window & typeof globalThis) {
       if (this.status !== 200) return;
       try { capture(url, this.responseType === 'json' ? this.response : !this.responseType || this.responseType === 'text' ? JSON.parse(this.responseText) : null); } catch { /* Website response is untouched. */ }
     }, { once: true });
+    if (xhrOrders.has(this)) {
+      const started = Date.now(), page = view.location.href;
+      orderActivity(page, 'ORDER_SENT', started);
+      this.addEventListener('loadend', () => {
+        try { orderResult(page, started, this.status, this.responseType === 'json' ? this.response : !this.responseType || this.responseType === 'text' ? JSON.parse(this.responseText) : null); }
+        catch { orderActivity(page, 'ORDER_UNKNOWN', started, this.status); }
+      }, { once: true });
+    }
     return xhrSend.apply(this, args);
   };
   view.XMLHttpRequest.prototype.open = wrappedOpen;
@@ -122,6 +164,7 @@ export function installOnezoneSeatsBridge(window: Window & typeof globalThis) {
     if (entry.loading || entry.state.pending || entry.chart.state !== 'RENDERED') return;
     entry.loading = true;
     const revision = entry.revision;
+    const started = Date.now(); let sdkReads = 1;
     let next: SeatsState = entry.state;
     try {
       const selected = await bounded(entry.chart.listSelectedObjects());
@@ -136,10 +179,10 @@ export function installOnezoneSeatsBridge(window: Window & typeof globalThis) {
         const objects = new Map<string, Promise<SeatObject | undefined>>();
         const get = (seat: SeatRecord) => {
           const label = seatLabel(seat);
-          if (!objects.has(label)) objects.set(label, bounded(entry.chart.findObject(label)).catch(error => {
+          if (!objects.has(label)) { sdkReads++; objects.set(label, bounded(entry.chart.findObject(label)).catch(error => {
             if (error instanceof Error && error.message === 'sdk-timeout') throw error;
             return undefined;
-          }));
+          })); }
           return objects.get(label)!;
         };
         for (const quote of quotes) {
@@ -149,6 +192,7 @@ export function installOnezoneSeatsBridge(window: Window & typeof globalThis) {
           let found: SeatGroup | undefined;
           for (let i = 0; i < plans.length && !found; i += 8) {
             if (disposed || current !== entry || entry.revision !== revision) return;
+            if (Date.now() - started >= 15000) throw new Error('scan-timeout');
             const batch = await Promise.all(plans.slice(i, i + 8).map(async plan => {
               const items = await Promise.all(plan.map(get));
               if (items.some(o => !o || o.selectable !== true || o.forSale === false || !['free', 'available'].includes(o.status ?? ''))) return;
@@ -159,6 +203,8 @@ export function installOnezoneSeatsBridge(window: Window & typeof globalThis) {
           if (!found && quantity > 1) {
             const available: SeatRecord[] = [];
             for (const seat of records.filter(s => s.ticketClassId === quote.id)) {
+              if (disposed || current !== entry || entry.revision !== revision) return;
+              if (Date.now() - started >= 15000) throw new Error('scan-timeout');
               const object = await get(seat);
               if (object?.selectable === true && object.forSale !== false && ['free', 'available'].includes(object.status ?? '')) available.push(seat);
               const members = available.filter(s => s.zoneId === seat.zoneId);
@@ -180,6 +226,7 @@ export function installOnezoneSeatsBridge(window: Window & typeof globalThis) {
         : { note: 'Sơ đồ chưa phản hồi. Đang kết nối lại.' }) };
     }
     finally {
+      next = { ...next, diagnostics: { inventoryCount: records.length, sdkReads, readMs: Date.now() - started, readFailures: entry.readFailures } };
       if (entry.revision === revision) { entry.state = next; entry.at = Date.now(); }
       entry.loading = false; if (current === entry) changed();
     }
@@ -193,10 +240,19 @@ export function installOnezoneSeatsBridge(window: Window & typeof globalThis) {
     const eventName = `${view.location.pathname.split('/')[2]}-${request.calendarId}`;
     const chart = findChart(eventName);
     const records = inventory.get(`${request.eventId}/${request.calendarId}`);
+    const unsupported = unsupportedInventory.get(`${request.eventId}/${request.calendarId}`);
     const key = `${request.eventId}/${request.calendarId}|${request.quantity}|${JSON.stringify(request.quotes)}`;
-    if (!chart || !records) {
-      view.document.dispatchEvent(new view.CustomEvent(SEATS_REPLY, { detail: JSON.stringify({ requestId: request.requestId, ready: false, groups: [], note: !chart ? 'Đang kết nối sơ đồ ghế.' : 'Đang chờ dữ liệu ghế từ website.' }) })); return;
+    if (unsupported?.size && request.quotes.some(q => unsupported.has(q.id) && !records?.some(s => s.ticketClassId === q.id))) {
+      view.document.dispatchEvent(new view.CustomEvent(SEATS_REPLY, { detail: JSON.stringify({ requestId: request.requestId, ready: true, groups: [], problem: 'Hạng này chưa có dữ liệu ghế hàng/số hỗ trợ. Kiểm tra khu đứng hoặc bàn trên website.' }) })); return;
     }
+    if (!chart || !records) {
+      if (!waiting || waiting.key !== key) waiting = { key, since: Date.now() };
+      const stalled = Date.now() - waiting.since >= 20000;
+      view.document.dispatchEvent(new view.CustomEvent(SEATS_REPLY, { detail: JSON.stringify({ requestId: request.requestId, ready: false, groups: [],
+        ...(stalled ? { problem: !chart ? 'Chưa kết nối được sơ đồ sau 20 giây. Kiểm tra tab vé.' : 'Website chưa trả dữ liệu ghế sau 20 giây. Chưa gửi chọn ghế.' }
+          : { note: !chart ? 'Đang kết nối sơ đồ ghế.' : 'Đang chờ dữ liệu ghế từ website.' }) }) })); return;
+    }
+    waiting = undefined;
     if (!current || current.key !== key || current.chart !== chart) current = { key, chart, state: { ready: false, groups: [] }, at: 0, loading: false, revision: 0, readFailures: 0 };
     const entry = current;
     const cached = entry.state.groups.filter(g => g.selected).flatMap(g => g.labels);
@@ -236,7 +292,7 @@ export function installOnezoneSeatsBridge(window: Window & typeof globalThis) {
     } else if (!request.choose && !entry.state.problem && Date.now() - entry.at > (entry.readFailures ? 1000 : 250)) void refresh(entry, records, request.quotes, request.quantity);
     view.document.dispatchEvent(new view.CustomEvent(SEATS_REPLY, { detail: JSON.stringify({ requestId: request.requestId, ...entry.state }) }));
   };
-  const cancel = () => { controlEpoch++; current = undefined; };
+  const cancel = () => { controlEpoch++; current = undefined; waiting = undefined; };
   view.document.addEventListener(SEATS_REQUEST, listener);
   view.document.addEventListener(SEATS_CANCEL, cancel);
   const cleanup = () => {

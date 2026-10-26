@@ -55,7 +55,8 @@ export function EventFinder({ onLoad, onReset, requestedUrl, shortcut, saved, in
       const value = await catalogClient.detail(url, source);
       if (request !== version.current) return;
       change({ detail: value });
-      const explicit = platformForUrl(url)?.integration?.performanceId(new URL(url));
+      const explicit = platformForUrl(url)?.integration?.performanceId(new URL(url)) ??
+        (source === 'ticketbox' ? new URL(url).pathname.match(/^\/events\/\d+\/bookings\/([1-9]\d{0,15})\//)?.[1] : undefined);
       if (explicit && !value.performances.some(p => p.id === explicit)) throw new Error('Suất trong link không thuộc sự kiện này. Chọn lại đúng ngày và địa điểm.');
       const selected = explicit || (value.performances.length === 1 ? value.performances[0]!.id : '');
       if (selected) await choosePerformance(value, selected, request);
@@ -96,9 +97,9 @@ export function EventFinder({ onLoad, onReset, requestedUrl, shortcut, saved, in
         void choosePerformance(detail, e.target.value, request).catch(e => { if (request === version.current) setError(e instanceof Error ? e.message : 'Không tải được hạng vé.'); }).finally(() => { if (request === version.current) setBusy(false); });
       }}><option value="">Chọn đúng ngày và địa điểm</option>{detail.performances.map(p => <option key={p.id} value={p.id}>{eventDate(p.startsAt)} · {p.venue}</option>)}</select></label>
       {!detail.performances.length && <p className="empty-note">Nguồn chưa công bố suất diễn để chọn.</p>}
-      {detail.platform === 'onezone' && tickets?.layout === 'SEAT_MAP' && <p className="source-note">Tự chọn ghế theo hạng ưu tiên.</p>}
+      {detail.platform === 'onezone' && tickets?.layout === 'SEAT_MAP' && <p className="source-note">Tool nhận diện cách chọn khu/ghế trên trang đặt vé.</p>}
       {!platformForUrl(detail.url)?.integration && <><p className="source-note">Đã đọc được hạng và giá vé {PLATFORM_CATALOG.find(p => p.id === detail.platform)?.name}. Luồng camp chưa được xác minh.</p><a className="external-link" href={detail.url} target="_blank" rel="noreferrer">Mở sự kiện trên website ↗</a>
-        {tickets && <><p className="source-note">{tickets.layout === 'SEAT_MAP' ? 'Có sơ đồ chọn chỗ' : tickets.layout === 'TICKET_TYPES' ? 'Chọn hạng và số vé' : 'Chưa xác định cách chọn chỗ'}{tickets.requiresQueue ? ' · Có phòng chờ' : ''}</p><ul className="ticket-preview">{tickets.tickets.map(t => <li key={t.id}><span>{t.name}{t.available === 0 ? ' · Hết vé' : ''}</span><b>{money(t.priceVnd)}</b></li>)}</ul></>}</>}
+        {tickets && <><p className="source-note">{tickets.layout === 'SEAT_MAP' ? 'Có sơ đồ chọn chỗ' : tickets.layout === 'TICKET_TYPES' ? 'Chọn hạng và số vé' : 'Chưa xác định cách chọn chỗ'}{tickets.requiresQueue ? ' · Có phòng chờ' : ''}{detail.requiresAttendeeForm ? ' · Có biểu mẫu người tham dự' : ''}</p><ul className="ticket-preview">{tickets.tickets.map(t => <li key={t.id}><span>{t.name}{t.available === 0 ? ' · Đang đóng/hết vé' : ''}{t.minQuantity && t.minQuantity > 1 ? ` · Tối thiểu ${t.minQuantity} vé` : ''}</span><b>{money(t.priceVnd)}</b></li>)}</ul></>}</>}
     </div>}
   </section>;
 }

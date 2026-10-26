@@ -1,5 +1,6 @@
 {
   "extends": "./.wxt/tsconfig.json",
+  "exclude": ["node_modules", ".output", "artifacts", "test-results", "playwright-report"],
   "compilerOptions": {
     "strict": true,
     "jsx": "react-jsx",

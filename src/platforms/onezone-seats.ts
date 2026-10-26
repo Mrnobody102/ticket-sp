@@ -7,6 +7,7 @@ import { SEATS_REPLY, SEATS_REQUEST, type SeatGroup, type SeatsState } from './o
 
 const bindings = new WeakMap<Element, Map<string, SeatGroup>>();
 const states = new WeakMap<Document, SeatsState>();
+const priceWait = new WeakMap<Document, { key: string; since: number }>();
 const empty = (): SeatsState => ({ ready: false, groups: [] });
 function request(document: Document, p: EventPreferences, choose?: SeatGroup): SeatsState {
   if (!p.catalog) return empty();
@@ -33,6 +34,7 @@ export function readOnezoneSeats(document: Document, p: EventPreferences, reader
   const state = request(document, p);
   const entries: OptionElement[] = [];
   const bound = new Map<string, SeatGroup>();
+  let priceConflict = false;
   for (const group of state.groups) {
     if (!group || typeof group.ticketClassId !== 'string' || typeof group.zoneId !== 'string' || typeof group.zoneName !== 'string' || typeof group.selected !== 'boolean') continue;
     const quote = p.catalog?.tickets.find(q => q.id === group.ticketClassId);
@@ -47,7 +49,7 @@ export function readOnezoneSeats(document: Document, p: EventPreferences, reader
         if (values.length) { prices.push(...values); break; }
       }
     }
-    if (new Set(prices).size !== 1 || prices[0] !== quote.priceVnd) continue;
+    if (new Set(prices).size !== 1 || prices[0] !== quote.priceVnd) { priceConflict ||= prices.length > 0; continue; }
     const id = `onezone-seats-${quote.id}-${group.zoneId}`;
     if (bound.has(id)) return { entries: [], state: { ...state, problem: 'Sơ đồ có lựa chọn trùng. Đang kiểm tra.' } };
     bound.set(id, group);
@@ -55,7 +57,17 @@ export function readOnezoneSeats(document: Document, p: EventPreferences, reader
       seatLabels: group.labels, selected: group.selected, displayedPriceVnd: quote.priceVnd, displayedAvailability: group.unavailable ? 'UNAVAILABLE' : 'AVAILABLE' } });
   }
   bindings.set(container, bound);
-  return { entries, state };
+  let result = state;
+  if (state.groups.length && !entries.length && !state.problem) {
+    const key = `${p.eventUrl}|${JSON.stringify(p.catalog?.tickets.map(t => [t.id, t.priceVnd]))}`;
+    let waiting = priceWait.get(document);
+    if (!waiting || waiting.key !== key) { waiting = { key, since: Date.now() }; priceWait.set(document, waiting); }
+    result = { ...state, ...(priceConflict ? { problem: 'Giá vé trên trang khác giá đã lưu. Kiểm tra lại hạng và giá.' }
+      : Date.now() - waiting.since >= 15000 ? { problem: 'Chưa đọc được giá vé sau 15 giây. Chưa gửi chọn ghế.' }
+        : { note: 'Đang chờ giá vé hiển thị khớp hạng đã lưu.' }) };
+  } else priceWait.delete(document);
+  states.set(document, result);
+  return { entries, state: result };
 }
 export const hasSeatsChoice = (element: Element, optionId: string) => bindings.get(element)?.has(optionId) === true;
 export function chooseOnezoneSeats(element: Element, optionId: string, p: EventPreferences) {

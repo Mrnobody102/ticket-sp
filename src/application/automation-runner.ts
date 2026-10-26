@@ -1,6 +1,7 @@
 import { autoWatching, decideAutomation, preferencesKey, retryUnavailableSelection, SelectionUnavailableError, type AutoProgress, type AutoRun } from '../core/automation';
 import type { TaskConfig } from '../core/models';
 import type { PlatformInspection } from '../platforms/contracts';
+import type { CampJournalEntry } from '../core/camp-journal';
 
 export interface AutomationTransport {
   start(): Promise<AutoRun | null>;
@@ -13,6 +14,7 @@ interface RunnerOptions {
   config(): TaskConfig;
   inspect(): PlatformInspection;
   changed(): void;
+  observe?(run: AutoRun, entry: CampJournalEntry): void;
 }
 
 /** Owns scheduling/serialization. Website-specific reads and writes stay in adapters. */
@@ -26,6 +28,9 @@ export function createAutomationRunner(options: RunnerOptions) {
   let startRevision = 0;
   let cancelledRunId: string | undefined;
   let wake: ReturnType<typeof setTimeout> | undefined;
+  function observe(value: CampJournalEntry) {
+    try { if (run) options.observe?.(run, value); } catch { /* Diagnostics never interrupt booking. */ }
+  }
   function update(next: AutoRun | null) {
     if (disposed || (next && (stopping || (starting && startRevision !== controlRevision) || next.id === cancelledRunId))) return;
     if (next && run?.id === next.id && next.revision < run.revision) return;
@@ -80,9 +85,12 @@ export function createAutomationRunner(options: RunnerOptions) {
               : { ...committed.progress, phase: 'PAUSED', message: 'Trang đã đổi trong lúc chuẩn bị thao tác. Kiểm tra rồi bắt đầu lại.' });
           return;
         }
+        observe({ at: Date.now(), kind: 'ACTION', phase: run.progress.phase, action: decision.action.kind, url: fresh.snapshot.url });
         fresh.automation!.execute(decision.action);
       }
     } catch (error) {
+      observe({ at: Date.now(), kind: 'ACTION_ERROR', phase: run?.progress.phase, action: decision.action?.kind,
+        code: error instanceof SelectionUnavailableError ? 'SELECTION_UNAVAILABLE' : 'ACTION_FAILED' });
       if (run && run.id === before.id) {
         const current = run;
         const retry = error instanceof SelectionUnavailableError && decision.action?.kind === 'CHOOSE';

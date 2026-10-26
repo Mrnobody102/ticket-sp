@@ -1,4 +1,12 @@
-# Kiểm thử · 0.7.1 · 26/10/2026
+# Kiểm tra hiện tại · 0.8.0 · 26/10/2026
+
+Typecheck/build và 312 unit test PASS. Đã kiểm tra ZIP: chuyển quyền tab queue, queue → xác minh → ghế cuối → checkout, ghi POST add-to-cart/mã phản hồi và xuất nhật ký từ popup sau khi mất session; inventory GET lỗi tạm thời; giá hiển thị đổi. Mốc tạo đơn trong ca này là mô phỏng, chưa có giao dịch tài khoản thật được xác minh.
+
+Khảo sát thực tế và công cụ tham khảo được ghi ngắn tại [ghi chú thực chiến](KHAO_SAT_DA_SU_KIEN.md). Theo yêu cầu, không duy trì thêm bộ test/fixture đa sự kiện dài; không dùng số ca test làm chứng nhận mua được vé.
+
+---
+
+## Lịch sử · 0.7.1 · 26/10/2026
 
 Typecheck, production build và **305/305 unit test trong 25 file PASS**. Bộ E2E đầy đủ: 98/99 PASS; ca còn lại phát hiện request đầu tiên từ tab do extension tạo lọt khỏi route fixture Playwright. Đã sửa harness để mở sẵn trang fixture được intercept và ca Lưu và camp PASS khi chạy riêng.
 

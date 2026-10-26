@@ -6,6 +6,7 @@ export interface PlatformDefinition {
   name: string;
   /** Public event origin for catalog lookup, independent of a booking integration. */
   catalogOrigin?: string;
+  observeOnly?: boolean;
   integration: {
     origin: string;
     queueOrigins?: readonly string[];
@@ -46,10 +47,10 @@ export const PLATFORM_CATALOG: readonly PlatformDefinition[] = [
       withPerformance(url, performanceId) { const target = new URL(url); target.searchParams.set('calendarId', performanceId); return target; },
     },
   },
-  { id: 'ticketbox', name: 'Ticketbox', catalogOrigin: 'https://ticketbox.vn', integration: null },
+  { id: 'ticketbox', name: 'Ticketbox', catalogOrigin: 'https://ticketbox.vn', observeOnly: true, integration: null },
   { id: 'cticket', name: 'CTicket', integration: null },
 ];
-export const contentMatches = PLATFORM_CATALOG.flatMap(p => p.integration ? [p.integration.origin, ...(p.integration.queueOrigins ?? [])].map(origin => `${origin}/*`) : []);
+export const contentMatches = PLATFORM_CATALOG.flatMap(p => p.integration ? [p.integration.origin, ...(p.integration.queueOrigins ?? [])].map(origin => `${origin}/*`) : p.observeOnly && p.catalogOrigin ? [`${p.catalogOrigin}/*`] : []);
 export function platformForUrl(value: string): PlatformDefinition | undefined {
   try { const url = new URL(value); return PLATFORM_CATALOG.find(p => p.integration && [p.integration.origin, ...(p.integration.queueOrigins ?? [])].includes(url.origin)); }
   catch { return undefined; }

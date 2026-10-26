@@ -62,6 +62,17 @@ describe('đọc nguồn 1Zone', () => {
 });
 
 describe('Ticketbox là nguồn tra cứu riêng', () => {
+  it('nhận link booking đúng showing; không tự đổi sang suất khác hoặc nhận event từ đường dẫn giả', async () => {
+    const provider = createTicketboxCatalog(async () => ticketboxReply());
+    const url = 'https://ticketbox.vn/events/26657/bookings/53858377012103/select-ticket';
+    expect((await provider.detail(url)).id).toBe('26657');
+    await expect(provider.detail(url.replace('53858377012103', '999'))).rejects.toThrow('Suất');
+    await expect(provider.detail(url.replace('ticketbox.vn', 'evil.test'))).rejects.toThrow('Link');
+  });
+  it('sale_closed là không còn bán, không được trình bày như vé sẵn có', async () => {
+    const provider = createTicketboxCatalog(async () => ticketboxShowingReply({ ...ticketboxShowing, ticketTypes: [{ ...ticketboxShowing.ticketTypes[0]!, status: 'sale_closed' }] }));
+    expect((await provider.tickets('26657', String(ticketboxShowing.id))).tickets[0]?.available).toBe(0);
+  });
   it('đọc suất trực tiếp: layout, phòng chờ, min/max và giờ bán không lấy từ giờ diễn', async () => {
     const start = '2026-10-25T03:00:00Z';
     const showing = { ...ticketboxShowing, seatMapId: 932, isEnabledQueueWaiting: true,
@@ -134,6 +145,7 @@ describe('cấu hình và preflight catalog', () => {
     expect(() => verifyCatalogSelection(p, detail(), catalog(), Date.parse('2031-01-01'))).toThrow('kết thúc');
     expect(() => verifyCatalogSelection({ ...p, quantity: 3 }, detail(), catalog(), 0)).toThrow('giới hạn');
     expect(() => verifyCatalogSelection({ ...p, quantity: 2 }, detail(), { ...catalog(), tickets: [{ ...catalog().tickets[0]!, maxQuantity: 1 }] }, 0)).toThrow('tối đa');
+    expect(() => verifyCatalogSelection(p, detail(), { ...catalog(), tickets: [{ ...catalog().tickets[0]!, minQuantity: p.quantity + 1 }] }, 0)).toThrow('ít nhất');
   });
   it('DOM phải khớp ID (nếu có) hoặc tên chính xác và giá đã chọn', () => {
     const page: PageSnapshot = { url: preferences().eventUrl, state: 'SELECTING', selectionMode: 'ZONE_ONLY', supported: true, reason: '', visibleOptions: [{ id: 'dom-1', kind: 'ZONE', label: 'VIP', displayedPriceVnd: 1200000, displayedAvailability: 'AVAILABLE' }] };

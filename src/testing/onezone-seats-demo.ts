@@ -1,14 +1,18 @@
 /** Synthetic SDK contract + website cart UI using observed public 1Zone markers.
  * There are no real hold, auth, verification or payment requests here. */
-export async function installOnezoneSeatsDemo(document: Document, options: { quantityDelay?: number; verification?: boolean; wrongTotal?: boolean; readViaXhr?: boolean; rejectSelection?: boolean; onlyAvailableLabel?: string; readHangOnce?: boolean; readHangAlways?: boolean; initialVerification?: boolean } = {}) {
+export async function installOnezoneSeatsDemo(document: Document, options: { quantityDelay?: number; verification?: boolean; wrongTotal?: boolean; readViaXhr?: boolean; rejectSelection?: boolean; onlyAvailableLabel?: string; readHangOnce?: boolean; readHangAlways?: boolean; initialVerification?: boolean; eventId?: string; failedInventoryRefresh?: boolean; noInventory?: boolean; observeOrder?: boolean } = {}) {
   interface Inventory { _id: string; ticketClassId: string; zoneId: string; zoneName: string; rowName: string; code: string; priceVnd: number }
   interface ObjectValue { id: string; label: string; labels: { section: string; parent: string; own: string }; category: { key: number; label: string }; objectType: string; status: string; selectable: boolean; forSale: boolean }
   const view = document.defaultView! as Window & typeof globalThis & { seatsio: { charts: object[] }; seatDemo: { disable(label: string): void; selects: number; submits: number; paymentClicks: number; orderDelay: number; selectionDelay: number; release(): void } };
   const main = document.querySelector('main')!;
-  const url = 'https://prod.1zone.vn/ticketing/api/v4/event/kAapup/tickets?calendarId=XDacU6';
+  const calendar = new URL(document.URL).searchParams.get('calendarId') ?? 'XDacU6';
+  const slug = new URL(document.URL).pathname.split('/')[2] ?? 'capitaneus-mutabilis-2026';
+  const url = `https://prod.1zone.vn/ticketing/api/v4/event/${options.eventId ?? 'kAapup'}/tickets?calendarId=${calendar}`;
   let payload: { errorCode: number; data: Inventory[] };
-  if (options.readViaXhr) payload = await new Promise((resolve, reject) => { const xhr = new view.XMLHttpRequest(); xhr.open('GET', url); xhr.onload = () => resolve(JSON.parse(xhr.responseText)); xhr.onerror = reject; xhr.send(); });
+  if (options.noInventory) payload = { errorCode: 0, data: [] };
+  else if (options.readViaXhr) payload = await new Promise((resolve, reject) => { const xhr = new view.XMLHttpRequest(); xhr.open('GET', url); xhr.onload = () => resolve(JSON.parse(xhr.responseText)); xhr.onerror = reject; xhr.send(); });
   else payload = await (await view.fetch(url)).json();
+  if (options.failedInventoryRefresh) await (await view.fetch(url)).json();
   const inventory = payload.data;
   const objects: ObjectValue[] = inventory.map(s => ({ id: `${s.zoneName}-${s.rowName}-${s.code}`, label: `${s.zoneName}-${s.rowName}-${s.code}`,
     labels: { section: s.zoneName, parent: s.rowName, own: s.code }, category: { key: ['WINTER', 'AUTUMN', 'SUMMER', 'SPRING'].indexOf(s.zoneName) + 1, label: s.zoneName }, objectType: 'Seat', status: 'free', selectable: true, forSale: true }));
@@ -24,7 +28,7 @@ export async function installOnezoneSeatsDemo(document: Document, options: { qua
   let readBlocked = !!options.readHangAlways;
   Object.assign(metrics, { resumeReads: () => { readBlocked = false; } });
   const chart = {
-    config: { event: 'capitaneus-mutabilis-2026-XDacU6', mode: 'normal', session: 'none', onObjectSelected: () => {} }, state: 'RENDERED', selectedObjects: [] as string[],
+    config: { event: `${slug}-${calendar}`, mode: 'normal', session: 'none', onObjectSelected: () => {} }, state: 'RENDERED', selectedObjects: [] as string[],
     container: () => document.querySelector<HTMLElement>('#seatio > div')!,
     listSelectedObjects: async () => {
       reads++;
@@ -55,7 +59,8 @@ export async function installOnezoneSeatsDemo(document: Document, options: { qua
           main.innerHTML = `<h1>Thanh toán</h1><form><p>${selected[0]!.category.label} · ${selected.length} vé · ${selected.map(o => o.label).join(', ')}</p><button type="button">Xác nhận đơn hàng</button></form>`;
           main.querySelector('form button')!.addEventListener('click', () => metrics.paymentClicks++);
         };
-        if (metrics.orderDelay) view.setTimeout(finish, metrics.orderDelay); else finish();
+        if (options.observeOrder) void view.fetch('https://prod.1zone.vn/ticketing/api/v3/order/add-to-cart', { method: 'POST', body: JSON.stringify({ fixture: true }) }).then(r => r.json()).then(finish);
+        else if (metrics.orderDelay) view.setTimeout(finish, metrics.orderDelay); else finish();
       };
       next.addEventListener('click', () => {
         if (options.verification) {

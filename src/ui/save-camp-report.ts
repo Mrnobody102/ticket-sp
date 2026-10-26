@@ -1,6 +1,4 @@
-import type { createCampReport } from '../core/camp-report';
-
-export function saveCampReport(document: Document, report: ReturnType<typeof createCampReport>) {
+export function saveCampReport<T extends { capturedAt: string }>(document: Document, report: T) {
   const view = document.defaultView!;
   const url = view.URL.createObjectURL(new view.Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }));
   const link = document.createElement('a');

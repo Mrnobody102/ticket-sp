@@ -11,7 +11,7 @@ function body(value: unknown, kind: 'search' | 'detail' = 'search') {
 }
 function eventId(url: string): string {
   const parsed = new URL(url);
-  const match = parsed.pathname.match(/^\/[\w-]+-(\d+)\/?$/);
+  const match = parsed.pathname.match(/^\/[\w-]+-(\d+)\/?$/) ?? parsed.pathname.match(/^\/events\/(\d+)\/bookings\/[1-9]\d{0,15}\/(?:select-ticket|question-form|payment-info)\/?$/);
   if (parsed.origin !== 'https://ticketbox.vn' || parsed.username || parsed.password || !match) throw new Error('Link Ticketbox không hợp lệ.');
   return match[1]!;
 }
@@ -48,6 +48,8 @@ export function createTicketboxCatalog(read: CatalogReadResource): CatalogProvid
     async detail(url): Promise<ConcertDetail> {
       const id = eventId(url), data = await detailData(id);
       if (String(data.id) !== id || !Array.isArray(data.showings)) throw new Error('Chi tiết Ticketbox không khớp sự kiện.');
+      const explicitShowing = new URL(url).pathname.match(/^\/events\/\d+\/bookings\/([1-9]\d{0,15})\//)?.[1];
+      if (explicitShowing && !data.showings.some(value => String(record(value).id) === explicitShowing)) throw new Error('Suất trong link không thuộc sự kiện Ticketbox.');
       return { platform: 'ticketbox', id, title: text(data.title), url: new URL(url).origin + new URL(url).pathname,
         venue: [text(data.venue), text(data.address)].filter(Boolean).join(', '), startsAt: iso(data.startTime),
         priceFromVnd: number(data.minTicketPrice), imageUrl: text(data.bannerURL), status: text(data.status), currency: 'VND', requiresAttendeeForm: data.isFormIncluded === true,
@@ -74,7 +76,7 @@ export function createTicketboxCatalog(read: CatalogReadResource): CatalogProvid
         const minQuantity = number(ticket.minQtyPerOrder), maxQuantity = number(ticket.maxQtyPerOrder);
         if (minQuantity !== undefined && maxQuantity !== undefined && minQuantity > maxQuantity) throw new Error('Giới hạn số vé Ticketbox mâu thuẫn.');
         return { id: positiveId(ticket.id), name: text(ticket.name), priceVnd, maxQuantity, minQuantity,
-          saleStartsAt: optionalDate(ticket.startTime), saleEndsAt: optionalDate(ticket.endTime), available: ticket.status === 'sold_out' ? 0 : undefined,
+          saleStartsAt: optionalDate(ticket.startTime), saleEndsAt: optionalDate(ticket.endTime), available: ['sold_out', 'sale_closed'].includes(text(ticket.status)) ? 0 : undefined,
           seatMode: mapId === 0 ? 'AUTO' as const : 'UNKNOWN' as const };
       });
       if (new Set(tickets.map(t => t.id)).size !== tickets.length) throw new Error('Hạng vé Ticketbox trùng ID.');

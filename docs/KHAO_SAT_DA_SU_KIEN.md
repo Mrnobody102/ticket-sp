@@ -1,0 +1,12 @@
+# Ghi chú thực chiến · 26/10/2026
+
+- Đã khảo sát 7 event 1Zone, 9 event Ticketbox; SDK thật render được 24 category của CAPITANEUS, Vạn Âm Vang, Lavender và Tinh Tú. Không tạo đơn thật.
+- [Script Ticketbox công khai](https://gist.github.com/actuallyme98/7db61b1e9c75fbca315631e7a69e7e13) gọi chuỗi API lấy thông tin → chọn vé → form → đơn, giảm phụ thuộc UI. Script dùng route cũ `/event/.../ticket-booking/...`, có dữ liệu 2023 và mặc định mua nhiều hạng; không phù hợp để dán chạy trên luồng hiện tại.
+- [A’s Solution](https://asolution.dev/ticketbox-bot) quảng cáo API trực tiếp/checkout nhanh cho Ticketbox và [OneZone](https://asolution.dev/onezone-bot). Chưa xác minh thành công độc lập hoặc mã nguồn; không coi quảng cáo là bằng chứng bypass hoạt động.
+- [MaxBot mã nguồn mở](https://github.com/thinklover/tix_bot) có luồng browser/non-browser cho hệ thống khác, tham khảo cách tách bộ xử lý; chưa có bằng chứng hỗ trợ 1Zone/Ticketbox. [AMA trên Reddit](https://www.reddit.com/r/AMA/comments/1ne4hi2/ive_been_hired_numerous_times_to_make_bots_for/) nhắc quan sát request thật, nhưng tác giả ẩn danh và bài gốc đã xóa; không dùng làm bằng chứng bypass hai hệ thống này.
+- Mã client 1Zone xác nhận bước giữ vé là POST `ticketing/api/v3/order/add-to-cart`, có xác minh và phiên queue. Chọn ghế trong Seats.io chưa phải giữ được vé. Chưa có request/response từ phiên tài khoản thật để đối chiếu đầy đủ chuỗi này.
+- Thử `selectBestAvailable` trên renderer thật, session none và chặn request ghi: lỗi `distanceBetween`, không chọn được ghế. Chưa bật phương pháp này.
+- Đọc 256 ghế bằng SDK thật mất 8,5–49,3 ms tùy lượt/batch. Chưa thấy bằng chứng tăng batch sẽ nhanh hơn ổn định; không đổi chỉ vì suy đoán. Đây là thời gian đọc sau render, không gồm queue/khởi tạo sơ đồ/giữ vé.
+- [Ticketbox chính thức](https://blog.ticketbox.vn/posts/tai-sao-queue-so-1-ma-van-khong-chon-duoc-ve-mong-muon-binh-tinh-nha-day-la-ly-do): queue nhỏ vẫn có thể gặp ghế đã hold; đơn không thanh toán có thể nhả vé. Giữ nguyên tab, không F5 liên tục.
+
+**Phần cần chứng minh tiếp:** thời gian được vào → dữ liệu ghế sẵn → gửi giữ vé → server chấp nhận. Bản 0.8.0 ghi cả POST add-to-cart thực sự của website, mã kết quả và thời gian phản hồi; không đọc body request, token hoặc lưu dữ liệu đơn. Sửa mất inventory khi GET lỗi và chờ SDK/giá vô hạn. Ticketbox chưa bật tự mua. Muốn rút ngắn bằng API phải đối chiếu phiên mua thật; chưa có cơ sở hứa bypass hoặc chắc chắn có vé.
