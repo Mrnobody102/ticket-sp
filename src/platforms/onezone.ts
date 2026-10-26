@@ -29,19 +29,20 @@ export function inspectOnezonePage(document: Document, url: URL, p?: EventPrefer
   const finish = (snapshot: PageSnapshot, optionElements: OptionElement[] = []): OnezoneInspection => ({ snapshot, optionElements, reader });
   if (!matches(url) || !document.body) return finish(base);
   const { isVisible, text: visibleText } = reader;
-  const text = normalize(visibleText(document.body));
+  const blocked = (state: 'CHALLENGE' | 'WAITING_ROOM' | 'CHECKOUT', reason: string) => finish({ ...base, state, reason });
+  // Queue pages need only route/verification checks. Avoid walking their full
+  // text/controls every second while waiting for admission.
+  if (url.origin === ONEZONE_QUEUE_ORIGIN) {
+    if (!p || !isOnezoneQueueFor(url.href, p)) return finish({ ...base, reason: 'Phòng chờ không khớp sự kiện đã lưu.' });
+    if (hasOnezoneVerification(document, reader)) return blocked('CHALLENGE', 'Hoàn thành xác minh trên phòng chờ.');
+    return blocked('WAITING_ROOM', 'Đang xếp hàng. Chờ website cho vào chọn vé.');
+  }
   const headingTexts = [...document.querySelectorAll('h1, h2, h3, [role="heading"], [role="alert"], [role="status"]')]
     .filter(isVisible).map(e => normalize(visibleText(e)))
     .filter(t => t.length < 200 && !/huong dan|quy dinh|dieu khoan|gioi thieu/.test(t));
   const headings = headingTexts.join(' | ');
   const controls = [...document.querySelectorAll('button, a[href], input[type="submit"]')].filter(isVisible);
   const controlText = controls.map(e => normalize(e.getAttribute('aria-label') ?? visibleText(e))).join(' | ');
-  const blocked = (state: 'CHALLENGE' | 'WAITING_ROOM' | 'CHECKOUT', reason: string) => finish({ ...base, state, reason });
-  if (url.origin === ONEZONE_QUEUE_ORIGIN) {
-    if (!p || !isOnezoneQueueFor(url.href, p)) return finish({ ...base, reason: 'Phòng chờ không khớp sự kiện đã lưu.' });
-    if (hasOnezoneVerification(document, reader)) return blocked('CHALLENGE', 'Hoàn thành xác minh trên phòng chờ.');
-    return blocked('WAITING_ROOM', 'Đang xếp hàng. Chờ website cho vào chọn vé.');
-  }
   const modal = p && readOnezoneModal(document, p, reader);
   const challengeFrame = hasOnezoneVerification(document, reader);
   const verifiedModal = modal && !modal.advance.matches(':disabled,[aria-disabled="true"]');
@@ -63,6 +64,8 @@ export function inspectOnezonePage(document: Document, url: URL, p?: EventPrefer
   if (/^\/events\/[^/]+\/?$/.test(url.pathname) && controls.filter(e => isOfficialOnezoneEntry(e, reader)).length === 1) {
     return finish({ ...base, state: 'EVENT_PAGE', supported: true, reason: 'Website đã mở nút mua vé.' });
   }
+  // Read the full event description only when selection classification needs it.
+  const text = normalize(visibleText(document.body));
   let selectionMode = readSelectionMode(text);
   const maxMatch = text.match(/(?:toi da|maximum|max\.)\s*0*(\d{1,3})\s*(?:ve|tickets)/);
   const maxQuantity = maxMatch ? Number(maxMatch[1]) : undefined;

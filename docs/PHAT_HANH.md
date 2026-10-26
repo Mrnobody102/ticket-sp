@@ -4,7 +4,7 @@
 
 Người nhận tải **`dist/Camp-ve-latest.zip`** trên GitHub bằng **Download raw file**: giải nén, mở `BAT-DAU.html`, nạp thư mục `tien-ich` vào Chrome. Hướng dẫn ngắn ở [CAI-DAT.md](../CAI-DAT.md). Không cần source, Node.js hay npm. Mỗi người tự đăng nhập website bán vé; ZIP không chứa cấu hình hoặc phiên tài khoản của người tạo gói.
 
-Gói `.output/ticket-sp-0.8.0-chrome.zip` là extension ở thư mục gốc, dùng để tải lên Web Store. Hai gói có cùng nội dung extension. `dist/release.json` lưu phiên bản/hash từng file; `dist/SHA256SUMS.txt` lưu hash ZIP tải sẵn. Mỗi lần `npm run release` ghi đè bản mới nhất vào `dist`, không lưu nhiều ZIP theo phiên bản tại đó.
+Gói `.output/ticket-sp-<version>-chrome.zip` là extension ở thư mục gốc, dùng để tải lên Web Store. Hai gói có cùng nội dung extension. `dist/release.json` lưu phiên bản/hash từng file; `dist/SHA256SUMS.txt` lưu hash ZIP tải sẵn. Mỗi lần `npm run release` ghi đè bản mới nhất vào `dist`, không lưu nhiều ZIP theo phiên bản tại đó.
 
 Người phát triển có thể tạo gói bằng `npm run release`, hoặc mở GitHub → Actions → **Build tested extension** → **Run workflow** và tải artifact **Camp-ve** khi kiểm tra thành công. Workflow chưa tự đăng Web Store hay tạo release công khai. Người dùng cuối chỉ nhận ZIP hoặc link cài.
 

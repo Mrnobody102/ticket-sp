@@ -2,7 +2,7 @@
 
 Extension Chrome camp vé 1Zone theo hạng, giá và số lượng; dừng ở checkout. Ticketbox có tra cứu và nhận diện luồng, chưa tự mua.
 
-**Bản mới nhất: 0.8.0** · [Tải ZIP cài sẵn](dist/Camp-ve-latest.zip) · [Hướng dẫn cài](CAI-DAT.md).
+**Bản mới nhất: 0.8.1** · [Tải ZIP cài sẵn](dist/Camp-ve-latest.zip) · [Hướng dẫn cài](CAI-DAT.md).
 
 File nằm trong **`dist/Camp-ve-latest.zip`**. Trên GitHub, mở file → **Download raw file**. Giải nén, vào `chrome://extensions` → bật **Developer mode** → **Load unpacked** → chọn thư mục **`tien-ich`** có `manifest.json`. Không cần Node.js/npm.
 

@@ -1,6 +1,8 @@
 # Ghi chú thực chiến · 26/10/2026
 
 - Đã khảo sát 7 event 1Zone, 9 event Ticketbox; SDK thật render được 24 category của CAPITANEUS, Vạn Âm Vang, Lavender và Tinh Tú. Không tạo đơn thật.
+- Kiểm tra lại client lúc 14:51 ngày 26/10/2026 (giờ Việt Nam): 44 file JS 1Zone có bản đối chiếu đều giữ nguyên hash; 1 file chưa có baseline. Ticketbox vẫn yêu cầu đăng nhập ở trang chọn vé. Đây không phải bằng chứng backend/chống bot không đổi; tên CAPTCHA trong bundle không chứng minh nó đang được bật.
+- [Seats.io changelog](https://docs.seats.io/changelog/), 15/10/2026: sửa lỗi best available thất bại khi có yêu cầu đồng thời ở nhiều category cùng event, có thể làm ghế tạm không khả dụng. Chưa xác nhận 1Zone dùng luồng API này hoặc đây là nguyên nhân lần camp trước.
 - [Script Ticketbox công khai](https://gist.github.com/actuallyme98/7db61b1e9c75fbca315631e7a69e7e13) gọi chuỗi API lấy thông tin → chọn vé → form → đơn, giảm phụ thuộc UI. Script dùng route cũ `/event/.../ticket-booking/...`, có dữ liệu 2023 và mặc định mua nhiều hạng; không phù hợp để dán chạy trên luồng hiện tại.
 - [A’s Solution](https://asolution.dev/ticketbox-bot) quảng cáo API trực tiếp/checkout nhanh cho Ticketbox và [OneZone](https://asolution.dev/onezone-bot). Chưa xác minh thành công độc lập hoặc mã nguồn; không coi quảng cáo là bằng chứng bypass hoạt động.
 - [MaxBot mã nguồn mở](https://github.com/thinklover/tix_bot) có luồng browser/non-browser cho hệ thống khác, tham khảo cách tách bộ xử lý; chưa có bằng chứng hỗ trợ 1Zone/Ticketbox. [AMA trên Reddit](https://www.reddit.com/r/AMA/comments/1ne4hi2/ive_been_hired_numerous_times_to_make_bots_for/) nhắc quan sát request thật, nhưng tác giả ẩn danh và bài gốc đã xóa; không dùng làm bằng chứng bypass hai hệ thống này.

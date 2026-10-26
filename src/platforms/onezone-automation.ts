@@ -86,6 +86,10 @@ function findQuantity(document: Document, scope: Element | undefined, reader: Pa
 /** Bind only controls whose meaning is visible. No coordinates or private booking API. */
 export function inspectAutoControls(document: Document, inspection: OnezoneInspection, p: EventPreferences, progress: AutoProgress): AutoInspection {
   const { reader, snapshot, optionElements } = inspection;
+  if (['WAITING_ROOM', 'CHALLENGE'].includes(snapshot.state) && isOnezoneQueueFor(snapshot.url, p)) {
+    return { page: { snapshot, enterCount: 0, advanceCount: 0, selectable: [], verificationPending: snapshot.state === 'CHALLENGE' },
+      bindings: { enter: [], advance: [], choices: new Map(), reader, reload: () => document.defaultView!.location.reload() } };
+  }
   const controls = [...document.querySelectorAll<HTMLElement>('button, a[href], input[type="submit"], [role="button"]')].filter(e => enabled(e, reader));
   const candidates = controls.filter(e => buyLabel.test(label(e, reader)) && safeLink(e, p, true));
   // The official hero CTA identifies the event action; the sticky copy has no data-id.

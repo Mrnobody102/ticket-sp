@@ -28,11 +28,13 @@ interface MountOptions {
   onOpen: () => Promise<unknown>;
   automation?: { initialRun?: AutoRun | null; transport: AutomationTransport };
 }
+const mountedAssistants = new WeakMap<Document, () => void>();
 
 export function mountAssistant(options: MountOptions) {
   const { document } = options;
   const view = document.defaultView!;
   // Defensive idempotence for dev reloads or reinjection.
+  mountedAssistants.get(document)?.();
   document.querySelector('[data-ticket-assistant]')?.remove();
   const host = document.createElement('div');
   host.setAttribute('data-ticket-assistant', '');
@@ -178,18 +180,18 @@ export function mountAssistant(options: MountOptions) {
   document.addEventListener('change', scheduleEvent, true);
   document.addEventListener(MAP_CHANGED, scheduleEvent);
   document.addEventListener(ORDER_ACTIVITY, observeOrder);
-  // SDK readiness/queue admission can change without a parent-DOM mutation.
-  // Also retry a passive panel after a timed-out read, before camp is armed.
+  // Active runs already schedule their next read through runner.tick(). Only
+  // retry passive SDK loading or failed inspections here, avoiding duplicate scans.
   const heartbeat = view.setInterval(() => {
-    if (autoWatching(runner?.run ?? null) || lastSnapshot.unsupportedVariant === false) schedule();
+    if (inspectionFailed || (!autoWatching(runner?.run ?? null) && lastSnapshot.unsupportedVariant === false)) schedule();
   }, 1000);
-  scan();
-  return {
+  const mounted = {
     update(next: TaskConfig) { config = next; scan(); },
     updateAuto(next: AutoRun | null) { if (!autoWatching(next)) document.dispatchEvent(new CustomEvent(SEATS_CANCEL)); runner?.update(next); scan(); },
     rescan: scheduleEvent,
     startAuto: () => runAction(async () => { await runner?.start(); }),
     destroy() {
+      if (stopped) return;
       stopped = true; observer.disconnect(); view.clearTimeout(timeout); view.clearInterval(heartbeat);
       document.dispatchEvent(new CustomEvent(SEATS_CANCEL));
       runner?.destroy();
@@ -204,6 +206,10 @@ export function mountAssistant(options: MountOptions) {
       document.removeEventListener(MAP_CHANGED, scheduleEvent);
       document.removeEventListener(ORDER_ACTIVITY, observeOrder);
       root.unmount(); host.remove();
+      if (mountedAssistants.get(document) === mounted.destroy) mountedAssistants.delete(document);
     },
   };
+  mountedAssistants.set(document, mounted.destroy);
+  scan();
+  return mounted;
 }
