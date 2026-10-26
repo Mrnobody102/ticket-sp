@@ -6,6 +6,7 @@ import { readOptionElements, type OptionElement } from './onezone-options';
 import { readSelectionMode } from './onezone-selection';
 import { hasOnezoneVerification, readOnezoneModal } from './onezone-modal';
 import { readOnezoneMap } from './onezone-map';
+import { readOnezoneSeats } from './onezone-seats';
 import { isOnezoneQueueFor, ONEZONE_QUEUE_ORIGIN } from './onezone-queue';
 
 export { readOptionElements } from './onezone-options';
@@ -68,6 +69,9 @@ export function inspectOnezonePage(document: Document, url: URL, p?: EventPrefer
   if (/chua (den gio |mo )?ban|sap mo ban|sale has not started/.test(headings + ' | ' + controlText)) {
     return finish({ ...base, selectionMode, maxQuantity, state: 'NOT_READY', supported: true, reason: 'Website hiển thị chưa mở bán.' });
   }
+  const seats = p ? readOnezoneSeats(document, p, reader) : undefined;
+  if (seats?.state.problem) return finish({ ...base, reason: seats.state.problem, unsupportedVariant: true });
+  if (seats?.entries.length) return finish({ ...base, state: 'SELECTING', supported: true, selectionMode: 'PICK_SEAT', visibleOptions: seats.entries.map(e => e.option), reason: 'Tự chọn ghế.' }, seats.entries);
   const mapEntries = p ? readOnezoneMap(document, p, reader) : [];
   const entries = mapEntries.length ? mapEntries : readOptionElements(document, selectionMode, reader, p?.catalog?.tickets);
   if (mapEntries.length) selectionMode = 'ZONE_ONLY';
@@ -76,7 +80,7 @@ export function inspectOnezonePage(document: Document, url: URL, p?: EventPrefer
   const unreadableMap = [...document.querySelectorAll('canvas, iframe')].some(isVisible);
   if (unreadableMap && (selectionMode === 'PICK_SEAT' || selectionMode === 'MIXED' || !entries.length)) {
     const seatsio = [...document.querySelectorAll('#seatio,iframe')].some(e => isVisible(e) && (e.id === 'seatio' || /seatsio\.(net|com)/i.test(e.getAttribute('src') ?? '')));
-    if (seatsio) return finish({ ...details, unsupportedVariant: true, reason: 'Sơ đồ Seats.io chưa có điều khiển chọn hạng/ghế đọc được. Chọn ghế trực tiếp trên website và kiểm tra đơn; tool không tự chọn trong iframe này.' });
+    if (seatsio) return finish({ ...details, unsupportedVariant: false, reason: 'Đang tải ghế.' });
     const knownContainer = p?.catalog && [...document.querySelectorAll('[id^="seatmap-container-"]')].some(e => e.id.startsWith(`seatmap-container-${p.catalog!.eventId}-`));
     return finish({ ...details, unsupportedVariant: !knownContainer, reason: knownContainer ? 'Đang chờ sơ đồ và giá vé hiển thị đầy đủ.' : 'Chưa đọc được các khu trên sơ đồ này. Chọn khu trên website; tool chỉ tiếp tục nếu xác minh được hạng và giá.' });
   }

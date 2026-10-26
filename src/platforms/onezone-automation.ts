@@ -6,6 +6,7 @@ import type { OnezoneInspection } from './onezone';
 import { isOfficialOnezoneEntry, ONEZONE_BUY_LABEL, type PageReader } from './onezone-dom';
 import { hasOnezoneVerification, readOnezoneModal } from './onezone-modal';
 import { chooseOnezoneMap, hasMapChoice } from './onezone-map';
+import { chooseOnezoneSeats, hasSeatsChoice, readSeatsContinue, readSeatsState } from './onezone-seats';
 import { readOnezoneAddons } from './onezone-addons';
 import { isOnezoneQueueFor } from './onezone-queue';
 import { documentBootPending } from './document-readiness';
@@ -24,6 +25,7 @@ export interface AutoBindings {
   reader: PageReader;
   reload(): void;
   chooseMap?(element: Element, optionId: string): void;
+  chooseSeats?(element: Element, optionId: string): void;
 }
 export interface AutoInspection { page: AutoPage; bindings: AutoBindings }
 
@@ -94,6 +96,7 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
   if (addons) advance.splice(0, advance.length, addons);
   const choices = new Map<string, Element>();
   for (const { element, option } of optionElements) {
+    if (hasSeatsChoice(element, option.id)) { choices.set(option.id, element); continue; }
     if (hasMapChoice(element, option.id)) { choices.set(option.id, element); continue; }
     if (element.matches('button, [role="button"], [role="option"], [role="radio"]') && enabled(element, reader)) {
       choices.set(option.id, element); continue;
@@ -104,8 +107,16 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
   }
   const chosen = progress.chosen && optionElements.find(entry => sameOption(progress.chosen!, entry.option));
   let quantity = findQuantity(document, chosen?.element, reader);
+  const seatsState = readSeatsState(document);
+  const seatChoice = optionElements.find(e => e.option.selected && e.option.seatLabels?.length);
+  const seatAdvance = seatChoice && readSeatsContinue(document, optionElements, p, reader);
+  if (seatChoice) {
+    const value = seatChoice.option.seatLabels!.length;
+    quantity = { element: seatChoice.element as HTMLElement, model: { value, min: value, max: value, writable: false, stepper: false } };
+    advance.splice(0, advance.length, ...(seatAdvance && enabled(seatAdvance, reader) ? [seatAdvance] : []));
+  }
   const modal = readOnezoneModal(document, p, reader);
-  const invalidModal = !modal && !addons && [...document.querySelectorAll('button[data-id="btn-continue"]')].some(reader.isVisible);
+  const invalidModal = !modal && !addons && !seatChoice && [...document.querySelectorAll('button[data-id="btn-continue"]')].some(reader.isVisible);
   if (modal) {
     quantity = { element: modal.valueElement, model: modal.quantity, increase: modal.increase, decrease: modal.decrease };
     advance.splice(0, advance.length, ...(enabled(modal.advance, reader) ? [modal.advance] : []));
@@ -124,18 +135,23 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
     entryRetrySafe: snapshot.state === 'EVENT_PAGE' && officialEnter.length === 1 && document.readyState === 'complete' && isSameEvent(snapshot.url, p.eventUrl),
     saleOpen: (snapshot.state === 'EVENT_PAGE' && officialEnter.length === 1 && isSameEvent(snapshot.url, p.eventUrl)) ||
       (snapshot.state === 'SELECTING' && snapshot.supported && (choices.size > 0 || !!modal)),
-    selectionRetrySafe: !modal && optionElements.some(entry => hasMapChoice(entry.element, entry.option.id)),
+    selectionRetrySafe: !modal && (optionElements.some(entry => hasMapChoice(entry.element, entry.option.id)) || seatsState?.retrySafe === true),
     ...(addons ? { verifiedAddons: true } : {}),
     ...(modal ? { resumeSelection: modal.entry.option.id } : {}),
-    verificationPending: (!!modal && hasOnezoneVerification(document, reader) && !enabled(modal.advance, reader)) ||
+    verificationPending: (!!progress.chosen?.seatLabels && progress.phase === 'ADVANCING' && snapshot.state === 'CHALLENGE' && isSameEvent(snapshot.url, p.eventUrl) && hasOnezoneVerification(document, reader)) ||
+      (!!modal && hasOnezoneVerification(document, reader) && !enabled(modal.advance, reader)) ||
       (snapshot.state === 'CHALLENGE' && isOnezoneQueueFor(snapshot.url, p)) },
-    bindings: { enter, advance, choices, quantity, reader, reload: () => document.defaultView!.location.reload(), chooseMap: (element, optionId) => chooseOnezoneMap(element, optionId, p) } };
+    bindings: { enter, advance, choices, quantity, reader, reload: () => document.defaultView!.location.reload(), chooseMap: (element, optionId) => chooseOnezoneMap(element, optionId, p), chooseSeats: (element, optionId) => chooseOnezoneSeats(element, optionId, p) } };
 }
 
 export function executeAutoAction(action: AutoAction, bindings: AutoBindings): void {
   if (action.kind === 'RELOAD') { bindings.reload(); return; }
   const target = action.kind === 'ENTER' ? bindings.enter[0] : action.kind === 'ADVANCE' ? bindings.advance[0] :
     action.kind === 'CHOOSE' ? bindings.choices.get(action.optionId) : undefined;
+  if (action.kind === 'CHOOSE' && target && hasSeatsChoice(target, action.optionId)) {
+    if (!bindings.chooseSeats) throw new Error('Đang kết nối sơ đồ ghế.');
+    bindings.chooseSeats(target, action.optionId); return;
+  }
   if (action.kind === 'CHOOSE' && target && hasMapChoice(target, action.optionId)) {
     if (!bindings.chooseMap) throw new Error('Chưa kết nối được sơ đồ khu vực.');
     bindings.chooseMap(target, action.optionId); return;

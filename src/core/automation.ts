@@ -14,11 +14,12 @@ export function isAutoProgress(value: unknown): value is AutoProgress {
   if (!AUTO_PHASES.includes(p.phase) || typeof p.message !== 'string' || p.message.length > 500) return false;
   if (p.selectionRetries !== undefined && (!Number.isInteger(p.selectionRetries) || p.selectionRetries < 0 || p.selectionRetries > 5)) return false;
   if (p.entryAttempts !== undefined && (!Number.isInteger(p.entryAttempts) || p.entryAttempts < 1 || p.entryAttempts > AUTO_TIMING.maxEntryAttempts)) return false;
-  if ([p.actionAt, p.quantityAfterAction, p.selectionStartedAt, p.checkoutReachedAt, p.releaseReloadedAt, p.lastReleaseReloadAt, p.addonsContinuedAt, p.reservationAttemptedAt, p.selectionRetryUntil].some(v => v !== undefined && (typeof v !== 'number' || !Number.isFinite(v)))) return false;
+  if ([p.actionAt, p.verificationStartedAt, p.quantityAfterAction, p.selectionStartedAt, p.checkoutReachedAt, p.releaseReloadedAt, p.lastReleaseReloadAt, p.addonsContinuedAt, p.reservationAttemptedAt, p.selectionRetryUntil].some(v => v !== undefined && (typeof v !== 'number' || !Number.isFinite(v)))) return false;
   const chosen = p.chosen;
   if (chosen === undefined) return true;
   return !!chosen && typeof chosen === 'object' && (typeof chosen.label === 'string' && chosen.label.length <= 100 && ['ZONE', 'SEAT'].includes(chosen.kind) &&
     (chosen.zoneLabel === undefined || typeof chosen.zoneLabel === 'string') &&
+    (chosen.seatLabels === undefined || (Array.isArray(chosen.seatLabels) && chosen.seatLabels.length > 0 && chosen.seatLabels.length <= 10 && chosen.seatLabels.every(s => typeof s === 'string' && !!s && s.length <= 100) && new Set(chosen.seatLabels).size === chosen.seatLabels.length)) &&
     (chosen.ticketTypeId === undefined || (typeof chosen.ticketTypeId === 'string' && /^[\w-]{1,100}$/.test(chosen.ticketTypeId))) &&
     (chosen.displayedPriceVnd === undefined || Number.isSafeInteger(chosen.displayedPriceVnd)));
 }
@@ -36,7 +37,8 @@ export function allowsAutoTransition(from: AutoPhase, to: AutoPhase): boolean {
 export interface AutoProgress {
   phase: AutoPhase;
   message: string;
-  chosen?: Pick<VisibleOption, 'label' | 'kind' | 'zoneLabel' | 'displayedPriceVnd' | 'ticketTypeId'>;
+  chosen?: Pick<VisibleOption, 'label' | 'kind' | 'zoneLabel' | 'displayedPriceVnd' | 'ticketTypeId' | 'seatLabels'>;
+  verificationStartedAt?: number;
   actionAt?: number;
   quantityAfterAction?: number;
   selectionStartedAt?: number;
@@ -101,7 +103,8 @@ export function retryUnavailableSelection(progress: AutoProgress, now: number): 
 export const sameOption = (a: NonNullable<AutoProgress['chosen']>, b: VisibleOption) =>
   normalize(a.label) === normalize(b.label) && a.kind === b.kind &&
   ((a.kind === 'ZONE' && a.zoneLabel === undefined) || normalize(a.zoneLabel ?? '') === normalize(b.zoneLabel ?? '')) && a.displayedPriceVnd === b.displayedPriceVnd &&
-  (a.ticketTypeId === undefined || a.ticketTypeId === b.ticketTypeId);
+  (a.ticketTypeId === undefined || a.ticketTypeId === b.ticketTypeId) &&
+  ((!a.seatLabels && !b.seatLabels) || (!!a.seatLabels && !!b.seatLabels && a.seatLabels.length === b.seatLabels.length && a.seatLabels.every(s => b.seatLabels!.includes(s))));
 const pause = (progress: AutoProgress, message: string): AutoDecision => ({ type: 'STEP', progress: { ...progress, phase: 'PAUSED', message } });
 
 /** Decide first, persist the transition, then act. No DOM/Chrome dependencies here. */
@@ -128,8 +131,10 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
   if (page.problem) return pause(progress, page.problem);
   if (snapshot.state === 'CHALLENGE') {
     if (!page.verificationPending) return pause(progress, 'Hoàn thành xác minh trên website rồi bắt đầu lại.');
+    if (progress.phase === 'ADVANCING' && progress.chosen?.seatLabels && progress.verificationStartedAt === undefined) return { type: 'STEP', progress: { ...progress, verificationStartedAt: now, message: 'Chờ xác minh.' } };
     return progress.phase === 'OPENING' ? { type: 'STEP', progress: { ...progress, phase: 'READY', message: 'Chờ xác minh trên website.' } } : wait();
   }
+  if (progress.verificationStartedAt !== undefined && progress.phase === 'ADVANCING') return { type: 'STEP', progress: { ...progress, verificationStartedAt: undefined, actionAt: now, message: 'Đang tạo đơn…' } };
   if (snapshot.state === 'WAITING_ROOM') {
     // Admission can return to the event page, requiring a new navigation click.
     // Only an entry navigation is reset; never repeat an uncertain cart request.
@@ -220,7 +225,7 @@ export function decideAutomation(run: AutoRun, page: AutoPage, p: EventPreferenc
         : pause(progress, 'Chưa có lựa chọn có thể tự chọn đúng ưu tiên, giá và số lượng.');
     }
     if (snapshot.selectionMode === 'UNKNOWN') return pause(progress, 'Chưa xác định được cách chọn vé của sự kiện.');
-    if (choice.option.kind === 'ZONE' && ['PICK_SEAT', 'MIXED'].includes(snapshot.selectionMode)) return pause(progress, 'Khu này có thể cần chọn ghế; cần adapter xác nhận cách chọn trước khi tự thao tác.');
+    if (choice.option.kind === 'ZONE' && !choice.option.seatLabels && ['PICK_SEAT', 'MIXED'].includes(snapshot.selectionMode)) return pause(progress, 'Khu này có thể cần chọn ghế; cần adapter xác nhận cách chọn trước khi tự thao tác.');
     if (snapshot.visibleOptions.filter(o => sameOption(choice.option, o)).length !== 1) return pause(progress, 'Các lựa chọn trùng nhãn/giá, chưa phân biệt được vị trí chính xác.');
     return { type: 'STEP', action: { kind: 'CHOOSE', optionId: choice.option.id }, progress: {
       ...progress, phase: 'CHOOSING', chosen: choice.option, selectionRetryUntil: undefined, message: `Đang chọn ${choice.option.label}…`, actionAt: now, selectionStartedAt: now,

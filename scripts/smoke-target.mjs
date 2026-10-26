@@ -4,14 +4,14 @@ import { resolve } from 'node:path';
 
 // Read-only inspection on the real event with a disposable, anonymous browser profile.
 // Only configure passive observation; never press Start camp or a website purchase control.
-const target = 'https://ticket.1zone.vn/events/vuong-binh-tiec-thanh-than-mam-2?calendarId=8h0YGm';
+const target = 'https://ticket.1zone.vn/events/capitaneus-mutabilis-2026?calendarId=XDacU6';
 const path = resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3');
 const context = await chromium.launchPersistentContext('', { channel: 'chromium', headless: true, args: [`--disable-extensions-except=${path}`, `--load-extension=${path}`] });
 try {
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
   const setup = await context.newPage(); await setup.goto(`chrome-extension://${new URL(worker.url()).host}/workspace.html`);
-  await setup.getByRole('button', { name: /^Chuẩn bị TIỆC/ }).click();
-  await setup.locator('.ticket-priorities li').filter({ hasText: 'HAI QUÝ - EB' }).waitFor({ timeout: 20000 });
+  await setup.getByRole('button', { name: 'Chuẩn bị CAPITANEUS MUTABILIS', exact: true }).click();
+  await setup.getByLabel('Thêm hạng vé ưu tiên').selectOption('6ad88e0b752d7e5347844265');
   // This disposable profile tests catalog/UI only, never arms a real sale.
   await setup.getByLabel('Cách bắt đầu camp').selectOption('IMMEDIATE');
   await setup.getByRole('button', { name: 'Lưu cấu hình' }).click();

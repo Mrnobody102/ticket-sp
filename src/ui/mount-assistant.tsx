@@ -11,6 +11,7 @@ import { createCampReport } from '../core/camp-report';
 import { saveCampReport } from './save-camp-report';
 import { EXTENSION_VERSION } from '../infrastructure/extension-runtime';
 import { MAP_CHANGED } from '../platforms/onezone-map-bridge';
+import { SEATS_CANCEL } from '../platforms/onezone-seats-bridge';
 
 interface MountOptions {
   document: Document;
@@ -139,11 +140,12 @@ export function mountAssistant(options: MountOptions) {
   scan();
   return {
     update(next: TaskConfig) { config = next; scan(); },
-    updateAuto(next: AutoRun | null) { runner?.update(next); scan(); },
+    updateAuto(next: AutoRun | null) { if (!autoWatching(next)) document.dispatchEvent(new CustomEvent(SEATS_CANCEL)); runner?.update(next); scan(); },
     rescan: scheduleEvent,
     startAuto: () => runAction(async () => { await runner?.start(); }),
     destroy() {
       stopped = true; observer.disconnect(); view.clearTimeout(timeout);
+      document.dispatchEvent(new CustomEvent(SEATS_CANCEL));
       runner?.destroy();
       if (frame !== undefined) view.cancelAnimationFrame(frame);
       view.removeEventListener('scroll', drawSoon, true); view.removeEventListener('resize', scheduleEvent);

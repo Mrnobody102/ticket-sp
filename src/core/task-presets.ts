@@ -6,3 +6,10 @@ export const HANOI_PRESET = {
   quantity: 1,
   preferredTicketName: 'HAI QUÝ - EB',
 } as const;
+
+export const CAPITANEUS_PRESET = {
+  title: 'CAPITANEUS MUTABILIS',
+  eventUrl: 'https://ticket.1zone.vn/events/capitaneus-mutabilis-2026?calendarId=XDacU6',
+  quantity: 1,
+  saleStartAt: '2026-10-26T05:00:00.000Z',
+} as const;

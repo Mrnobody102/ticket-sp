@@ -4,7 +4,8 @@ import { resolve } from 'node:path';
 import { calendar, catalogUrl, eventData, flightHtml, searchItem, ticketData, ticketReply, ticketboxReply, ticketboxShowingReply, ticketboxUrl } from '../fixtures/catalog';
 import { installBookingDemo } from '../../src/testing/booking-demo';
 import { installOnezoneDemo } from '../../src/testing/onezone-demo';
-import { HANOI_PRESET } from '../../src/core/task-presets';
+import { CAPITANEUS_PRESET } from '../../src/core/task-presets';
+import { capitaneusEvent, capitaneusTypes, capitaneusZones } from '../fixtures/capitaneus';
 
 let context: BrowserContext;
 let worker: Worker;
@@ -69,7 +70,7 @@ test('tìm → chọn đúng hạng/giá → lưu ID → camp tới checkout v�
   await page.locator('.setup-form').evaluate(element => { element.scrollTop = 0; });
   await page.screenshot({ path: 'artifacts/workspace-catalog.png', fullPage: true });
   await page.getByLabel('Số vé', { exact: true }).fill('2');
-  await expect(page.getByRole('button', { name: 'Bắt đầu camp', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Lưu và camp', exact: true })).toBeEnabled();
   await page.getByLabel('Số vé', { exact: true }).fill('1');
   await page.getByRole('button', { name: 'Lưu cấu hình' }).click();
   await expect(page.getByRole('button', { name: 'Bắt đầu camp', exact: true })).toBeEnabled();
@@ -169,7 +170,7 @@ test('đóng popup giữ bản nháp tìm kiếm, hạng, thứ tự và ô nh�
   await expect(page.getByLabel('Số vé', { exact: true })).toHaveValue('2');
   await expect(page.getByLabel('Tổng ngân sách (VNĐ)', { exact: true })).toHaveValue('3000000');
   await expect(page.locator('.ticket-priorities li b')).toHaveText(['REGULAR', 'VIP']);
-  await expect(page.getByRole('button', { name: 'Bắt đầu camp', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Lưu và camp', exact: true })).toBeEnabled();
   expect(await worker.evaluate(async () => (await chrome.storage.local.get('ticket-assistant.config.v1'))['ticket-assistant.config.v1'])).toBeUndefined();
   expect(await worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1'])).toBeUndefined();
   await page.getByRole('button', { name: 'Lưu cấu hình', exact: true }).click();
@@ -247,19 +248,21 @@ test('bản nháp khi đang camp không sửa số vé hoặc hủy phiên đang
   expect(actual.run.progress.phase).toBe('READY');
 });
 
-test('cấu hình nhanh Hà Nội chọn HAI QUÝ và 1 vé; không dùng lại giờ bán đã qua', async () => {
+test('cấu hình nhanh CAPITANEUS: đúng suất, 1 vé; người dùng chọn hạng và giờ bán', async () => {
   const mocks = defaults();
-  mocks.unshift({ path: '/events/vuong-binh-tiec-thanh-than-mam-2', body: flightHtml({ ...eventData, id: 'aAq6NT', pathName: 'vuong-binh-tiec-thanh-than-mam-2', eventCalendar: [{ ...calendar('8h0YGm'), eventId: 'aAq6NT' }] }), text: true });
-  mocks.unshift({ path: '/get-summary-event/aAq6NT?', body: ticketReply([{ ...ticketData, name: 'HAI QUÝ - EB', finalPriceVn: 2996000, eventId: 'aAq6NT', calendarId: '8h0YGm' }]) });
+  mocks.unshift({ path: '/events/capitaneus-mutabilis-2026', body: flightHtml(capitaneusEvent), text: true });
+  mocks.unshift({ path: '/get-summary-event/kAapup?', body: ticketReply(capitaneusTypes) });
+  mocks.unshift({ path: '/get-summary-event/kAapup/zones?', body: ticketReply(capitaneusZones) });
   await mockCatalog(mocks);
   const page = await workspace();
-  await expect(page.locator('.target-shortcut strong')).toHaveText(HANOI_PRESET.title);
-  await page.getByRole('button', { name: `Chuẩn bị ${HANOI_PRESET.title}` }).click();
-  await expect(page.getByLabel('Link concert')).toHaveValue(HANOI_PRESET.eventUrl);
-  await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue(Date.parse(HANOI_PRESET.saleStartAt) > Date.now() ? '2026-10-18T12:00' : '');
+  await expect(page.locator('.target-shortcut strong')).toHaveText(CAPITANEUS_PRESET.title);
+  await page.getByRole('button', { name: `Chuẩn bị ${CAPITANEUS_PRESET.title}` }).click();
+  await expect(page.getByLabel('Link concert')).toHaveValue(CAPITANEUS_PRESET.eventUrl);
+  await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue(Date.parse(CAPITANEUS_PRESET.saleStartAt) > Date.now() ? '2026-10-26T12:00' : '');
+  await page.getByLabel('Thêm hạng vé ưu tiên').selectOption(capitaneusTypes[0]!.ticketClassId);
   await page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)').fill('2030-10-25T12:00');
   await expect(page.getByLabel('Số vé', { exact: true })).toHaveValue('1');
-  await expect(page.locator('.ticket-priorities li')).toContainText('HAI QUÝ - EB');
+  await expect(page.locator('.ticket-priorities li')).toContainText('SUMMER');
   await expect(page.getByLabel('Số vé', { exact: true })).toHaveAttribute('max', '2');
   await page.getByLabel('Số vé', { exact: true }).fill('3');
   expect(await page.getByLabel('Số vé', { exact: true }).evaluate((e: HTMLInputElement) => e.validity.rangeOverflow)).toBe(true);
@@ -268,15 +271,15 @@ test('cấu hình nhanh Hà Nội chọn HAI QUÝ và 1 vé; không dùng lại 
   await expect(page.getByRole('status')).toContainText('Đã lưu');
   const saved = await worker.evaluate(async () => (await chrome.storage.local.get('ticket-assistant.config.v1'))['ticket-assistant.config.v1']);
   expect(saved.preferences.refreshAtSale).toBe(true); expect(saved.preferences.maxTotalVnd).toBeUndefined();
-  expect(saved.preferences.preferredZoneLabels).toEqual(['HAI QUÝ - EB']);
+  expect(saved.preferences.preferredZoneLabels).toEqual(['SUMMER']);
   expect(saved.preferences.startMode).toBe('WHEN_AVAILABLE');
   expect(await worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1'])).toBeUndefined();
   await page.reload();
   await expect(page.getByLabel('Số vé', { exact: true })).toHaveAttribute('max', '2');
   await expect(page.getByLabel('Giờ mở bán · giờ Việt Nam (UTC+7)')).toHaveValue('2030-10-25T12:00');
-  await expect(page.locator('.saved-tickets')).toContainText('HAI QUÝ - EB');
+  await expect(page.locator('.saved-tickets')).toContainText('SUMMER');
   await page.locator('.setup-form').evaluate(e => { e.scrollTop = 0; });
-  await page.screenshot({ path: 'artifacts/hanoi-preset.png', fullPage: true });
+  await page.screenshot({ path: 'artifacts/capitaneus-preset.png', fullPage: true });
 });
 
 test('thẻ tiêu đề p → modal 1Zone → số lượng span 2 vé → checkout', async () => {

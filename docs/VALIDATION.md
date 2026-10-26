@@ -1,4 +1,18 @@
-# Kiểm thử · 0.6.4 · 26/10/2026
+# Kiểm thử · 0.7.0 · 26/10/2026
+
+Typecheck/build production PASS; unit **301/301 trong 25 file**. Bộ Chromium 95 ca: 93 ca PASS ở lượt toàn bộ; hai ca phát hiện đã sửa (vòng đời iframe diễn tập và race chờ phiên trong test Konva), chạy lại cả hai cùng preset 12:00 và đều PASS.
+
+**ZIP cuối 0.7.0 đã giải nén: 17/17 E2E PASS** — 8 ca chọn ghế Seats.io (4 hạng × 1/2 vé), 5 ca lỗi/tồn kho/xác minh/dừng, UI ở 3 kích thước, nút Lưu và camp chống bấm trùng, diễn tập và đổi màn hình. Mỗi ca thành công gửi tạo đơn đúng một lần, không bấm thanh toán cuối. Các ca checkout dùng UI/SDK contract mô phỏng.
+
+Đối chiếu **SDK Seats.io thật, static chỉ đọc**: CAPITANEUS khớp đủ 4 category; Vạn Âm Vang khớp nhãn ghế mẫu ở 8 khu với inventory 1.947 bản ghi. Không chọn/giữ vé thật. [Chi tiết mapping và phạm vi](CAPITANEUS.md).
+
+Smoke công khai CAPITANEUS v0.7.0: `Chưa mở bán`, cấu hình SUMMER/đúng giá và zone, không tạo phiên camp; 20 lần nhận diện lại có p50 **2,0 ms**, p95 **2,3 ms** trên DOM 657 phần tử. Đây là độ trễ đọc trang, **không phải thời gian mua/giữ vé hoặc bảo đảm tốc độ server**.
+
+`dist/Camp-ve-latest.zip`: **236.434 byte**, SHA-256 `afab5130ed10fdb41c041a05f505b3e3b68d9a209eb6e46fd62277b0ba10111d`. Hash đủ 16 file khớp build production và gói đã giải nén. Preset CAPITANEUS mở bán 12:00 ngày 26/10/2026 UTC+7 theo yêu cầu người dùng; không ghi đè cấu hình đã lưu hoặc tự bật camp.
+
+---
+
+## Lịch sử · 0.6.4 · 26/10/2026
 
 Typecheck/build production PASS; unit **290/290 trong 24 file**. Chromium E2E: **74 ca ngoài runtime PASS**, **7/7 runtime PASS khi chạy lại riêng** sau khi sửa lỗi `cpSync` của Node 25 trên Windows làm sai đường dẫn chứa tiếng Việt. Kiểm tra UI được chạy lại sau lần sửa CSS cuối và PASS ở 390×600, 820×500, 1280×720.
 

@@ -8,7 +8,7 @@ import { autoActive, hasUnresolvedReservation, type AutoRun } from '../core/auto
 import { platformForUrl } from '../core/platform-catalog';
 import { EventFinder, type LoadedConcert } from './EventFinder';
 import { TicketPriorities } from './TicketPriorities';
-import { HANOI_PRESET } from '../core/task-presets';
+import { CAPITANEUS_PRESET, HANOI_PRESET } from '../core/task-presets';
 import { catalogQuantityLimit } from '../core/catalog-validation';
 import { EXTENSION_VERSION, verifyExtensionRuntime } from '../infrastructure/extension-runtime';
 import { emptyBookingDraft, type BookingDraft } from '../core/booking-draft';
@@ -21,6 +21,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
   const [config, setConfig] = useState<TaskConfig>(DEFAULT_CONFIG);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
+  const controlBusy = useRef(false);
   const [dirty, setDirtyState] = useState(false);
   const dirtyRef = useRef(false);
   function setDirty(next: boolean) { dirtyRef.current = next; setDirtyState(next); }
@@ -36,7 +37,6 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
   const [runtimeReady, setRuntimeReady] = useState(false);
   const [runtimeError, setRuntimeError] = useState('');
   const draftEvent = useRef('');
-  const presetPriorityPending = useRef(false);
   function edit(patch: Partial<BookingDraft>, markDirty = true) {
     const next = { ...formRef.current, ...patch }; formRef.current = next; setForm(next);
     if (markDirty) setDirty(true);
@@ -89,8 +89,8 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
       setError(e instanceof Error ? e.message : 'Không thể thực hiện.');
     } finally { setBusy(false); }
   }
-  async function save(e: React.FormEvent) {
-    e.preventDefault(); setBusy(true); setError(''); setNotice('');
+  async function save(e?: React.FormEvent) {
+    e?.preventDefault(); setBusy(true); setError(''); setNotice('');
     try {
       const startImmediately = immediate || (!saleTime && !!loaded && isOnSale(loaded));
       let catalog = retainedCatalog;
@@ -115,14 +115,24 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
       const next = { ...formRef.current, immediate: startImmediately, retainedCatalog: catalog }; formRef.current = next; setForm(next); setDirty(false);
       await clearBookingDraft().catch(() => undefined); // Saved preferences already invalidate an older draft's base key.
       setNotice('Đã lưu cấu hình.'); setAutoRun(null);
-    } catch (e) { setError(e instanceof Error ? e.message : 'Không thể lưu cấu hình.'); }
+      return true;
+    } catch (e) { setError(e instanceof Error ? e.message : 'Không thể lưu cấu hình.'); return false; }
     finally { setBusy(false); }
   }
   async function startOrStopAuto() {
+    if (controlBusy.current) return;
+    controlBusy.current = true;
     setBusy(true); setError('');
-    try { setAutoRun(await autoCommand({ type: !autoActive(autoRun) && hasUnresolvedReservation(autoRun) ? 'AUTO_FOCUS' : autoActive(autoRun) ? 'AUTO_STOP' : 'AUTO_START' })); }
+    try {
+      if (!autoActive(autoRun) && !hasUnresolvedReservation(autoRun) && (dirtyRef.current || !config.preferences)) {
+        const form = document.getElementById('camp-setup-form') as HTMLFormElement;
+        if (!form.reportValidity() || !await save()) return;
+        setBusy(true);
+      }
+      setAutoRun(await autoCommand({ type: !autoActive(autoRun) && hasUnresolvedReservation(autoRun) ? 'AUTO_FOCUS' : autoActive(autoRun) ? 'AUTO_STOP' : 'AUTO_START' }));
+    }
     catch (e) { setError(e instanceof Error ? e.message : 'Không bắt đầu được camp.'); }
-    finally { setBusy(false); }
+    finally { controlBusy.current = false; setBusy(false); }
   }
   async function openRunTab() {
     setBusy(true); setError('');
@@ -136,7 +146,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
     const patch: Partial<BookingDraft> = { loaded: null, retainedCatalog: undefined, selectedTickets: [], manualMode: false };
     if (targetUrl && (!draftEvent.current || !isSameEvent(targetUrl, draftEvent.current))) {
       // Performance time is not sale time. Unknown sale dates stay empty.
-      const preset = isSameEvent(targetUrl, HANOI_PRESET.eventUrl) ? HANOI_PRESET : undefined;
+      const preset = isSameEvent(targetUrl, CAPITANEUS_PRESET.eventUrl) ? CAPITANEUS_PRESET : isSameEvent(targetUrl, HANOI_PRESET.eventUrl) ? HANOI_PRESET : undefined;
       Object.assign(patch, { saleTime: preset && Date.parse(preset.saleStartAt) > Date.now() ? toVietnamLocal(preset.saleStartAt) : '', immediate: false, strictSchedule: false,
         quantity: String(DEFAULT_QUANTITY), budget: '', alternatives: false, refreshAtSale: true });
     }
@@ -147,23 +157,19 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
     const integration = platformForUrl(value.detail.url)?.integration;
     if (!integration) return;
     const target = integration.withPerformance(new URL(value.detail.url), value.performance.id);
-    const usePresetPriority = presetPriorityPending.current && isSameEvent(target.href, HANOI_PRESET.eventUrl);
-    presetPriorityPending.current = false;
-    const preferred = usePresetPriority ? value.catalog.tickets.filter(t => t.name === HANOI_PRESET.preferredTicketName) : [];
-    edit({ url: target.href, loaded: value, retainedCatalog: undefined, selectedTickets: preferred.length === 1 ? [preferred[0]!.id] : [], labels: '', manualMode: false,
-      ...(!usePresetPriority && isOnSale(value) && !formRef.current.saleTime ? { immediate: true } : {}) });
-    setNotice(''); setError(usePresetPriority && preferred.length !== 1 ? 'Chưa tìm thấy đúng hạng HAI QUÝ - EB. Kiểm tra danh sách vé.' : '');
+    edit({ url: target.href, loaded: value, retainedCatalog: undefined, selectedTickets: [], labels: '', manualMode: false,
+      ...(isOnSale(value) && !formRef.current.saleTime ? { immediate: true } : {}) });
+    setNotice(''); setError('');
   }
   const running = autoActive(autoRun);
   const current = loaded?.detail.title ?? retainedCatalog?.title;
   const quantityLimit = catalogQuantityLimit(loaded?.performance.maxQuantity ?? retainedCatalog?.maxQuantity,
     loaded ? loaded.catalog.tickets.filter(t => selectedTickets.includes(t.id)) : retainedCatalog?.tickets ?? []);
   function useTarget() {
-    presetPriorityPending.current = true;
-    draftEvent.current = HANOI_PRESET.eventUrl;
-    edit({ url: HANOI_PRESET.eventUrl, saleTime: Date.parse(HANOI_PRESET.saleStartAt) > Date.now() ? toVietnamLocal(HANOI_PRESET.saleStartAt) : '', immediate: false, strictSchedule: false, quantity: String(HANOI_PRESET.quantity),
+    draftEvent.current = CAPITANEUS_PRESET.eventUrl;
+    edit({ url: CAPITANEUS_PRESET.eventUrl, saleTime: Date.parse(CAPITANEUS_PRESET.saleStartAt) > Date.now() ? toVietnamLocal(CAPITANEUS_PRESET.saleStartAt) : '', immediate: false, strictSchedule: false, quantity: String(CAPITANEUS_PRESET.quantity),
       budget: '', alternatives: false, refreshAtSale: true, labels: '', manualMode: false, loaded: null, retainedCatalog: undefined, selectedTickets: [] });
-    setError(''); setNotice(''); setRequestedUrl({ url: HANOI_PRESET.eventUrl, requestId: Date.now() });
+    setError(''); setNotice(''); setRequestedUrl({ url: CAPITANEUS_PRESET.eventUrl, requestId: Date.now() });
   }
   function reloadTickets() { setRequestedUrl({ url, requestId: Date.now() }); }
   const hasSelection = loaded ? selectedTickets.length > 0 : !!retainedCatalog || (manualMode && !!labels.trim());
@@ -175,7 +181,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
     </nav></header>
     {runtimeError && <aside className="runtime-notice error" role="alert"><b>Cần tải lại tiện ích</b><p>{runtimeError}</p></aside>}
     <div className="setup-grid" inert={busy || !ready || !runtimeReady}>
-      {ready && <EventFinder initialDraft={form.finder} onDraftChange={finder => edit({ finder }, false)} requestedUrl={requestedUrl} saved={retainedCatalog} shortcut={{ title: HANOI_PRESET.title, description: 'Hà Nội · HAI QUÝ · 1 vé', onChoose: useTarget }} onLoad={loadConcert} onReset={resetConcert} />}
+      {ready && <EventFinder initialDraft={form.finder} onDraftChange={finder => edit({ finder }, false)} requestedUrl={requestedUrl} saved={retainedCatalog} shortcut={{ title: CAPITANEUS_PRESET.title, description: '22/11 · TP.HCM · 1 vé', onChoose: useTarget }} onLoad={loadConcert} onReset={resetConcert} />}
       <form id="camp-setup-form" className="setup-form" onSubmit={e => void save(e)}>
         <div className="section-title"><h2>Vé và giờ bán</h2><span>{dirty ? 'Bản nháp' : config.preferences ? 'Đã lưu' : ''}</span></div>
         {loaded ? <TicketPriorities key={loaded.performance.id} tickets={loaded.catalog.tickets} selected={selectedTickets} onChange={selectedTickets => edit({ selectedTickets })} /> :
@@ -207,7 +213,7 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
     </div>
     <footer className="run-bar"><div className="run-summary"><b>{running ? 'Đang camp' : autoRun?.progress.phase === 'CHECKOUT' ? 'Đã tới thanh toán' : dirty ? 'Bản nháp' : config.preferences ? 'Đã lưu' : 'Chọn sự kiện'}</b>{autoRun && <p>{autoRun.progress.message}</p>}</div>
       <div className="run-controls"><button type="submit" form="camp-setup-form" disabled={!ready || !runtimeReady || busy || !hasSelection || hasUnresolvedReservation(autoRun)}>{busy ? 'Đang xử lý…' : 'Lưu cấu hình'}</button>
-        <button type="button" className={running ? 'danger-button' : 'primary'} disabled={!ready || busy || (!running && !hasUnresolvedReservation(autoRun) && (!runtimeReady || !config.preferences || dirty))} onClick={() => void startOrStopAuto()}>{running ? 'Dừng camp' : hasUnresolvedReservation(autoRun) ? 'Kiểm tra tab vé' : 'Bắt đầu camp'}</button></div>
+        <button type="button" className={running ? 'danger-button' : 'primary'} disabled={!ready || busy || (!running && !hasUnresolvedReservation(autoRun) && (!runtimeReady || !(dirty ? hasSelection : !!config.preferences)))} onClick={() => void startOrStopAuto()}>{running ? 'Dừng camp' : hasUnresolvedReservation(autoRun) ? 'Kiểm tra tab vé' : dirty && hasSelection ? 'Lưu và camp' : 'Bắt đầu camp'}</button></div>
     </footer>
   </main>;
 }

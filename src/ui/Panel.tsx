@@ -69,7 +69,7 @@ export function Panel({ config, snapshot, recommendations: options, error, onRes
         {!rehearsal && !(running && (routineScreen || snapshot.state === 'CHALLENGE')) &&
           !(autoRun?.progress.phase === 'PAUSED' && autoRun.progress.message === snapshot.reason) && <p className="reason">{snapshot.reason}</p>}
         {p && <>
-          <div className="metrics"><span><b>{p.quantity}</b> vé</span><span>{p.maxTotalVnd ? money(p.maxTotalVnd) : 'Không giới hạn ngân sách'}</span></div>
+          <div className="metrics"><span><b>{p.quantity}</b> vé</span><span>{p.maxTotalVnd ? money(p.maxTotalVnd) : 'Theo giá hạng vé'}</span></div>
           {snapshot.selectionMode !== 'UNKNOWN' && <p className="muted">{modeLabels[snapshot.selectionMode]}</p>}
           {p.quantity > 1 && snapshot.visibleOptions.some(o => o.kind === 'SEAT') && <p className="muted">Bạn muốn nhiều vé; chưa hỗ trợ ghép ghế.</p>}
           <p className="muted">{atCheckout && autoRun?.progress.chosen ? `Đã chọn: ${autoRun.progress.chosen.label}${autoRun.progress.chosen.zoneLabel ? ` · ${autoRun.progress.chosen.zoneLabel}` : ''}` : `Ưu tiên: ${p.preferredZoneLabels.join(' → ') || 'Tất cả hạng vé'}`}</p>

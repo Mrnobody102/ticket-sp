@@ -23,6 +23,7 @@ export interface VisibleOption {
   kind: 'ZONE' | 'SEAT';
   zoneLabel?: string;
   ticketTypeId?: string;
+  seatLabels?: string[];
   selected?: boolean;
   displayedPriceVnd?: number;
   displayedAvailability: 'AVAILABLE' | 'UNAVAILABLE' | 'UNKNOWN';

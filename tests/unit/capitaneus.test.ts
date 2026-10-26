@@ -25,15 +25,15 @@ it('CAPITANEUS: đúng suất, giới hạn 2 vé và cảnh báo layout ghế d
   expect(catalog.tickets.every(t => t.requiresChallenge && t.zones?.length === 1)).toBe(true);
 });
 
-it('iframe Seats.io cạnh container có tên giống Konva: dừng rõ ràng, không chờ renderer mãi hoặc bấm giữ vé', async () => {
+it('iframe Seats.io đang tải: giữ camp, không bấm giữ vé khi chưa đọc được ghế', async () => {
   const p = await preferences();
   document.body.innerHTML = '<h1>Chọn ghế</h1><div id="seatmap-container-kAapup-demo"><div id="seatio"><iframe title="Seating chart" src="https://chart-oc.seatsio.net/"></iframe></div></div><button>Tiếp tục</button>';
   const view = inspectPlatform(document, new URL(capitaneusUrl.replace('/events/', '/booking/')), { preferences: p, progress: { phase: 'READY', message: '' } });
-  expect(view.snapshot).toMatchObject({ state: 'UNKNOWN', supported: false, unsupportedVariant: true, visibleOptions: [] });
-  expect(view.snapshot.reason).toContain('Seats.io');
-  expect(view.automation!.page.selectionPending).toBe(false);
+  expect(view.snapshot).toMatchObject({ state: 'UNKNOWN', supported: false, unsupportedVariant: false, visibleOptions: [] });
+  expect(view.snapshot.reason).toContain('Đang tải ghế');
+  expect(view.automation!.page.selectionPending).toBe(true);
   const run: AutoRun = { id: 'cap', tabId: 1, revision: 0, startedAt: 0, expiresAt: 100000, preferencesKey: preferencesKey(p), progress: { phase: 'READY', message: '' } };
-  expect(decideAutomation(run, view.automation!.page, p, 1)).toMatchObject({ type: 'STEP', progress: { phase: 'PAUSED' } });
+  expect(decideAutomation(run, view.automation!.page, p, 1)).toMatchObject({ type: 'WAIT' });
   expect(decideAutomation(run, view.automation!.page, p, 1)).not.toHaveProperty('action');
 });
 

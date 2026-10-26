@@ -102,3 +102,25 @@ test('UI: tên dài không đè nút ưu tiên; footer và form dùng được �
     await page.screenshot({ path: `artifacts/capitaneus-ui-${width}.png` });
   }
 });
+
+test('Lưu và camp: một nút lưu đúng bản nháp rồi chạy, bấm hai lần không tạo phiên/đơn trùng', async () => {
+  const { page, worker } = await setup();
+  const tier = capitaneusTypes[0]!;
+  await page.getByLabel('Thêm hạng vé ưu tiên').selectOption(tier.ticketClassId);
+  await page.getByLabel('Số vé', { exact: true }).fill('2');
+  await page.getByLabel('Cách bắt đầu camp').selectOption('IMMEDIATE');
+  await context.route('https://ticket.1zone.vn/**', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><meta charset="utf-8"><main><h1>Chọn khu vực</h1><p>Ghế được tự động cấp</p><div id="ticket-list"><div><p>${tier.name}</p><p>${tier.finalPriceVn.toLocaleString('vi-VN')} ₫</p><button>Chọn</button></div></div><div id="modal-host"></div></main><script>(${installBooking.toString()})(document,${JSON.stringify(tier)})</script>` }));
+  const opened = context.waitForEvent('page');
+  const start = page.getByRole('button', { name: 'Lưu và camp', exact: true });
+  await expect(start).toBeEnabled();
+  await start.evaluate((button: HTMLButtonElement) => { button.click(); button.click(); });
+  const event = await opened;
+  await expect(event.locator('.auto-status')).toContainText('Chờ xác minh');
+  await event.getByRole('button', { name: 'Xác minh xong · mô phỏng' }).click();
+  await expect(event.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(event.locator('main')).toHaveAttribute('data-holds', '1');
+  const saved = await worker.evaluate(async () => (await chrome.storage.local.get('ticket-assistant.config.v1'))['ticket-assistant.config.v1']);
+  expect(saved.preferences.quantity).toBe(2);
+  expect(saved.preferences.catalog.tickets[0].id).toBe(tier.ticketClassId);
+  expect(context.pages().filter(p => p.url().startsWith('https://ticket.1zone.vn/'))).toHaveLength(1);
+});

@@ -63,6 +63,7 @@ test('Konva thật: bỏ khu khóa, chọn GA B đúng class/giá, 2 vé tới c
 test('sơ đồ đúng renderer tải chậm quá 15 giây: vẫn camp rồi tiếp tục khi render xong', async () => {
   await booking({ groupedLegend: true, delayed: true });
   await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click();
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'READY');
   const worker = context.serviceWorkers()[0]!;
   await worker.evaluate(async () => {
     const key = 'ticket-assistant.auto.session.v1', run = (await chrome.storage.session.get(key))[key];

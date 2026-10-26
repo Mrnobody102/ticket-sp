@@ -1,55 +1,18 @@
-<!doctype html>
-<html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Camp vé · Hướng dẫn</title>
-  <style>
-    *{box-sizing:border-box}body{margin:0;background:#f4f5f7;color:#20252c;font:15px/1.65 "Segoe UI",system-ui,sans-serif}main{max-width:740px;margin:32px auto;padding:28px 32px;background:white;border:1px solid #dbe1e8;border-radius:8px}h1{font-size:24px;margin:0 0 6px}h2{font-size:17px;margin:24px 0 8px}p{margin:6px 0}ol,ul{margin:8px 0;padding-left:24px}li{padding:3px 0}code{font-size:13px;background:#f1f3f6;padding:2px 5px;border-radius:3px}.note{color:#5e6978;font-size:13px}.rule{border-top:1px solid #e1e5eb;margin-top:24px;padding-top:14px}@media(max-width:760px){main{margin:0;border:0;border-radius:0;padding:22px}}
-  </style>
-</head>
-<body><main>
-  <h1>Camp vé</h1>
-  <p>Dùng Chrome trên máy tính. Chọn hạng trước, bật camp trước giờ bán; tool dừng ở bước thanh toán.</p>
-  <p class="note">Chưa hỗ trợ Chrome trên điện thoại.</p>
-
-  <h2>Cài một lần</h2>
-  <ol>
-    <li>Trên GitHub, tải <code>dist/Camp-ve-latest.zip</code> bằng <b>Download raw file</b>, rồi giải nén toàn bộ vào một thư mục cố định.</li>
-    <li>Mở Chrome, nhập <code>chrome://extensions</code>.</li>
-    <li>Bật <b>Chế độ dành cho nhà phát triển / Developer mode</b>.</li>
-    <li>Bấm <b>Tải tiện ích đã giải nén / Load unpacked</b>, chọn thư mục <b>tien-ich</b> có <code>manifest.json</code> trong ZIP vừa giải nén. Không chọn thư mục <code>dist</code>. Với bản build trong project, chọn <code>.output/chrome-mv3</code>.</li>
-    <li>Ghim icon <b>Camp vé</b>. Không cần cài Node.js hay chạy source.</li>
-  </ol>
-
-  <h2>Chuẩn bị đặt vé</h2>
-  <p class="note">Nếu đã cài bản cũ: thay toàn bộ file bằng bản mới, Reload tiện ích, tải lại tab vé, kiểm tra <b>v0.6.4</b> rồi bật camp lại. Nhập giờ bán của đợt sắp tới; giờ diễn không phải giờ mở bán.</p>
-  <ol>
-    <li>Đăng nhập 1Zone trước. Mở Camp vé, tìm tên sự kiện hoặc dán link bán vé vào ô tìm.</li>
-    <li>Chọn đúng suất diễn. Chọn hạng trong danh sách; dùng ↑ ↓ để xếp ưu tiên.</li>
-    <li>Chọn số vé. Show đang bán: chọn <b>Ngay khi bật camp</b>. Hẹn giờ: chọn <b>Theo giờ và khi web mở</b> và nhập giờ Việt Nam. Bấm <b>Lưu cấu hình</b>.</li>
-    <li>Bấm <b>Bắt đầu camp trước giờ bán</b>. Có thể đóng popup; giữ tab vé ở phía trước, máy thức và đồng hồ máy đúng giờ.</li>
-    <li>Nếu hiện <b>Chờ xác minh</b>, xử lý trên website; tool tiếp tục khi nút mở. Đến thanh toán, kiểm tra đơn và tự thanh toán.</li>
-  </ol>
-  <p class="note">Đóng popup vẫn giữ bản nháp. Bấm <b>Lưu cấu hình</b> để áp dụng thay đổi cho lượt camp.</p>
-  <p class="note">Khi camp, tool tự giữ máy không ngủ do để lâu và giữ tab khỏi bị Chrome tự bỏ. Từ 2 phút trước giờ bán, tab camp được đưa ra trước một lần. Dừng hoặc tới thanh toán sẽ trả lại cài đặt. Không đóng Chrome hoặc đổi tài khoản/mạng trong phiên.</p>
-  <p class="note">Test CAPITANEUS MUTABILIS: dán https://ticket.1zone.vn/events/capitaneus-mutabilis-2026?calendarId=XDacU6 vào ô tìm, chọn hạng và 1–2 vé. API hiện khai báo cấp ghế tự động; nếu website yêu cầu chọn từng ghế trong iframe, thao tác trực tiếp khi tool báo chưa hỗ trợ. Ticketbox hiện chỉ tra cứu.</p>
-  <p class="note">Camp tự hết hạn sau 1 giờ tính từ mốc muộn hơn giữa lúc bật và giờ bán. Đóng Chrome, Reload tiện ích hoặc đóng tab chủ sẽ hủy phiên; cần bật lại. Dừng camp không tự hủy chỗ/đơn mà website đã giữ.</p>
-
-  <p class="note">Nếu mở tay tab mua hoặc phòng chờ mới, bấm <b>Bắt đầu camp</b> trong tab đó để chuyển phiên chưa chọn vé sang. Không chuyển khi tab cũ đang xử lý giữ vé. Trong popup, <b>Đến tab đang camp</b> mở đúng tab mà tool đang điều khiển.</p>
-  <h2>Thử trước khi dùng thật</h2>
-  <p>Mở <b>Diễn tập</b>, chọn số vé rồi bấm <b>Chạy thử</b>. Kết quả cần thấy: <b>Đã tới thanh toán</b> và đúng số vé. Bấm <b>Làm lại</b> để thử tiếp.</p>
-
-  <h2>Cập nhật hoặc gặp lỗi</h2>
-  <ul>
-    <li>Để kiểm tra kết quả: trên bảng camp, mở <b>Thao tác khác → Lưu báo cáo</b> trước khi Dừng hoặc chạy lại. File JSON ghi trạng thái, lựa chọn và thời gian; kiểm tra vé đã giữ trong đơn của website.</li>
-    <li>Nếu tool báo chưa rõ kết quả giữ vé, bấm <b>Kiểm tra tab vé</b>. Tool vẫn nhận trang thanh toán tới muộn. Kiểm tra đơn trước khi dừng hoặc chạy lại; dừng tool không hủy đơn trên website.</li>
-    <li>Sau khi thay bộ file: vào <code>chrome://extensions</code>, bấm <b>Reload / Tải lại</b>, rồi tải lại tab 1Zone.</li>
-    <li>Kiểm tra số phiên bản ở cửa sổ Camp vé và panel trên trang vé phải giống nhau. Danh sách Lỗi của Chrome có thể còn lỗi cũ; bấm <b>Xóa tất cả</b>, tải lại tab rồi kiểm tra lại.</li>
-    <li>Chưa có hạng vé: kiểm tra đúng link/suất, rồi bấm tải lại. Giá và số vé tối đa do website cung cấp.</li>
-    <li>Bấm <b>Dừng camp</b> để hủy thao tác. Đóng/mở Chrome không tự chạy lại phiên cũ.</li>
-  </ul>
-  <p class="note rule">Không bảo đảm mua được vé. Phòng chờ, CAPTCHA, tồn kho và phản hồi giữ vé do website quyết định. Không đổi tên hoặc xóa thư mục tiện ích khi còn dùng.</p>
-  <p class="note"><a href="quyen-rieng-tu.html">Quyền riêng tư</a></p>
-</main></body>
-</html>
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Camp vé · Hướng dẫn</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#f4f5f7;color:#20252c;font:15px/1.65 "Segoe UI",system-ui,sans-serif}main{max-width:720px;margin:32px auto;padding:28px;background:white;border:1px solid #dbe1e8;border-radius:8px}h1{font-size:24px;margin:0}h2{font-size:17px;margin:24px 0 8px}p{margin:8px 0}li{padding:4px 0}code{background:#f1f3f6;padding:2px 5px;font-size:13px}.note{color:#5e6978;font-size:13px}@media(max-width:760px){main{margin:0;border:0}}</style></head><body><main>
+<h1>Camp vé · v0.7.0</h1><p>Chrome trên máy tính. Tool tự chọn vé và dừng ở checkout.</p>
+<h2>Cài một lần</h2><ol>
+<li>Trên GitHub, mở <b>dist/Camp-ve-latest.zip → Download raw file</b>, rồi giải nén toàn bộ.</li>
+<li>Mở <code>chrome://extensions</code>, bật <b>Developer mode</b>.</li>
+<li>Bấm <b>Load unpacked</b>, chọn thư mục <b>tien-ich</b> có <code>manifest.json</code> trong ZIP vừa giải nén. Không chọn <code>dist</code>.</li>
+<li>Ghim icon <b>Camp vé</b>. Không cần Node.js/npm.</li></ol>
+<h2>Chuẩn bị đặt vé</h2><ol>
+<li>Đăng nhập 1Zone. Mở tool → chọn <b>CAPITANEUS MUTABILIS</b>.</li>
+<li>Chọn hạng ưu tiên và <b>1–2 vé</b>. Giờ bán mặc định <b>12:00 ngày 26/10/2026, giờ Việt Nam</b>; kiểm tra trước khi chạy.</li>
+<li>Bấm <b>Lưu và camp</b>. Nếu đang bán, chọn <b>Ngay khi bật camp</b>.</li>
+<li>Giữ Chrome mở, máy thức. Website yêu cầu xác minh thì hoàn thành trên tab vé; tool tiếp tục cùng phiên.</li>
+<li>Tới checkout, kiểm tra vé và tự thanh toán.</li></ol>
+<p class="note">Đóng popup vẫn camp. Dừng camp chỉ dừng tool, không hủy đơn. Không bấm chạy lại khi lượt giữ vé chưa rõ kết quả; dùng <b>Kiểm tra tab vé</b>.</p>
+<h2>Thử và cập nhật</h2><p><b>Diễn tập → Chạy thử</b> để kiểm tra trước.</p><p>Để cập nhật: dừng camp, thay toàn bộ bộ file bằng bản mới, <b>Reload</b> ở <code>chrome://extensions</code>, rồi <b>tải lại tab 1Zone</b>. Kiểm tra v0.7.0.</p>
+<p class="note">Báo lỗi: bảng camp → <b>Thao tác khác → Lưu báo cáo</b>. Không đổi hoặc xóa thư mục tiện ích khi đang dùng.</p><p class="note"><a href="quyen-rieng-tu.html">Quyền riêng tư</a></p>
+</main></body></html>
