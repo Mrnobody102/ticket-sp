@@ -13,3 +13,15 @@ export const CAPITANEUS_PRESET = {
   quantity: 1,
   saleStartAt: '2026-10-26T05:00:00.000Z',
 } as const;
+
+/** Schedule supplied by the user on 28/10; not yet confirmed by Ticketbox API. */
+export const ATVNCG_PRESET = {
+  title: 'ATVNCG 2026 · DAY 3 & DAY 4',
+  query: 'ANH TRAI VƯỢT NGÀN CHÔNG GAI 2026 DAY 3 DAY 4',
+  saleStartAt: '2026-11-04T05:00:00.000Z',
+  saleWindows: [
+    { label: 'Gai Con Membership', at: '2026-11-04T02:00:00.000Z' },
+    { label: 'Chủ thẻ Techcombank Visa', at: '2026-11-04T03:00:00.000Z' },
+    { label: 'Mở bán chính thức', at: '2026-11-04T05:00:00.000Z' },
+  ],
+} as const;

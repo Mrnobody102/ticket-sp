@@ -4,8 +4,8 @@ import type { ConcertDetail, ConcertSearchResult, TicketCatalog } from '../core/
 import type { Platform } from '../core/models';
 import { createTicketboxCatalog, TICKETBOX_READ_ORIGIN } from '../platforms/ticketbox-catalog';
 
-export type CatalogCommand = { type: 'CATALOG_SEARCH'; query: string; page: number; platform: Platform } |
-  { type: 'CATALOG_DETAIL'; url: string; platform: Platform } | { type: 'CATALOG_TICKETS'; eventId: string; performanceId: string; platform: Platform };
+export type CatalogCommand = ({ type: 'CATALOG_SEARCH'; query: string; page: number; platform: Platform } |
+  { type: 'CATALOG_DETAIL'; url: string; platform: Platform } | { type: 'CATALOG_TICKETS'; eventId: string; performanceId: string; platform: Platform }) & { fresh?: boolean };
 export type CatalogReply = ConcertDetail | ConcertSearchResult | TicketCatalog;
 const cache = new Map<string, { at: number; value: unknown }>();
 const pending = new Map<string, Promise<unknown>>();
@@ -35,7 +35,7 @@ export function getCatalogProvider(platform: Platform, fresh = false) {
   return fresh ? factories[platform]((url, format) => read(url, format, true)) : catalogs[platform];
 }
 export async function handleCatalogCommand(message: CatalogCommand): Promise<CatalogReply> {
-  const provider = getCatalogProvider(message.platform);
+  const provider = getCatalogProvider(message.platform, message.fresh === true);
   switch (message.type) {
     case 'CATALOG_SEARCH':
       if (typeof message.query !== 'string' || message.query.length > 120 || !Number.isInteger(message.page) || message.page < 1 || message.page > 100) throw new Error('Từ khóa hoặc trang không hợp lệ.');

@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_CONFIG, DEFAULT_QUANTITY, type TaskConfig } from '../core/models';
-import { fromVietnamLocal, toVietnamLocal, validatePreferences, money, isSameEvent } from '../core/preferences';
+import { fromVietnamLocal, toVietnamLocal, validatePreferences, money, isSameEvent, normalize } from '../core/preferences';
 import { repository, watchConfig } from '../infrastructure/storage';
 import { command, type Command } from '../infrastructure/messages';
 import { autoCommand } from '../infrastructure/automation-messages';
 import { autoActive, hasUnresolvedReservation, type AutoRun } from '../core/automation';
 import { platformForUrl } from '../core/platform-catalog';
-import { EventFinder, type LoadedConcert } from './EventFinder';
+import { EventFinder, eventDate, type LoadedConcert } from './EventFinder';
 import { TicketPriorities } from './TicketPriorities';
-import { CAPITANEUS_PRESET, HANOI_PRESET } from '../core/task-presets';
+import { ATVNCG_PRESET, CAPITANEUS_PRESET, HANOI_PRESET } from '../core/task-presets';
 import { catalogQuantityLimit } from '../core/catalog-validation';
 import { EXTENSION_VERSION, verifyExtensionRuntime } from '../infrastructure/extension-runtime';
 import { emptyBookingDraft, type BookingDraft } from '../core/booking-draft';
@@ -182,6 +182,9 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
   }
   function reloadTickets() { setRequestedUrl({ url, requestId: Date.now() }); }
   const hasSelection = loaded ? selectedTickets.length > 0 : !!retainedCatalog || (manualMode && !!labels.trim());
+  const previewOnly = form.finder.platform === 'ticketbox';
+  const targetTitle = normalize(form.finder.detail?.title ?? form.finder.query).replace(/[^a-z0-9 ]/g, ' ');
+  const targetPreview = previewOnly && ['anh trai', 'vuot ngan chong gai', '2026', 'day 3', 'day 4'].every(part => targetTitle.includes(part));
   return <main className={workspace ? 'popup workspace' : 'popup'}>
     <header className="app-header"><div className="app-title"><h1>Camp vé</h1><span className="app-version">v{EXTENSION_VERSION}</span></div><nav>
       {!workspace && <a className="button-link" href={chrome.runtime.getURL('/workspace.html')} target="_blank" rel="noreferrer">Mở rộng ↗</a>}
@@ -191,7 +194,17 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
     {runtimeError && <aside className="runtime-notice error" role="alert"><b>Cần tải lại tiện ích</b><p>{runtimeError}</p></aside>}
     <div className="setup-grid" inert={busy || !ready || !runtimeReady}>
       {ready && <EventFinder initialDraft={form.finder} onDraftChange={finder => edit({ finder }, false)} requestedUrl={requestedUrl} saved={retainedCatalog} shortcut={{ title: CAPITANEUS_PRESET.title, description: '22/11 · TP.HCM · 1 vé', onChoose: useTarget }} onLoad={loadConcert} onReset={resetConcert} />}
-      <form id="camp-setup-form" className="setup-form" onSubmit={e => void save(e)}>
+      {previewOnly ? <section className="setup-form" aria-label="Chuẩn bị Ticketbox">
+        <div className="section-title"><h2>Chuẩn bị Ticketbox</h2></div>
+        <p className="source-note" role="status">Chưa bật tự mua Ticketbox. Hiện chỉ tra cứu và kiểm tra luồng.</p>
+        {targetPreview && <>
+          <p><b>Mở bán chính thức: {eventDate(ATVNCG_PRESET.saleStartAt)} · UTC+7</b></p>
+          <ul>{ATVNCG_PRESET.saleWindows.map(stage => <li key={stage.at}>{eventDate(stage.at)} · {stage.label}</li>)}</ul>
+          <small>Lịch bạn cung cấp ngày 28/10. Chưa đối chiếu được trên API Ticketbox; đây chưa phải lịch camp đã bật.</small>
+        </>}
+        <p>Chọn đúng đêm 05 hoặc 06/12 khi nguồn công bố suất. Đợt mở sớm cần đúng quyền mua.</p>
+        <p>Cần kiểm chứng chọn vé, giữ vé và chuyển tới thanh toán bằng phiên đăng nhập trước khi bật tự mua.</p>
+      </section> : <form id="camp-setup-form" className="setup-form" onSubmit={e => void save(e)}>
         <div className="section-title"><h2>Vé và giờ bán</h2><span>{dirty ? 'Bản nháp' : config.preferences ? 'Đã lưu' : ''}</span></div>
         {loaded ? <TicketPriorities key={loaded.performance.id} tickets={loaded.catalog.tickets} selected={selectedTickets} onChange={selectedTickets => edit({ selectedTickets })} /> :
           retainedCatalog ? <div className="saved-tickets"><b>Hạng vé đã lưu</b><ol>{retainedCatalog.tickets.map(t => <li key={t.id}>{t.name}<span>{money(t.priceVnd)}</span></li>)}</ol><button className="subtle-button" type="button" onClick={reloadTickets}>Tải hạng vé để thay đổi lựa chọn</button></div> :
@@ -219,11 +232,11 @@ export function Popup({ workspace = false }: { workspace?: boolean }) {
         </div><label className="checkbox-label"><input type="checkbox" checked={config.panelVisible} disabled={!ready || busy} onChange={e => {
           const previous = config; setConfig({ ...config, panelVisible: e.target.checked }); void send({ type: 'PANEL', visible: e.target.checked }, previous);
         }} />Hiện bảng camp trên trang vé</label></details>
-      </form>
+      </form>}
     </div>
     <footer className="run-bar"><div className="run-summary"><b>{running ? 'Đang camp' : autoRun?.progress.phase === 'CHECKOUT' ? 'Đã tới thanh toán' : dirty ? 'Bản nháp' : config.preferences ? 'Đã lưu' : 'Chọn sự kiện'}</b>{autoRun && <p>{autoRun.progress.message}</p>}</div>
-      <div className="run-controls"><button type="submit" form="camp-setup-form" disabled={!ready || !runtimeReady || busy || !hasSelection || hasUnresolvedReservation(autoRun)}>{busy ? 'Đang xử lý…' : 'Lưu cấu hình'}</button>
-        <button type="button" className={running ? 'danger-button' : 'primary'} disabled={!ready || busy || (!running && !hasUnresolvedReservation(autoRun) && (!runtimeReady || !(dirty ? hasSelection : !!config.preferences)))} onClick={() => void startOrStopAuto()}>{running ? 'Dừng camp' : hasUnresolvedReservation(autoRun) ? 'Kiểm tra tab vé' : dirty && hasSelection ? 'Lưu và camp' : 'Bắt đầu camp'}</button></div>
+      <div className="run-controls"><button type="submit" form="camp-setup-form" disabled={previewOnly || !ready || !runtimeReady || busy || !hasSelection || hasUnresolvedReservation(autoRun)}>{busy ? 'Đang xử lý…' : 'Lưu cấu hình'}</button>
+        <button type="button" className={running ? 'danger-button' : 'primary'} disabled={!ready || busy || (previewOnly && !running && !hasUnresolvedReservation(autoRun)) || (!running && !hasUnresolvedReservation(autoRun) && (!runtimeReady || !(dirty ? hasSelection : !!config.preferences)))} onClick={() => void startOrStopAuto()}>{running ? 'Dừng camp' : hasUnresolvedReservation(autoRun) ? 'Kiểm tra tab vé' : previewOnly ? 'Chưa hỗ trợ tự mua' : dirty && hasSelection ? 'Lưu và camp' : 'Bắt đầu camp'}</button></div>
     </footer>
   </main>;
 }

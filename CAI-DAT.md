@@ -5,11 +5,17 @@
 3. Mở Chrome trên máy tính, nhập **`chrome://extensions`**.
 4. Bật **Developer mode / Chế độ dành cho nhà phát triển** ở góc trên bên phải.
 5. Bấm **Load unpacked / Tải tiện ích đã giải nén**, chọn **`Downloads/Camp-ve/tien-ich`** — thư mục có **`manifest.json`**. Không chọn ZIP hoặc thư mục `dist`.
-6. Ghim icon **Camp vé**. Mở tool và kiểm tra **v0.8.2**.
+6. Ghim icon **Camp vé**. Mở tool và kiểm tra **v0.8.3**.
 
 Nếu tải cả repo bằng **Code → Download ZIP**, giải nén repo rồi lấy **`dist/Camp-ve-latest.zip`** và tiếp tục từ bước 2. Không cần cài Node.js hay chạy lệnh.
 
-## Test event
+## Chuẩn bị Ticketbox · DAY 3 & DAY 4
+
+Chọn **Ticketbox → ATVNCG 2026 · DAY 3 & DAY 4** để tìm link hiện tại; không ghim ID cũ vì Ticketbox đã đổi banner. Lịch bạn cung cấp: **04/11/2026**, 09:00 Membership, 10:00 Techcombank Visa, **12:00 mở bán chính thức**, giờ Việt Nam. Chưa đối chiếu được lịch này qua API.
+
+Chọn đúng đêm 05 hoặc 06/12 khi có suất; bấm **Cập nhật suất và hạng vé** để tải mới. **Ticketbox chưa tự mua**; xem lịch không có nghĩa đã bật camp.
+
+## Test 1Zone
 
 Đăng nhập 1Zone trước. Mở tool → **Mở rộng ↗** → chọn **CAPITANEUS MUTABILIS**. Hoặc dán link này vào ô tìm:
 

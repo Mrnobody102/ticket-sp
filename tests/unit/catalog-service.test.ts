@@ -25,6 +25,9 @@ describe('transport chỉ đọc cho catalog', () => {
     await getCatalogProvider('onezone', true).tickets(command.eventId, command.performanceId);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({ cache: 'no-store' }));
+    await handleCatalogCommand({ ...command, fresh: true });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({ cache: 'no-store' }));
   });
   it('không lặp truy cập sau 429 trong một thao tác, cho phép thử lại thủ công', async () => {
     const fetchMock = vi.fn(async () => new Response('', { status: 429 })); vi.stubGlobal('fetch', fetchMock);

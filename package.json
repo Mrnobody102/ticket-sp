@@ -1,7 +1,7 @@
 {
   "name": "ticket-sp",
   "description": "Concert ticket automation and event catalog extension",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "license": "UNLICENSED",
   "private": true,
   "type": "module",
@@ -21,6 +21,7 @@
     "test:e2e": "playwright test",
     "smoke:live": "node scripts/smoke-live.mjs",
     "smoke:catalog": "node scripts/smoke-catalog.mjs",
+    "check:ticketbox": "node scripts/check-ticketbox.mjs",
     "store:assets": "node scripts/prepare-store.mjs",
     "bench:camp": "playwright test --config playwright.bench.config.ts",
     "check": "npm run typecheck && npm test && npm run build"

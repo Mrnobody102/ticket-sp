@@ -1,4 +1,7 @@
-# Ghi chú thực chiến · 26/10/2026
+# Ghi chú thực chiến · cập nhật 28/10/2026
+
+- **28/10:** banner DAY 3/4 đổi từ `26756` sang `26764`, tên có `(T)`; cả link cũ và chi tiết ID mới vẫn 404. Chưa xác nhận `(T)` là bản bán chính thức. Lối tắt tìm qua discovery mới mỗi lần, không cố định ID; không suy ra suất/hạng từ tên banner.
+- Lịch 04/11 (09:00 Membership, 10:00 TCB Visa, 12:00 general sale UTC+7) do người dùng cung cấp, chưa đọc được bài Facebook/API để xác minh độc lập. v0.8.3 hiển thị lịch chuẩn bị, chặn khởi chạy nhầm cấu hình 1Zone khi xem Ticketbox. `check:ticketbox -- --interactive <link>` cho kiểm tra sau đăng nhập trong browser riêng, chặn giữ vé/thanh toán; chưa kiểm chứng đặt vé thật.
 
 - Đã khảo sát 7 event 1Zone, 9 event Ticketbox; SDK thật render được 24 category của CAPITANEUS, Vạn Âm Vang, Lavender và Tinh Tú. Không tạo đơn thật.
 - Kiểm tra lại client lúc 14:51 ngày 26/10/2026 (giờ Việt Nam): 44 file JS 1Zone có bản đối chiếu đều giữ nguyên hash; 1 file chưa có baseline. Ticketbox vẫn yêu cầu đăng nhập ở trang chọn vé. Đây không phải bằng chứng backend/chống bot không đổi; tên CAPTCHA trong bundle không chứng minh nó đang được bật.

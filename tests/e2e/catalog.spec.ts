@@ -1,10 +1,10 @@
 import { test, expect, chromium, type BrowserContext, type Worker } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { calendar, catalogUrl, eventData, flightHtml, searchItem, ticketData, ticketReply, ticketboxReply, ticketboxShowingReply, ticketboxUrl } from '../fixtures/catalog';
+import { calendar, catalogUrl, eventData, flightHtml, searchItem, ticketData, ticketReply, ticketboxData, ticketboxReply, ticketboxShowing, ticketboxShowingReply, ticketboxUrl } from '../fixtures/catalog';
 import { installBookingDemo } from '../../src/testing/booking-demo';
 import { installOnezoneDemo } from '../../src/testing/onezone-demo';
-import { CAPITANEUS_PRESET } from '../../src/core/task-presets';
+import { ATVNCG_PRESET, CAPITANEUS_PRESET } from '../../src/core/task-presets';
 import { capitaneusEvent, capitaneusTypes, capitaneusZones } from '../fixtures/capitaneus';
 
 let context: BrowserContext;
@@ -397,8 +397,43 @@ test('nguồn Ticketbox hiển thị giá thật từ schema, không gắn adapt
   await page.locator('.event-result').click();
   await expect(page.locator('.ticket-preview')).toContainText('2.000.000');
   await expect(page.locator('.source-note').filter({ hasText: 'Luồng camp chưa được xác minh.' })).toContainText('chưa được xác minh');
-  await expect(page.getByLabel('Link concert')).toHaveValue('');
-  await expect(page.getByRole('button', { name: 'Bắt đầu camp', exact: true })).toBeDisabled();
+  await expect(page.getByLabel('Chuẩn bị Ticketbox', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Chưa hỗ trợ tự mua', exact: true })).toBeDisabled();
+});
+
+test('chuẩn bị DAY 3/4: giữ đúng lịch UTC+7, chặn camp cấu hình cũ và cập nhật suất mới ngay', async () => {
+  const page = await workspace(); await selectEvent(page);
+  const targetUrl = 'https://ticketbox.vn/anh-trai-vuot-ngan-chong-gai-concert-2026-day-3-day-4-t-26764';
+  const targetTitle = 'ANH TRAI VƯỢT NGÀN CHÔNG GAI CONCERT 2026 - DAY 3, DAY 4 (T)';
+  const announcement = { id: 26764, name: targetTitle, deeplink: targetUrl, saleStage: 'coming_soon' };
+  const targetMocks: Mock[] = [
+    { path: '/coming-soon', body: { status: 1, data: { results: [announcement] } } },
+    { path: '/gin/api/v2/events/26764', body: { status: 0, code: -1008 }, status: 404 },
+    ...defaults(),
+  ];
+  await mockCatalog(targetMocks);
+  await page.getByRole('button', { name: 'Đổi sự kiện' }).click();
+  await page.getByLabel('Nguồn sự kiện').selectOption('ticketbox');
+  await page.getByRole('button', { name: `Chuẩn bị ${ATVNCG_PRESET.title}`, exact: true }).click();
+  await page.locator('.event-result').filter({ hasText: targetTitle }).click();
+  const preview = page.getByLabel('Chuẩn bị Ticketbox', { exact: true });
+  await expect(preview).toContainText('04/11/2026');
+  for (const hour of ['09:00', '10:00', '12:00']) await expect(preview).toContainText(hour);
+  await expect(page.getByRole('button', { name: 'Chưa hỗ trợ tự mua', exact: true })).toBeDisabled();
+  await expect(page.locator('#camp-setup-form')).toHaveCount(0);
+  const second = { ...ticketboxShowing, id: ticketboxShowing.id + 1, eventId: 26764 };
+  const published = { ...ticketboxData, id: 26764, title: targetTitle, showings: [...ticketboxData.showings, second] };
+  targetMocks[1] = { path: '/gin/api/v2/events/26764', body: ticketboxReply(published) };
+  targetMocks.unshift({ path: '/gin/api/v2/events/showings/', body: ticketboxShowingReply(second) });
+  await mockCatalog(targetMocks);
+  await page.getByRole('button', { name: 'Cập nhật suất và hạng vé', exact: true }).click();
+  await expect(page.getByLabel('Suất diễn', { exact: true })).toHaveValue('');
+  await page.getByLabel('Suất diễn', { exact: true }).selectOption(String(second.id));
+  await expect(page.locator('.ticket-preview')).toContainText('2.000.000');
+  await page.getByRole('button', { name: 'Cập nhật suất và hạng vé', exact: true }).click();
+  await expect(page.getByLabel('Suất diễn', { exact: true })).toHaveValue(String(second.id));
+  await expect(page.locator('.empty-note')).toHaveCount(0);
+  expect(await worker.evaluate(async () => (await chrome.storage.session.get('ticket-assistant.auto.session.v1'))['ticket-assistant.auto.session.v1'])).toBeUndefined();
 });
 
 test('kết quả chậm không ghi đè tìm kiếm mới; popup không tràn ngang, nút camp luôn thấy', async () => {
