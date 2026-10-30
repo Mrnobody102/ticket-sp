@@ -35,6 +35,16 @@ describe('hợp đồng adapter và thao tác 1Zone', () => {
     expect(inspectPlatform(document, new URL('https://example.com/event')).automation).toBeUndefined();
     expect(inspectPlatform(document, new URL(p.eventUrl), { preferences: p, progress }).automation).toBeDefined();
   });
+  it('nhận captcha xoay/kéo inline Ticketbox trên login; bỏ captcha đã ẩn và không tạo executor', () => {
+    const url = new URL('https://ticketbox.vn/events/26712/bookings/11992249512361/select-ticket');
+    document.body.innerHTML = '<input type="password"><div class="captcha-module_wrapper__demo"><div class="captcha-module_header__demo"><span>Xác minh</span></div><div class="captcha-module_picture__demo"></div></div>';
+    const before = document.body.innerHTML;
+    expect(inspectPlatform(document, url)).toMatchObject({ snapshot: { state: 'CHALLENGE', supported: false } });
+    expect(inspectPlatform(document, url).automation).toBeUndefined();
+    expect(document.body.innerHTML).toBe(before);
+    document.querySelector<HTMLElement>('[class*="captcha-module_wrapper__"]')!.style.display = 'none';
+    expect(inspectPlatform(document, url).snapshot.reason).toContain('Đăng nhập');
+  });
   it('đọc thuần, chỉ thao tác khi executor được gọi', () => {
     const click = vi.fn(); document.querySelector('article button')!.addEventListener('click', click);
     const before = document.body.innerHTML;

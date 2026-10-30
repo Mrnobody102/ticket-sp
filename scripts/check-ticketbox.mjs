@@ -64,7 +64,9 @@ try {
     const state = await page.evaluate(() => ({
       path: /^\/(?:events\/\d+\/bookings\/\d+\/(?:select-ticket|question-form|payment-info)|(?:queue|waiting-room|presale)\/\d+|[\w-]+-\d+)\/?$/.test(location.pathname) ? location.pathname : '/',
       login: !!document.querySelector('input[type="password"]'),
-      challenge: [...document.querySelectorAll('iframe')].some(frame => /captcha|challenge|turnstile/i.test(frame.src + ' ' + frame.title)),
+      challenge: [...document.querySelectorAll('[class*="captcha-module_wrapper__"],iframe')].some(element =>
+        element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) &&
+        (element.tagName !== 'IFRAME' || /captcha|challenge|turnstile/i.test(element.getAttribute('src') + ' ' + element.getAttribute('title')))),
       canvases: document.querySelectorAll('canvas').length, frames: document.querySelectorAll('iframe').length,
       seatMarkers: document.querySelectorAll('[data-seat-id],[data-zone-id]').length,
       enabledButtons: [...document.querySelectorAll('button')].filter(button => !button.disabled).length,

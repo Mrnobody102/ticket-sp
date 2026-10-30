@@ -1,4 +1,9 @@
-# Ghi chú thực chiến · cập nhật 28/10/2026
+# Ghi chú thực chiến · cập nhật 30/10/2026
+
+- **30/10, Ticketbox:** [client 2317](https://ticketbox.vn/_next/static/chunks/2317-90becd417f4dd38d.js) phân nhánh ROTATE/SLIDE; [widget 6255](https://ticketbox.vn/_next/static/chunks/6255-7ba4a6b8ff42014c.js) render div/span/img/button inline. Hai file trùng hash bản 26/10: có cơ chế xoay/kéo, chưa có bằng chứng vừa thêm. v0.8.4 nhận captcha inline trước login, bỏ widget ẩn; không giải hoặc giả token.
+- **30/10, live:** Ticketbox booking vẫn yêu cầu đăng nhập; DAY 3/4 còn banner `(T)` 26764 và 0 suất. 1Zone `/booking` chuyển `queue.1zone.vn/softblock/` với xác minh người dùng; 45 file JS có bản đối chiếu không đổi. Không suy ra backend/queue policy không đổi từ hash client. Chưa có phiên authenticated giữ vé được server chấp nhận.
+- [Ticketbox MCP chính thức](https://mcp.ticketbox.vn/) chỉ tra cứu event/showing/hạng vé, không đăng nhập/giữ vé/thanh toán. Gist và quảng cáo bot bên dưới chưa có bằng chứng mới xác minh độc lập cho show mục tiêu; không coi số giây quảng cáo là thời gian gồm queue/captcha/thanh toán.
+- Hai lần 1Zone hụt: xác định được lỗi cũ ở nối queue/xác minh, SDK không timeout, replan khi persist và mất inventory khi GET lỗi; đã sửa. Không có log phiên cũ để gán riêng từng thất bại; map tối và số lượng yêu cầu lúc còn 1 ghế chưa xác nhận. Chuẩn đánh giá tiếp theo là admission → map sẵn → chọn → ORDER_SENT → ORDER_ACCEPTED/REJECTED, không chỉ tới giao diện checkout.
 
 - **28/10:** banner DAY 3/4 đổi từ `26756` sang `26764`, tên có `(T)`; cả link cũ và chi tiết ID mới vẫn 404. Chưa xác nhận `(T)` là bản bán chính thức. Lối tắt tìm qua discovery mới mỗi lần, không cố định ID; không suy ra suất/hạng từ tên banner.
 - Lịch 04/11 (09:00 Membership, 10:00 TCB Visa, 12:00 general sale UTC+7) do người dùng cung cấp, chưa đọc được bài Facebook/API để xác minh độc lập. v0.8.3 hiển thị lịch chuẩn bị, chặn khởi chạy nhầm cấu hình 1Zone khi xem Ticketbox. `check:ticketbox -- --interactive <link>` cho kiểm tra sau đăng nhập trong browser riêng, chặn giữ vé/thanh toán; chưa kiểm chứng đặt vé thật.

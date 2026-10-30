@@ -12,8 +12,10 @@ export function inspectTicketboxPage(document: Document, url: URL): PlatformInsp
   if (url.origin !== 'https://ticketbox.vn' || url.username || url.password || !document.body) return finish();
   const visible = (selector: string) => [...document.querySelectorAll(selector)].filter(reader.isVisible);
   const headings = visible('h1,h2,h3,[role="heading"],[role="alert"]').map(e => normalize(reader.text(e))).filter(t => t.length < 200).join(' | ');
+  // Ticketbox Rotate/Slide renders inline, including over the login screen.
+  const inlineCaptcha = visible('[class*="captcha-module_wrapper__"]').length > 0;
+  if (inlineCaptcha || visible('iframe').some(e => /captcha|challenge|turnstile/i.test(e.getAttribute('title') + ' ' + e.getAttribute('src'))) || /xac minh nguoi dung|xac minh ban la|verify you are human|chong bot/.test(headings)) return finish({ state: 'CHALLENGE', reason: 'Hoàn thành xác minh trên Ticketbox.' });
   if (visible('input[type="password"]').length || /dang nhap|sign in/.test(headings)) return finish({ reason: 'Đăng nhập Ticketbox trên website. Tool không đọc tài khoản hoặc mật khẩu.' });
-  if (visible('iframe').some(e => /captcha|challenge/i.test(e.getAttribute('title') + ' ' + e.getAttribute('src'))) || /xac minh nguoi dung|xac minh ban la|verify you are human|chong bot/.test(headings)) return finish({ state: 'CHALLENGE', reason: 'Hoàn thành xác minh trên Ticketbox.' });
   if (/^\/(queue|waiting-room)\/\d+\/?$/.test(url.pathname) || /ban dang (o |trong )?hang cho|waiting queue|waiting room/.test(headings)) return finish({ state: 'WAITING_ROOM', reason: 'Đang xếp hàng Ticketbox. Giữ nguyên tab; website tự cập nhật lượt.' });
   if (/^\/events\/\d+\/bookings\/\d+\/payment-info\/?$/.test(url.pathname)) return finish({ state: 'CHECKOUT', reason: 'Đã tới trang thanh toán Ticketbox. Kiểm tra giỏ và tổng tiền trên website.' });
   if (/^\/events\/\d+\/bookings\/\d+\/question-form\/?$/.test(url.pathname)) return finish({ reason: 'Điền biểu mẫu bắt buộc của sự kiện trên Ticketbox. Không tự điền hoặc đồng ý thay bạn.' });
