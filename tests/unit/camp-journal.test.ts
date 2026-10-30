@@ -2,8 +2,21 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { appendJournal, diagnosticUrl, journalEntry, JOURNAL_LIMIT, type CampJournal } from '../../src/core/camp-journal';
 import { readCampJournal, recordCampJournal, JOURNAL_KEY } from '../../src/infrastructure/camp-journal';
 import type { AutoRun } from '../../src/core/automation';
+import { classifyOnezoneOrderResponse } from '../../src/platforms/onezone-seats-bridge';
 
 afterEach(() => vi.unstubAllGlobals());
+it.each([
+  [200, { errorCode: 0 }, 'ORDER_UNKNOWN'],
+  [200, { errorCode: 0, data: { orderId: 'private-order' } }, 'ORDER_ACCEPTED'],
+  [200, { data: { PK: 'private-order' } }, 'ORDER_ACCEPTED'],
+  [200, { id: 'private-order' }, 'ORDER_ACCEPTED'],
+  [200, { errorCode: 300006 }, 'ORDER_REJECTED'],
+  [401, { errorCode: 'CLOCK_SKEW' }, 'ORDER_REJECTED'],
+  [0, { orderId: 'private-order' }, 'ORDER_UNKNOWN'],
+])('phản hồi giữ vé %s: chỉ xác nhận khi có đơn, không xuất mã đơn', (status, payload, code) => {
+  const result = classifyOnezoneOrderResponse(status as number, payload);
+  expect(result.code).toBe(code); expect(JSON.stringify(result)).not.toContain('private-order');
+});
 it('chỉ ghi routing đã cho phép, xóa token, queue ID, mã đơn và thông tin đăng nhập', () => {
   expect(diagnosticUrl('https://queue.1zone.vn/?q=secret-queue&t=private&queueittoken=secret')).toBe('https://queue.1zone.vn/');
   expect(diagnosticUrl('https://ticket.1zone.vn/events/demo?calendarId=HN&token=secret')).toBe('https://ticket.1zone.vn/events/demo?calendarId=HN');

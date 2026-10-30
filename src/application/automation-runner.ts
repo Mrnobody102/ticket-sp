@@ -78,9 +78,15 @@ export function createAutomationRunner(options: RunnerOptions) {
             verified && (verified.type === 'WAIT' || verified.progress.phase === 'CHOOSING') &&
             !fresh.snapshot.visibleOptions.some(option => option.selected) &&
             fresh.snapshot.state === 'SELECTING';
-          run = await options.transport.commit(committed, recovery && recovery.type === 'STEP' && !recovery.action
+          // A gate can appear before a selection click is sent. Preserve the
+          // pre-action phase so admission does not wait for a click never made.
+          const gatedSelection = before.progress.reservationAttemptedAt === undefined && ['CHOOSE', 'QUANTITY'].includes(decision.action.kind) &&
+            (fresh.snapshot.state === 'WAITING_ROOM' || (fresh.snapshot.state === 'CHALLENGE' && fresh.automation?.page.verificationPending && !fresh.automation.page.problem));
+          run = await options.transport.commit(committed, gatedSelection ? before.progress : recovery && recovery.type === 'STEP' && !recovery.action
             ? recovery.progress
-            : cancelRefresh ? before.progress
+            : cancelRefresh ? (decision.progress.phase === 'RECOVERING'
+              ? { ...committed.progress, phase: 'PAUSED', message: 'Kết quả giữ vé đã đổi. Chờ xác nhận trên tab; không tải lại.' }
+              : before.progress)
               : replanSeats ? retryUnavailableSelection(before.progress, Date.now())
               : { ...committed.progress, phase: 'PAUSED', message: 'Trang đã đổi trong lúc chuẩn bị thao tác. Kiểm tra rồi bắt đầu lại.' });
           return;

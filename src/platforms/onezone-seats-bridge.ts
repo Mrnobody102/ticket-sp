@@ -25,7 +25,19 @@ const validId = (v: unknown): v is string => typeof v === 'string' && /^[\w-]{1,
 const short = (v: unknown): v is string => typeof v === 'string' && !!v.trim() && v.length <= 100;
 const objectLabel = (o: SeatObject) => `${o.labels?.section}-${o.labels?.parent}-${o.labels?.own}`;
 
-/** Only observes the website's existing inventory GETs. Never reads headers,
+/** Report a hold only when the native response actually contains an order.
+ * Keep identifiers inside this function; diagnostics receive no order data. */
+export function classifyOnezoneOrderResponse(status: number, payload: unknown): { code: 'ORDER_ACCEPTED' | 'ORDER_REJECTED' | 'ORDER_UNKNOWN'; resultCode?: number } {
+  const body = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
+  const resultCode = typeof body.errorCode === 'number' ? body.errorCode : undefined;
+  if (status >= 400 || body.errorCode) return { code: 'ORDER_REJECTED', resultCode };
+  if (status < 200 || status >= 300) return { code: 'ORDER_UNKNOWN', resultCode };
+  const data = body.data && typeof body.data === 'object' ? body.data as Record<string, unknown> : body;
+  const hasOrder = [data.id, data.orderId, data.PK].some(id => typeof id === 'string' ? !!id.trim() : typeof id === 'number' && Number.isSafeInteger(id) && id > 0);
+  return { code: hasOrder ? 'ORDER_ACCEPTED' : 'ORDER_UNKNOWN', resultCode };
+}
+
+/** Observes the website's inventory GETs and native order results. Never reads headers,
  * account/session storage, CAPTCHA tokens or calls a private purchase endpoint. */
 export function installOnezoneSeatsBridge(window: Window & typeof globalThis) {
   const view = window as SeatsWindow;
@@ -85,11 +97,11 @@ export function installOnezoneSeatsBridge(window: Window & typeof globalThis) {
   // bodies/headers, replaying a request, or exporting account/order information.
   function orderActivity(url: string, code: string, started: number, httpStatus?: number, resultCode?: number) {
     if (!disposed) view.document.dispatchEvent(new view.CustomEvent(ORDER_ACTIVITY, { detail: JSON.stringify({ kind: 'ORDER', url, code,
-      elapsedMs: Date.now() - started, httpStatus, resultCode }) }));
+      startedAt: started, elapsedMs: Date.now() - started, httpStatus, resultCode }) }));
   }
   function orderResult(url: string, started: number, status: number, payload: unknown) {
-    const code = payload && typeof payload === 'object' && 'errorCode' in payload ? payload.errorCode : undefined;
-    orderActivity(url, status >= 400 || (typeof code === 'number' && code !== 0) ? 'ORDER_REJECTED' : code === 0 ? 'ORDER_ACCEPTED' : 'ORDER_UNKNOWN', started, status, typeof code === 'number' ? code : undefined);
+    const result = classifyOnezoneOrderResponse(status, payload);
+    orderActivity(url, result.code, started, status, result.resultCode);
   }
   const originalFetch = view.fetch;
   const wrappedFetch: typeof fetch = function (...args) {
@@ -174,31 +186,49 @@ export function installOnezoneSeatsBridge(window: Window & typeof globalThis) {
         next = chosen ? { ready: true, groups: [chosen] } : { ready: true, groups: [], problem: 'Giỏ có ghế khác. Kiểm tra đơn.' };
       } else {
         const groups: SeatGroup[] = [];
-        const report = entry.chart.getReportBySelectability ? await bounded(entry.chart.getReportBySelectability()) : undefined;
-        let insufficient = false;
+        // The aggregate report is an optimization; an error must not prevent
+        // selecting seats that the SDK can still verify individually.
+        let counts: Record<string, number> | undefined;
+        if (entry.chart.getReportBySelectability) {
+          sdkReads++;
+          void bounded(Promise.resolve().then(() => entry.chart.getReportBySelectability!())).then(report => { counts = report?.selectable?.byCategoryLabel; }, () => {});
+        }
+        let seatReads = 0, failedReads = 0;
         const objects = new Map<string, Promise<SeatObject | undefined>>();
         const get = (seat: SeatRecord) => {
           const label = seatLabel(seat);
-          if (!objects.has(label)) { sdkReads++; objects.set(label, bounded(entry.chart.findObject(label)).catch(error => {
-            if (error instanceof Error && error.message === 'sdk-timeout') throw error;
+          if (!objects.has(label)) { sdkReads++; objects.set(label, bounded(Promise.resolve().then(() => entry.chart.findObject(label))).then(object => {
+            seatReads++; return object;
+          }).catch(() => {
+            failedReads++;
             return undefined;
           })); }
           return objects.get(label)!;
         };
         for (const quote of quotes) {
-          const count = report?.selectable?.byCategoryLabel?.[quote.name];
-          if (Number.isInteger(count) && count! >= 0 && count! < quantity) { insufficient ||= count! > 0; continue; }
           const plans = seatPlans(records.filter(s => s.ticketClassId === quote.id), quantity);
           let found: SeatGroup | undefined;
-          for (let i = 0; i < plans.length && !found; i += 8) {
-            if (disposed || current !== entry || entry.revision !== revision) return;
-            if (Date.now() - started >= 15000) throw new Error('scan-timeout');
-            const batch = await Promise.all(plans.slice(i, i + 8).map(async plan => {
-              const items = await Promise.all(plan.map(get));
-              if (items.some(o => !o || o.selectable !== true || o.forSale === false || !['free', 'available'].includes(o.status ?? ''))) return;
-              return group(plan, items as SeatObject[], quotes, false);
-            }));
-            found = batch.find(Boolean);
+          if (plans.length) {
+            // Keep eight plans in flight. A stalled read occupies one worker;
+            // the others can keep checking later seats in the same ticket tier.
+            let cursor = 0;
+            const unavailable = Symbol('unavailable-plan');
+            try {
+              found = await Promise.any(Array.from({ length: Math.min(8, plans.length) }, async () => {
+                while (!found && cursor < plans.length) {
+                  if (disposed || current !== entry || entry.revision !== revision) throw unavailable;
+                  if (Date.now() - started >= 15000) throw new Error('scan-timeout');
+                  const plan = plans[cursor++]!;
+                  const items = await Promise.all(plan.map(get));
+                  if (items.some(o => !o || o.selectable !== true || o.forSale === false || !['free', 'available'].includes(o.status ?? ''))) continue;
+                  const choice = group(plan, items as SeatObject[], quotes, false);
+                  if (choice) { found ??= choice; return found; }
+                }
+                throw unavailable;
+              }));
+            } catch (error) {
+              if (!(error instanceof AggregateError) || error.errors.some(reason => reason !== unavailable)) throw error;
+            }
           }
           if (!found && quantity > 1) {
             const available: SeatRecord[] = [];
@@ -216,6 +246,10 @@ export function installOnezoneSeatsBridge(window: Window & typeof globalThis) {
           }
           if (found) { groups.push(found); break; }
         }
+        if (!groups.length && failedReads && !seatReads) throw new Error('sdk-timeout');
+        // Counts are an asynchronous hint, never proof that fresh seats cannot
+        // be selected. Individual SDK checks remain authoritative.
+        const insufficient = quotes.some(q => Number.isInteger(counts?.[q.name]) && counts![q.name]! > 0 && counts![q.name]! < quantity);
         next = { ready: true, groups, ...(!groups.length ? { note: insufficient ? `Không đủ ${quantity} ghế trong hạng đã chọn. Đang chờ ghế.` : 'Chưa có ghế phù hợp. Đang chờ ghế.' } : {}) };
       }
       entry.readFailures = 0;
@@ -267,29 +301,38 @@ export function installOnezoneSeatsBridge(window: Window & typeof globalThis) {
         // No session is started by the extension. Select through the site's SDK;
         // its own onObjectSelected callbacks construct the actual booking cart.
         void (async () => {
+          let selectionSent = false;
           try {
-            const existing = await bounded(chart.listSelectedObjects());
+            const [existing, available] = await bounded(Promise.all([
+              chart.listSelectedObjects(),
+              Promise.all(choice.labels.map(label => chart.findObject(label))),
+            ]));
             if (disposed || epoch !== controlEpoch) return;
             if (existing.length || chart !== findChart(eventName) || view.location.pathname.split('/')[2] + '-' + new URL(view.location.href).searchParams.get('calendarId') !== eventName) throw new Error('changed');
-            const available = await bounded(Promise.all(choice.labels.map(label => chart.findObject(label))));
-            if (disposed || epoch !== controlEpoch) return;
-            if (available.some(o => !o.selectable || o.forSale === false || !['free', 'available'].includes(o.status ?? ''))) {
+            const latestRecords = inventory.get(`${request.eventId}/${request.calendarId}`) ?? [];
+            const members = choice.labels.map(label => latestRecords.find(seat => normalize(seatLabel(seat)) === normalize(label)));
+            const verified = members.every(Boolean) && group(members as SeatRecord[], available, request.quotes, false);
+            if (!verified || JSON.stringify(verified) !== JSON.stringify(choice) ||
+                available.some(o => !o.selectable || o.forSale === false || !['free', 'available'].includes(o.status ?? ''))) {
               entry.state = { ready: true, groups: [{ ...choice, unavailable: true }], retrySafe: true }; return;
             }
+            selectionSent = true;
             await bounded(chart.doSelectObjects(choice.labels), 5000);
             entry.state = { ...entry.state, pending: false }; entry.at = 0;
             if (!entry.loading) await refresh(entry, records, request.quotes, request.quantity);
           } catch {
             try {
               const selected = await bounded(chart.listSelectedObjects());
-              if (selected.length === choice.labels.length && selected.every(o => choice.labels.includes(o.label))) {
+              if (!selectionSent && !selected.length) {
+                entry.state = { ready: true, groups: [{ ...choice, unavailable: true }], retrySafe: true }; entry.at = 0;
+              } else if (selected.length === choice.labels.length && selected.every(o => choice.labels.includes(o.label))) {
                 entry.state = { ready: true, groups: [{ ...choice, selected: true }] }; entry.at = 0;
               } else entry.state = { ready: true, groups: [], problem: selected.length ? 'Ghế đã đổi. Kiểm tra giỏ trên website.' : 'Chọn ghế chưa được xác nhận. Kiểm tra tab vé.' };
             } catch { entry.state = { ready: true, groups: [], problem: 'Chưa rõ kết quả chọn ghế. Kiểm tra tab vé.' }; }
           } finally { entry.state.pending = false; if (entry.at !== 0) entry.at = Date.now(); changed(); }
         })();
       }
-    } else if (!request.choose && !entry.state.problem && Date.now() - entry.at > (entry.readFailures ? 1000 : 250)) void refresh(entry, records, request.quotes, request.quantity);
+    } else if (!request.choose && !entry.state.problem && Date.now() - entry.at >= (entry.readFailures ? 1000 : 250)) void refresh(entry, records, request.quotes, request.quantity);
     view.document.dispatchEvent(new view.CustomEvent(SEATS_REPLY, { detail: JSON.stringify({ requestId: request.requestId, ...entry.state }) }));
   };
   const cancel = () => { controlEpoch++; current = undefined; waiting = undefined; };

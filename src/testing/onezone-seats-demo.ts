@@ -52,14 +52,22 @@ export async function installOnezoneSeatsDemo(document: Document, options: { qua
       }
       const total = selected.reduce((sum, o) => sum + inventory.find(s => `${s.zoneName}-${s.rowName}-${s.code}` === o.label)!.priceVnd, 0) + (options.wrongTotal ? 1 : 0);
       const next = document.createElement('button'); next.textContent = `Thanh toán: ${total.toLocaleString('vi-VN')} ₫`;
-      bar.replaceChildren(chips, next);
+      if (selected.length > 4) {
+        const previous = document.createElement('button'), following = document.createElement('button');
+        previous.setAttribute('aria-label', 'Previous'); previous.textContent = '‹';
+        following.setAttribute('aria-label', 'Next'); following.textContent = '›';
+        bar.replaceChildren(previous, chips, following, next);
+      } else bar.replaceChildren(chips, next);
       const checkout = () => {
         const finish = () => {
           metrics.submits++; main.setAttribute('data-holds', String(metrics.submits));
           main.innerHTML = `<h1>Thanh toán</h1><form><p>${selected[0]!.category.label} · ${selected.length} vé · ${selected.map(o => o.label).join(', ')}</p><button type="button">Xác nhận đơn hàng</button></form>`;
           main.querySelector('form button')!.addEventListener('click', () => metrics.paymentClicks++);
         };
-        if (options.observeOrder) void view.fetch('https://prod.1zone.vn/ticketing/api/v3/order/add-to-cart', { method: 'POST', body: JSON.stringify({ fixture: true }) }).then(r => r.json()).then(finish);
+        if (options.observeOrder) void view.fetch('https://prod.1zone.vn/ticketing/api/v3/order/add-to-cart', { method: 'POST', body: JSON.stringify({ fixture: true }) }).then(r => r.json()).then(result => {
+          if (result.errorCode) { const message = document.createElement('h2'); message.textContent = 'Không đủ vé'; main.append(message); }
+          else finish();
+        });
         else if (metrics.orderDelay) view.setTimeout(finish, metrics.orderDelay); else finish();
       };
       next.addEventListener('click', () => {

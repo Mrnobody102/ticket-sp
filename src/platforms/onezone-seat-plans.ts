@@ -3,7 +3,8 @@ export interface SeatRecord {
 }
 export const seatLabel = (seat: SeatRecord) => `${seat.zoneName}-${seat.rowName}-${seat.code}`;
 export const seatName = (seat: SeatRecord) => `${seat.rowName}-${seat.code}`;
-const compare = (a: string, b: string) => a.localeCompare(b, 'en', { numeric: true });
+const collator = new Intl.Collator('en', { numeric: true });
+const compare = (a: string, b: string) => collator.compare(a, b);
 
 /** Same physical zone, adjacent seats first, front rows and centre before edges.
  * Labels/IDs come from the website's own inventory, never image coordinates. */
@@ -12,7 +13,8 @@ export function seatPlans(seats: SeatRecord[], quantity: number): SeatRecord[][]
   const rows = new Map<string, SeatRecord[]>();
   for (const seat of seats) {
     const key = `${seat.zoneId}/${seat.rowName}`;
-    rows.set(key, [...(rows.get(key) ?? []), seat]);
+    const row = rows.get(key);
+    if (row) row.push(seat); else rows.set(key, [seat]);
   }
   const plans: { seats: SeatRecord[]; row: string; centre: number; contiguous: boolean }[] = [];
   for (const row of rows.values()) {

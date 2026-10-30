@@ -6,6 +6,42 @@ import type { PlatformInspection } from '../../src/platforms/contracts';
 
 afterEach(() => vi.useRealTimers());
 describe('runner độc lập platform', () => {
+  it('xác minh xuất hiện trước click: giữ bước chưa thao tác, xác minh xong mới chọn đúng một lần', async () => {
+    const config: TaskConfig = { schemaVersion: 1, enabled: true, panelVisible: true, preferences: { platform: 'onezone', eventUrl: 'https://ticket.1zone.vn/events/demo', saleStartAt: new Date(0).toISOString(), quantity: 1, preferredZoneLabels: ['VIP'], allowAlternatives: false } };
+    const run: AutoRun = { id: 'gate-before-click', tabId: 1, revision: 0, preferencesKey: preferencesKey(config.preferences!), startedAt: Date.now(), expiresAt: Date.now() + 3600000, progress: { phase: 'READY', message: '' } };
+    const execute = vi.fn();
+    const inspection: PlatformInspection = { snapshot: { url: config.preferences!.eventUrl, state: 'SELECTING', supported: true, selectionMode: 'ZONE_ONLY', reason: '', visibleOptions: [{ id: 'vip', label: 'VIP', kind: 'ZONE', displayedPriceVnd: 1000000, displayedAvailability: 'AVAILABLE' }] }, optionElements: [] };
+    inspection.automation = { page: { snapshot: inspection.snapshot, enterCount: 0, advanceCount: 0, selectable: ['vip'], verificationPending: true }, execute };
+    let interrupted = false;
+    const runner = createAutomationRunner({ initialRun: run, config: () => config, inspect: () => inspection, changed: vi.fn(), transport: {
+      start: async () => run, stop: async () => null, commit: async (previous, progress) => {
+        if (!interrupted) { interrupted = true; inspection.snapshot.state = 'CHALLENGE'; }
+        return { ...previous, revision: previous.revision + 1, progress };
+      },
+    } });
+    await runner.tick(inspection);
+    expect(runner.run?.progress.phase).toBe('READY'); expect(execute).not.toHaveBeenCalled();
+    inspection.snapshot.state = 'SELECTING'; await runner.tick(inspection);
+    expect(execute).toHaveBeenCalledExactlyOnceWith({ kind: 'CHOOSE', optionId: 'vip' }); runner.destroy();
+  });
+  it('thêm request khi chuẩn bị phục hồi: hủy F5, giữ dấu giữ vé và dừng chờ kết quả', async () => {
+    const config: TaskConfig = { schemaVersion: 1, enabled: true, panelVisible: true, preferences: { platform: 'onezone', eventUrl: 'https://ticket.1zone.vn/events/demo', saleStartAt: new Date(0).toISOString(), quantity: 1, preferredZoneLabels: [], allowAlternatives: false } };
+    const now = Date.now();
+    const run: AutoRun = { id: 'recovery-race', tabId: 1, revision: 0, preferencesKey: preferencesKey(config.preferences!), startedAt: now, expiresAt: now + 3600000,
+      progress: { phase: 'ADVANCING', message: '', reservationAttemptedAt: now - 10 } };
+    const execute = vi.fn();
+    const inspection: PlatformInspection = { snapshot: { url: config.preferences!.eventUrl, state: 'SELECTING', supported: true, selectionMode: 'PICK_SEAT', reason: '', visibleOptions: [] }, optionElements: [] };
+    inspection.automation = { page: { snapshot: inspection.snapshot, enterCount: 0, advanceCount: 0, selectable: [], reservationRejectedAt: now }, execute };
+    const runner = createAutomationRunner({ initialRun: run, config: () => config, inspect: () => inspection, changed: vi.fn(), transport: {
+      start: async () => run, stop: async () => null, commit: async (previous, progress) => {
+        inspection.automation!.page.reservationRejectedAt = undefined;
+        return { ...previous, revision: previous.revision + 1, progress };
+      },
+    } });
+    await runner.tick(inspection);
+    expect(runner.run?.progress).toMatchObject({ phase: 'PAUSED', reservationAttemptedAt: now - 10, reservationRetries: 1 });
+    expect(execute).not.toHaveBeenCalled(); runner.destroy();
+  });
   it('SDK đổi ghế trước khi gửi lệnh: bỏ kế hoạch cũ, tự tìm lại thay vì tạm dừng', async () => {
     const config: TaskConfig = { schemaVersion: 1, enabled: true, panelVisible: true, preferences: { platform: 'onezone', eventUrl: 'https://ticket.1zone.vn/events/demo', saleStartAt: new Date(0).toISOString(), quantity: 1, preferredZoneLabels: ['VIP'], allowAlternatives: false } };
     const run: AutoRun = { id: 'seat-replan', tabId: 1, revision: 0, preferencesKey: preferencesKey(config.preferences!), startedAt: Date.now(), expiresAt: Date.now() + 3600000, progress: { phase: 'READY', message: '' } };

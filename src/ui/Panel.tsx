@@ -12,7 +12,7 @@ const stateLabels: Record<WorkflowState, string> = {
 const modeLabels = { ZONE_ONLY: 'Chọn khu vực', PICK_SEAT: 'Chọn ghế', ASSIGNED_SEAT: 'Ghế tự cấp', MIXED: 'Nhiều cách chọn theo khu vực', UNKNOWN: 'Chưa rõ cách chọn chỗ' };
 const phaseLabels: Record<AutoPhase, string> = {
   READY: 'Đang camp', OPENING: 'Vào trang đặt vé', CHOOSING: 'Chọn vé', QUANTITY: 'Kiểm tra số lượng',
-  SETTING_QUANTITY: 'Đặt số lượng', ADVANCING: 'Chuyển tới thanh toán', CHECKOUT: 'Đã tới thanh toán', PAUSED: 'Tạm dừng',
+  SETTING_QUANTITY: 'Đặt số lượng', ADVANCING: 'Chuyển tới thanh toán', RECOVERING: 'Chọn lại vé', CHECKOUT: 'Đã tới thanh toán', PAUSED: 'Tạm dừng',
 };
 
 interface Props {

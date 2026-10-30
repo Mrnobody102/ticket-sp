@@ -20,11 +20,12 @@ async function booking(tier = capitaneusTypes[0]!, quantity = 2, options: Parame
   context.on('page', p => p.on('pageerror', e => errors.push(e.message)));
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
   await worker.evaluate(async ({ html, types, zones, tier, quantity }) => {
+    types = types.map(t => ({ ...t, maxTicketPerUser: Math.max(t.maxTicketPerUser, quantity) }));
     globalThis.fetch = async input => new Response(String(input).includes('/events/') ? html : JSON.stringify({ errorCode: 0, data: String(input).includes('/zones?') ? zones : types }));
     await chrome.storage.local.set({ 'ticket-assistant.config.v1': { schemaVersion: 1, enabled: true, panelVisible: true,
       preferences: { platform: 'onezone', eventUrl: 'https://ticket.1zone.vn/events/capitaneus-mutabilis-2026?calendarId=XDacU6', saleStartAt: '2026-01-01T00:00:00Z', startMode: 'IMMEDIATE', quantity, preferredZoneLabels: [tier.name], allowAlternatives: false,
         catalog: { eventId: 'kAapup', performanceId: 'XDacU6', title: 'CAPITANEUS MUTABILIS', venue: 'Sân khấu C30 Hoà Bình, TP. HCM', startsAt: '2026-11-22T12:00:00.700Z', verifiedAt: Date.now(),
-          tickets: [{ id: tier.ticketClassId, name: tier.name, priceVnd: tier.finalPriceVn, seatMode: 'AUTO', maxQuantity: 2, zones: [{ id: tier.referenceId, name: tier.name }] }] } } } });
+          tickets: [{ id: tier.ticketClassId, name: tier.name, priceVnd: tier.finalPriceVn, seatMode: 'AUTO', maxQuantity: Math.max(2, quantity), zones: [{ id: tier.referenceId, name: tier.name }] }] } } } });
   }, { html: flightHtml(capitaneusEvent), types: capitaneusTypes, zones: capitaneusZones, tier, quantity });
   let inventoryReads = 0;
   await context.route('https://prod.1zone.vn/**', route => route.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(route.request().method() === 'POST' ? { errorCode: 0, data: { orderId: 'private-order-should-not-export', email: 'private@example.test' } } : options.failedInventoryRefresh && inventoryReads++ > 0 ? { errorCode: 1 } : { errorCode: 0, data: inventory }) }));
@@ -37,6 +38,70 @@ async function booking(tier = capitaneusTypes[0]!, quantity = 2, options: Parame
   return { page, worker };
 }
 async function start(page: Page) { await page.getByRole('button', { name: 'Bắt đầu camp', exact: true }).click(); }
+
+test('đọc SDK lỗi trước khi chọn: tự tìm lại, chọn và giữ vé đúng một lần', async () => {
+  const { page } = await booking(undefined, 1);
+  await page.evaluate(() => {
+    const chart = (window as unknown as { seatsio: { charts: { findObject(label: string): Promise<unknown> }[] } }).seatsio.charts[0]!;
+    const original = chart.findObject.bind(chart);
+    let failed = false, failNext = false;
+    document.addEventListener('camp-ve:seats-request', event => {
+      if (!failed && JSON.parse((event as CustomEvent<string>).detail).choose) { failed = true; failNext = true; }
+    }, true);
+    chart.findObject = label => { if (failNext) { failNext = false; throw Error('temporary SDK read error'); } return original(label); };
+  });
+  await start(page);
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(page.locator('main')).toHaveAttribute('data-selections', '1');
+  await expect(page.locator('main')).toHaveAttribute('data-holds', '1');
+});
+
+test('giỏ 5 ghế có nút cuộn: chọn đúng CTA theo tổng tiền và tới checkout', async () => {
+  const { page } = await booking(undefined, 5);
+  await start(page);
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(page.locator('main form')).toContainText('SUMMER · 5 vé');
+  await expect(page.locator('main')).toHaveAttribute('data-holds', '1');
+});
+
+test('SDK đổi hạng ghế trước lệnh chọn: bỏ nhóm cũ, chọn nhóm đúng hạng và chỉ tạo đơn một lần', async () => {
+  const { page } = await booking(undefined, 1);
+  await page.evaluate(() => {
+    const chart = (window as unknown as { seatsio: { charts: { findObject(label: string): Promise<{ category: { label: string } }> }[] } }).seatsio.charts[0]!;
+    const original = chart.findObject.bind(chart);
+    let changedLabels: string[] = [];
+    document.addEventListener('camp-ve:seats-request', event => {
+      const choice = JSON.parse((event as CustomEvent<string>).detail).choose;
+      if (choice && !changedLabels.length) { changedLabels = choice.labels; document.querySelector('main')!.setAttribute('data-changed-seat', changedLabels[0]!); }
+    }, true);
+    chart.findObject = async label => {
+      const object = await original(label);
+      return changedLabels.includes(label) ? { ...object, category: { label: 'OTHER' } } : object;
+    };
+  });
+  await start(page);
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(page.locator('main form')).not.toContainText((await page.locator('main').getAttribute('data-changed-seat'))!);
+  await expect(page.locator('main')).toHaveAttribute('data-selections', '1');
+  await expect(page.locator('main')).toHaveAttribute('data-holds', '1');
+});
+
+test('server xác nhận thiếu vé: tự tải lại đúng suất và chọn ghế còn lại tới checkout', async () => {
+  const options: Parameters<typeof installOnezoneSeatsDemo>[1] = { observeOrder: true };
+  const { page } = await booking(undefined, 1, options);
+  let attempts = 0;
+  await context.route('https://prod.1zone.vn/ticketing/api/v3/order/add-to-cart', route => {
+    attempts++;
+    if (attempts === 1) options.onlyAvailableLabel = 'SUMMER-B-6';
+    return route.fulfill({ contentType: 'application/json', headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify(attempts === 1 ? { errorCode: 300006 } : { errorCode: 0, data: { orderId: 'fixture-order' } }) });
+  });
+  await start(page);
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(page.locator('main form')).toContainText('SUMMER-B-6');
+  expect(attempts).toBe(2);
+  expect(new URL(page.url()).searchParams.get('calendarId')).toBe('XDacU6');
+});
 
 test('qua queue và xác minh đầu trang: tự tiếp tục chọn đúng ghế cuối rồi tới thanh toán', async () => {
   const { page, worker } = await booking(undefined, 1, { initialVerification: true, onlyAvailableLabel: 'SUMMER-B-6', observeOrder: true }, true);
@@ -62,6 +127,7 @@ test('qua queue và xác minh đầu trang: tự tiếp tục chọn đúng gh�
   const download = popup.waitForEvent('download'); await popup.getByRole('button', { name: 'Lưu nhật ký camp' }).click();
   const report = JSON.parse(await readFile((await (await download).path())!, 'utf8'));
   expect(report.journal.entries).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'ACTION', action: 'CHOOSE' }), expect.objectContaining({ kind: 'STEP', phase: 'CHECKOUT' })]));
+  expect(report.journal.entries.some((e: { kind: string; phase?: string }) => e.kind === 'STEP' && e.phase === 'QUANTITY')).toBe(false);
   expect(report.journal.entries).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'ORDER', code: 'ORDER_SENT' }), expect.objectContaining({ kind: 'ORDER', code: 'ORDER_ACCEPTED', resultCode: 0 })]));
   expect(JSON.stringify(report)).not.toMatch(/queueittoken|secret-password|authorization|cookie|private-order|private@example/i);
 });
@@ -112,6 +178,23 @@ test('SDK mất một phản hồi sau admission: hết timeout tự đọc lạ
   const { page } = await booking(undefined, 1, { readHangOnce: true });
   await start(page);
   await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+  await expect(page.locator('main')).toHaveAttribute('data-selections', '1');
+});
+
+for (const onlyAvailableLabel of [undefined, 'SUMMER-B-6']) test(`ghế treo không chặn ứng viên ${onlyAvailableLabel ?? 'cùng hàng'}; báo cáo tổng không quyết định tồn ghế`, async () => {
+  const { page } = await booking(undefined, 1, { onlyAvailableLabel });
+  await page.evaluate(async lastSeat => {
+    const chart = (window as unknown as { seatsio: { charts: { findObject(label: string): Promise<unknown>; getReportBySelectability(): Promise<unknown> }[] } }).seatsio.charts[0]!;
+    const original = chart.findObject.bind(chart);
+    chart.findObject = label => label === 'SUMMER-A-3' ? new Promise(() => {}) : original(label);
+    chart.getReportBySelectability = () => lastSeat ? Promise.resolve({ selectable: { byCategoryLabel: { SUMMER: 0 } } }) : new Promise(() => {});
+    await fetch('https://prod.1zone.vn/ticketing/api/v4/event/kAapup/tickets?calendarId=XDacU6');
+  }, onlyAvailableLabel);
+  await start(page);
+  await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT', { timeout: 1700 });
+  await expect(page.locator('main form')).toContainText('SUMMER');
+  await expect(page.locator('main form')).not.toContainText('SUMMER-A-3');
+  if (onlyAvailableLabel) await expect(page.locator('main form')).toContainText(onlyAvailableLabel);
   await expect(page.locator('main')).toHaveAttribute('data-selections', '1');
 });
 

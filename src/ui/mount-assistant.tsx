@@ -15,6 +15,7 @@ import { ORDER_ACTIVITY, SEATS_CANCEL } from '../platforms/onezone-seats-bridge'
 import { getCampJournal, observeCamp } from '../infrastructure/camp-journal';
 import type { CampJournalEntry } from '../core/camp-journal';
 import { readSeatsState } from '../platforms/onezone-seats';
+import { observeOnezoneOrder } from '../platforms/onezone-automation';
 
 interface MountOptions {
   document: Document;
@@ -160,7 +161,11 @@ export function mountAssistant(options: MountOptions) {
     if (!run || options.rehearsal || (!autoWatching(run) && (run.progress.phase !== 'CHECKOUT' || Date.now() - (run.progress.checkoutReachedAt ?? 0) > 10000))) return;
     try {
       const value = JSON.parse((event as CustomEvent<string>).detail);
-      if (value.kind === 'ORDER') observeCamp(run, { ...value, at: Date.now(), phase: run.progress.phase });
+      if (value.kind === 'ORDER') {
+        if (config.preferences) observeOnezoneOrder(document, value, config.preferences, run.progress);
+        observeCamp(run, { ...value, at: Date.now(), phase: run.progress.phase });
+        schedule(true);
+      }
     } catch { /* Ignore unrelated page events. */ }
   };
   const observer = new MutationObserver(records => {
@@ -187,7 +192,10 @@ export function mountAssistant(options: MountOptions) {
   }, 1000);
   const mounted = {
     update(next: TaskConfig) { config = next; scan(); },
-    updateAuto(next: AutoRun | null) { if (!autoWatching(next)) document.dispatchEvent(new CustomEvent(SEATS_CANCEL)); runner?.update(next); scan(); },
+    updateAuto(next: AutoRun | null) {
+      if (!autoWatching(next)) document.dispatchEvent(new CustomEvent(SEATS_CANCEL));
+      if (runner) runner.update(next); else schedule(true);
+    },
     rescan: scheduleEvent,
     startAuto: () => runAction(async () => { await runner?.start(); }),
     destroy() {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { inspectPlatform, adapterForUrl } from '../../src/platforms/registry';
-import { inspectAutoControls, executeAutoAction } from '../../src/platforms/onezone-automation';
+import { inspectAutoControls, executeAutoAction, observeOnezoneOrder } from '../../src/platforms/onezone-automation';
 import { inspectOnezonePage } from '../../src/platforms/onezone';
 import type { EventPreferences } from '../../src/core/models';
 
@@ -13,6 +13,45 @@ beforeEach(() => {
   document.body.innerHTML = readFileSync('fixtures/booking.html', 'utf8');
 });
 describe('hợp đồng adapter và thao tác 1Zone', () => {
+  it('Queue-it softblock dùng checkbox gốc: nhận diện xác minh, giữ phiên và không tự bấm', () => {
+    document.body.innerHTML = '<h1>Bạn đang trong hàng chờ</h1><input type="checkbox" aria-label="Xác nhận rằng bạn là con người"><iframe title="middle panel content"></iframe>';
+    const url = new URL('https://queue.1zone.vn/softblock/?t=' + encodeURIComponent(p.eventUrl.replace('/events/', '/booking/')));
+    expect(inspectPlatform(document, url, { preferences: p, progress }).snapshot.state).toBe('CHALLENGE');
+    const checkbox = document.querySelector('input')!;
+    expect(checkbox.checked).toBe(false);
+    checkbox.checked = true;
+    expect(inspectPlatform(document, url, { preferences: p, progress }).snapshot.state).toBe('WAITING_ROOM');
+  });
+  it.each(['CHOOSING', 'QUANTITY', 'SETTING_QUANTITY'] as const)('xác minh giữa bước %s: chờ tiếp khi chưa gửi giữ vé', phase => {
+    document.body.innerHTML = '<h2>Xác minh bạn là con người</h2><iframe title="captcha"></iframe><button data-id="btn-continue" disabled>Tiếp tục</button>';
+    const selected = { phase, message: '', chosen: { label: 'VIP', kind: 'ZONE' as const } };
+    const inspection = inspectOnezonePage(document, new URL(p.eventUrl), p);
+    expect(inspectAutoControls(document, inspection, p, selected).page).toMatchObject({ verificationPending: true, problem: undefined });
+    expect(inspectAutoControls(document, inspection, p, { ...selected, reservationAttemptedAt: 1 }).page.verificationPending).toBe(false);
+    document.querySelector('button')!.disabled = false;
+    expect(inspectAutoControls(document, inspection, p, selected).page.problem).toContain('Chưa xác minh');
+  });
+  it.each([
+    ['ORDER_REJECTED', 300006, 200, false, true],
+    ['ORDER_UNKNOWN', 300006, 200, false, false],
+    ['ORDER_REJECTED', 300006, 500, false, false],
+    ['ORDER_REJECTED', 200419, 200, false, false],
+    ['ORDER_REJECTED', 300006, 200, true, false],
+  ] as const)('kết quả giữ vé %s/%s HTTP%s: chỉ thiếu vé rõ ràng của một request mới được phục hồi', (code, resultCode, httpStatus, duplicate, retry) => {
+    const attemptedAt = Date.now(), active = { phase: 'ADVANCING' as const, message: '', reservationAttemptedAt: attemptedAt };
+    const sent = { kind: 'ORDER', code: 'ORDER_SENT', startedAt: attemptedAt, url: p.eventUrl };
+    observeOnezoneOrder(document, sent, p, active);
+    if (duplicate) observeOnezoneOrder(document, sent, p, active);
+    observeOnezoneOrder(document, { ...sent, code, resultCode, httpStatus }, p, active);
+    const view = inspectAutoControls(document, inspectOnezonePage(document, new URL(p.eventUrl)), p, active).page;
+    expect(view.reservationRejectedAt !== undefined).toBe(retry);
+    if (retry) {
+      const recovering = { ...active, phase: 'RECOVERING' as const };
+      observeOnezoneOrder(document, sent, p, recovering);
+      const changed = inspectAutoControls(document, inspectOnezonePage(document, new URL(p.eventUrl)), p, recovering).page;
+      expect(changed.reservationRejectedAt).toBeUndefined(); expect(changed.problem).toContain('gửi thêm');
+    }
+  });
   it('xác minh sau queue trước chọn ghế: chờ tự tiếp tục, không áp dụng cho lựa chọn cũ chưa rõ kết quả', () => {
     document.body.innerHTML = '<h2>Xác minh bạn là con người</h2><iframe title="Cloudflare security challenge"></iframe>';
     const url = new URL(p.eventUrl.replace('/events/', '/booking/'));

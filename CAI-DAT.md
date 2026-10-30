@@ -5,7 +5,7 @@
 3. Mở Chrome trên máy tính, nhập **`chrome://extensions`**.
 4. Bật **Developer mode / Chế độ dành cho nhà phát triển** ở góc trên bên phải.
 5. Bấm **Load unpacked / Tải tiện ích đã giải nén**, chọn **`Downloads/Camp-ve/tien-ich`** — thư mục có **`manifest.json`**. Không chọn ZIP hoặc thư mục `dist`.
-6. Ghim icon **Camp vé**. Mở tool và kiểm tra **v0.8.4**.
+6. Ghim icon **Camp vé**. Mở tool và kiểm tra **v0.8.5**.
 
 Nếu tải cả repo bằng **Code → Download ZIP**, giải nén repo rồi lấy **`dist/Camp-ve-latest.zip`** và tiếp tục từ bước 2. Không cần cài Node.js hay chạy lệnh.
 

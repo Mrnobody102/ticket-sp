@@ -12,6 +12,38 @@ function page(patch: Partial<AutoPage> = {}): AutoPage {
   return { snapshot: { url: p.eventUrl, state: 'SELECTING', selectionMode: 'ZONE_ONLY', supported: true, reason: '', visibleOptions: [vip], maxQuantity: 2 }, enterCount: 0, advanceCount: 1, selectable: ['vip'], quantity: { value: 1, min: 1, max: 2, writable: true, stepper: false }, ...patch };
 }
 describe('máy trạng thái camp dùng chung', () => {
+  it.each(['CHOOSING', 'QUANTITY', 'SETTING_QUANTITY'] as const)('xác minh rồi queue lâu ở %s: chờ hợp lệ, đặt lại đồng hồ và tự tiếp tục', phase => {
+    const current = run({ phase, chosen: vip, actionAt: now - 4000, quantityAfterAction: 1 });
+    const view = page({ verificationPending: true }); view.snapshot.state = 'CHALLENGE';
+    const waiting = decideAutomation(current, view, p, now);
+    expect(waiting).toMatchObject({ progress: { phase, verificationStartedAt: now } });
+    if (waiting.type !== 'STEP') throw new Error('Expected verification wait');
+    current.progress = waiting.progress;
+    expect(decideAutomation(current, view, p, now + 60000).type).toBe('WAIT');
+    view.snapshot.state = 'WAITING_ROOM';
+    expect(decideAutomation(current, view, p, now + 120000).type).toBe('WAIT');
+    view.snapshot.state = 'SELECTING'; view.snapshot.visibleOptions = [{ ...vip, selected: true }];
+    const resumed = decideAutomation(current, view, p, now + 120000);
+    expect(resumed).toMatchObject({ progress: { phase, verificationStartedAt: undefined, actionAt: now + 120000 } });
+    if (resumed.type !== 'STEP') throw new Error('Expected resumption');
+    expect(decideAutomation(run(resumed.progress), view, p, now + 120001)).toMatchObject({ action: { kind: 'ADVANCE' } });
+  });
+  it('thiếu vé đã xác nhận: tải lại đúng suất, chỉ chọn tiếp sau khi tài liệu mới xác nhận giỏ trống', () => {
+    const current = run({ phase: 'ADVANCING', chosen: vip, reservationAttemptedAt: now - 10, actionAt: now - 10 });
+    const view = page({ reservationRejectedAt: now, emptySelectionVerified: true, documentStartedAt: now - 1000 });
+    const retry = decideAutomation(current, view, p, now);
+    expect(retry).toMatchObject({ action: { kind: 'RELOAD' }, progress: { phase: 'RECOVERING', reservationAttemptedAt: now - 10, reservationRetries: 1 } });
+    if (retry.type !== 'STEP') throw new Error('Expected recovery');
+    expect(decideAutomation(run(retry.progress), view, p, now + 1).type).toBe('WAIT');
+    view.documentStartedAt = now + 1; view.snapshot.state = 'EVENT_PAGE'; view.entryRetrySafe = true; view.enterCount = 1;
+    expect(decideAutomation(run(retry.progress), view, p, now + 2)).toMatchObject({ action: { kind: 'ENTER' }, progress: { phase: 'RECOVERING', reservationAttemptedAt: now - 10 } });
+    view.snapshot.state = 'SELECTING'; view.emptySelectionVerified = false;
+    expect(decideAutomation(run(retry.progress), view, p, now + 2).type).toBe('WAIT');
+    view.emptySelectionVerified = true;
+    expect(decideAutomation(run(retry.progress), view, p, now + 2)).toMatchObject({ progress: { phase: 'READY', chosen: undefined, reservationAttemptedAt: undefined } });
+    view.reservationRejectedAt = now - 20;
+    expect(decideAutomation(current, view, p, now).type).toBe('WAIT');
+  });
   it('F5 sát trước mốc bán không dời lượt kiểm tra đúng giờ sang giây kế tiếp', () => {
     const configured = { ...p, startMode: 'WHEN_AVAILABLE' as const, refreshAtSale: true };
     const session = { ...run({ lastReleaseReloadAt: now - 50 }), preferencesKey: preferencesKey(configured) };
@@ -85,6 +117,11 @@ describe('máy trạng thái camp dùng chung', () => {
     const view = page();
     view.snapshot.visibleOptions = [{ ...vip, displayedAvailability: 'UNAVAILABLE' }, { ...vip, id: 'vvip', label: 'VVIP' }];
     expect(decideAutomation(run(), view, p, now)).toMatchObject({ type: 'WAIT', wakeAt: now + 1000 });
+    view.stockRetryMs = 250;
+    expect(decideAutomation(run(), view, p, now)).toMatchObject({ type: 'WAIT', wakeAt: now + 250 });
+    view.snapshot.state = 'WAITING_ROOM';
+    expect(decideAutomation(run(), view, p, now)).toMatchObject({ type: 'WAIT', wakeAt: now + 1000 });
+    view.snapshot.state = 'SELECTING';
     view.snapshot.visibleOptions[0]!.displayedAvailability = 'AVAILABLE';
     expect(decideAutomation(run(), view, p, now)).toMatchObject({ action: { kind: 'CHOOSE', optionId: 'vip' } });
     const budget = { ...p, maxTotalVnd: 1000000 };
@@ -194,7 +231,7 @@ describe('máy trạng thái camp dùng chung', () => {
     view.snapshot.state = 'CHALLENGE'; expect(decideAutomation(initial, view, configured, now)).not.toHaveProperty('action');
     view.snapshot.state = 'CHECKOUT'; expect(decideAutomation(initial, view, configured, now)).not.toHaveProperty('action');
   });
-  it('chọn → xác nhận → số lượng → checkout; không bấm lại khi chờ', () => {
+  it('đúng lựa chọn và số lượng: đi thẳng tới checkout, không lặp thao tác', () => {
     const first = decideAutomation(run(), page(), p, now);
     expect(first).toMatchObject({ type: 'STEP', action: { kind: 'CHOOSE', optionId: 'vip' }, progress: { phase: 'CHOOSING' } });
     if (first.type !== 'STEP') throw new Error('Expected step');
@@ -202,8 +239,9 @@ describe('máy trạng thái camp dùng chung', () => {
     expect(decideAutomation(choosing, page(), p, now + 1).type).toBe('WAIT');
     const selected = page(); selected.snapshot.visibleOptions = [{ ...vip, selected: true }];
     const confirmed = decideAutomation(choosing, selected, p, now + 10);
-    expect(confirmed).toMatchObject({ progress: { phase: 'QUANTITY' } });
-    expect(decideAutomation(run({ ...first.progress, phase: 'QUANTITY' }), selected, p, now + 20)).toMatchObject({ action: { kind: 'ADVANCE' }, progress: { phase: 'ADVANCING' } });
+    expect(confirmed).toMatchObject({ action: { kind: 'ADVANCE' }, progress: { phase: 'ADVANCING', reservationAttemptedAt: now + 10 } });
+    if (confirmed.type !== 'STEP') throw new Error('Expected checkout step');
+    expect(decideAutomation(run(confirmed.progress), selected, p, now + 20).type).toBe('WAIT');
     expect(decideAutomation(run({ phase: 'ADVANCING', actionAt: now }), selected, p, now + 100).type).toBe('WAIT');
     selected.snapshot.state = 'CHECKOUT'; selected.snapshot.url = 'https://ticket.1zone.vn/checkout/order';
     const done = decideAutomation(run({ phase: 'ADVANCING' }), selected, p, now + 200);
@@ -227,7 +265,11 @@ describe('máy trạng thái camp dùng chung', () => {
     const two = { ...p, quantity: 2 };
     const current = { ...run({ phase: 'QUANTITY', chosen: vip }), preferencesKey: preferencesKey(two) };
     const view = page(); view.snapshot.visibleOptions = [{ ...vip, selected: true }]; view.quantity!.stepper = true;
-    expect(decideAutomation(current, view, two, now)).toMatchObject({ action: { kind: 'QUANTITY', value: 2 }, progress: { phase: 'SETTING_QUANTITY', quantityAfterAction: 2 } });
+    const setting = decideAutomation(current, view, two, now);
+    expect(setting).toMatchObject({ action: { kind: 'QUANTITY', value: 2 }, progress: { phase: 'SETTING_QUANTITY', quantityAfterAction: 2 } });
+    if (setting.type !== 'STEP') throw new Error('Expected quantity step');
+    view.quantity!.value = 2;
+    expect(decideAutomation({ ...current, progress: setting.progress }, view, two, now + 1)).toMatchObject({ action: { kind: 'ADVANCE' }, progress: { phase: 'ADVANCING' } });
   });
   it.each(['WAITING_ROOM', 'NOT_READY'] as const)('chờ %s, không gửi thao tác', state => {
     const view = page(); view.snapshot.state = state;

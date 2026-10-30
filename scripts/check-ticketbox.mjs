@@ -14,7 +14,10 @@ function cleanTarget(input) {
 }
 let target = input ? cleanTarget(input) : null;
 const extension = resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3');
-const context = await chromium.launchPersistentContext('', { channel: 'chromium', headless: !interactive,
+// Keep the user's test login across checks; this ignored profile is never packaged.
+const profile = resolve('artifacts', 'ticketbox-browser-profile');
+await mkdir(profile, { recursive: true });
+const context = await chromium.launchPersistentContext(profile, { channel: 'chromium', headless: !interactive,
   args: [`--disable-extensions-except=${extension}`, `--load-extension=${extension}`] });
 const network = [], pages = [], pending = new Set();
 try {
@@ -56,7 +59,12 @@ try {
         count: Array.isArray(child) ? child.length : undefined })).slice(0, 80) : [];
     }).catch(() => {}).finally(() => pending.delete(task)); pending.add(task);
   });
-  await page.goto(target.href, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  let navigationError;
+  try { await page.goto(target.href, { waitUntil: 'domcontentloaded', timeout: 30000 }); }
+  catch (error) {
+    if (error.name !== 'TimeoutError') throw error;
+    navigationError = 'Trang Ticketbox chưa tải xong sau 30 giây; chưa kiểm chứng luồng mua.';
+  }
   if (interactive) console.log('Đăng nhập trực tiếp trên cửa sổ test. Có 3 phút xem luồng/chọn vé; giữ vé và thanh toán bị chặn. Đóng cửa sổ để lưu sớm.');
   const deadline = Date.now() + (interactive ? 180000 : 3000);
   let previous;
@@ -76,11 +84,11 @@ try {
   }
   await Promise.allSettled([...pending]);
   // Catalog is public metadata. No DOM dump, screenshot, cookies or auth headers.
-  const status = catalog.error ? 'CATALOG_ERROR' : catalog.data?.performances?.length ? 'CATALOG_READY_FLOW_UNVERIFIED' : 'CATALOG_NOT_PUBLISHED';
-  const report = { at: new Date().toISOString(), status, target: target.href, catalog, pages, network,
+  const status = navigationError ? 'NAVIGATION_FAILED' : catalog.error ? 'CATALOG_ERROR' : catalog.data?.performances?.length ? 'CATALOG_READY_FLOW_UNVERIFIED' : 'CATALOG_NOT_PUBLISHED';
+  const report = { at: new Date().toISOString(), status, navigationError, target: target.href, catalog, pages, network,
     verifiedReservation: false, verifiedCheckout: false, scope: 'Public catalog and read-only browser inspection; reservation/payment blocked.' };
   await mkdir('artifacts', { recursive: true });
   await writeFile('artifacts/ticketbox-check.json', JSON.stringify(report, null, 2));
-  console.log(JSON.stringify({ file: 'artifacts/ticketbox-check.json', status, title: catalog.data?.title, showings: catalog.data?.performances?.length, error: catalog.error, pages, reads: network.length, verifiedReservation: false }));
+  console.log(JSON.stringify({ file: 'artifacts/ticketbox-check.json', status, title: catalog.data?.title, showings: catalog.data?.performances?.length, error: navigationError ?? catalog.error, pages, reads: network.length, verifiedReservation: false }));
   if (status !== 'CATALOG_READY_FLOW_UNVERIFIED') process.exitCode = 2;
 } finally { await context.close(); }

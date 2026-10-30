@@ -7,7 +7,7 @@ import { readSelectionMode } from './onezone-selection';
 import { hasOnezoneVerification, readOnezoneModal } from './onezone-modal';
 import { readOnezoneMap } from './onezone-map';
 import { readOnezoneSeats } from './onezone-seats';
-import { isOnezoneQueueFor, ONEZONE_QUEUE_ORIGIN } from './onezone-queue';
+import { hasOnezoneQueueVerification, isOnezoneQueueFor, ONEZONE_QUEUE_ORIGIN } from './onezone-queue';
 
 export { readOptionElements } from './onezone-options';
 
@@ -34,7 +34,7 @@ export function inspectOnezonePage(document: Document, url: URL, p?: EventPrefer
   // text/controls every second while waiting for admission.
   if (url.origin === ONEZONE_QUEUE_ORIGIN) {
     if (!p || !isOnezoneQueueFor(url.href, p)) return finish({ ...base, reason: 'Phòng chờ không khớp sự kiện đã lưu.' });
-    if (hasOnezoneVerification(document, reader)) return blocked('CHALLENGE', 'Hoàn thành xác minh trên phòng chờ.');
+    if (hasOnezoneVerification(document, reader) || hasOnezoneQueueVerification(document, reader)) return blocked('CHALLENGE', 'Hoàn thành xác minh trên phòng chờ.');
     return blocked('WAITING_ROOM', 'Đang xếp hàng. Chờ website cho vào chọn vé.');
   }
   const headingTexts = [...document.querySelectorAll('h1, h2, h3, [role="heading"], [role="alert"], [role="status"]')]

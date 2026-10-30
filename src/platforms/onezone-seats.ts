@@ -100,8 +100,9 @@ export function readSeatsContinue(document: Document, entries: OptionElement[], 
     if (unique.length !== 1 || !names.delete(unique[0]!) || values.length !== 1 || values[0] !== entry.option.displayedPriceVnd) return;
   }
   if (names.size) return;
-  const controls = [...bar.children].filter(e => e.matches('button')).filter(reader.isVisible) as HTMLElement[];
-  if (controls.length !== 1) return;
-  const prices = currentPriceValues(controls[0]!, reader);
-  return prices.length === 1 && prices[0] === entry.option.displayedPriceVnd! * p.quantity ? controls[0] : undefined;
+  const controls = [...bar.children].filter(e => e.matches('button')).filter(reader.isVisible).filter(e => {
+    const prices = currentPriceValues(e, reader);
+    return prices.length === 1 && prices[0] === entry.option.displayedPriceVnd! * p.quantity;
+  }) as HTMLElement[];
+  return controls.length === 1 ? controls[0] : undefined;
 }

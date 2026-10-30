@@ -29,6 +29,26 @@ export interface AutoBindings {
 }
 export interface AutoInspection { page: AutoPage; bindings: AutoBindings }
 
+const orderAttempts = new WeakMap<Document, { attempt: number; startedAt: number; ambiguous: boolean; settled: boolean; rejectedAt?: number }>();
+/** Keep only timing and a definitive stock rejection from the current request.
+ * Multiple submissions, HTTP failures and unknown results never permit a retry. */
+export function observeOnezoneOrder(document: Document, value: unknown, p: EventPreferences, progress: AutoProgress) {
+  if (!value || typeof value !== 'object' || !['ADVANCING', 'RECOVERING'].includes(progress.phase) || progress.reservationAttemptedAt === undefined) return;
+  const v = value as Record<string, unknown>, now = Date.now();
+  if (v.kind !== 'ORDER' || typeof v.url !== 'string' || !isSameEvent(v.url, p.eventUrl) ||
+      typeof v.startedAt !== 'number' || !Number.isFinite(v.startedAt) || v.startedAt < progress.reservationAttemptedAt || v.startedAt > now) return;
+  const previous = orderAttempts.get(document);
+  if (v.code === 'ORDER_SENT') {
+    orderAttempts.set(document, { attempt: progress.reservationAttemptedAt, startedAt: v.startedAt,
+      ambiguous: progress.phase === 'RECOVERING' || previous?.attempt === progress.reservationAttemptedAt, settled: false });
+  } else if (previous?.attempt === progress.reservationAttemptedAt && previous.startedAt === v.startedAt && !previous.settled &&
+      ['ORDER_ACCEPTED', 'ORDER_REJECTED', 'ORDER_UNKNOWN'].includes(String(v.code))) {
+    previous.settled = true;
+    if (!previous.ambiguous && v.code === 'ORDER_REJECTED' && v.resultCode === 300006 &&
+        typeof v.httpStatus === 'number' && v.httpStatus >= 200 && v.httpStatus < 500) previous.rejectedAt = now;
+  }
+}
+
 const buyLabel = ONEZONE_BUY_LABEL;
 const selectLabel = /^(chon|chon ve|chon khu vuc|chon ghe|select|select tickets?)$/;
 // "Thanh toán" / "Xác nhận đơn hàng" are deliberately not navigation commands.
@@ -112,6 +132,7 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
   const chosen = progress.chosen && optionElements.find(entry => sameOption(progress.chosen!, entry.option));
   let quantity = findQuantity(document, chosen?.element, reader);
   const seatsState = readSeatsState(document);
+  const orderAttempt = orderAttempts.get(document);
   const seatChoice = optionElements.find(e => e.option.selected && e.option.seatLabels?.length);
   const seatAdvance = seatChoice && readSeatsContinue(document, optionElements, p, reader);
   if (seatChoice) {
@@ -120,30 +141,43 @@ export function inspectAutoControls(document: Document, inspection: OnezoneInspe
     advance.splice(0, advance.length, ...(seatAdvance && enabled(seatAdvance, reader) ? [seatAdvance] : []));
   }
   const modal = readOnezoneModal(document, p, reader);
-  const invalidModal = !modal && !addons && !seatChoice && [...document.querySelectorAll('button[data-id="btn-continue"]')].some(reader.isVisible);
+  const eventVerification = snapshot.state === 'CHALLENGE' && isSameEvent(snapshot.url, p.eventUrl) && hasOnezoneVerification(document, reader);
+  const unmatchedModal = !modal && !addons && !seatChoice ? [...document.querySelectorAll('button[data-id="btn-continue"]')].filter(reader.isVisible) : [];
+  const invalidModal = unmatchedModal.length > 0;
+  const modalVerifying = eventVerification && unmatchedModal.length === 1 && !enabled(unmatchedModal[0]!, reader);
   if (modal) {
     quantity = { element: modal.valueElement, model: modal.quantity, increase: modal.increase, decrease: modal.decrease };
     advance.splice(0, advance.length, ...(enabled(modal.advance, reader) ? [modal.advance] : []));
   }
   const headings = [...document.querySelectorAll('h1,h2,h3,[role="alert"]')].filter(reader.isVisible).map(e => normalize(reader.text(e))).filter(t => t.length < 200).join(' | ');
   const password = [...document.querySelectorAll('input[type="password"]')].some(reader.isVisible);
-  const problem = invalidModal ? 'Chưa xác minh được hạng, khu hoặc giá trong hộp chọn vé. Kiểm tra trực tiếp trước khi tiếp tục.'
+  const problem = orderAttempt?.attempt === progress.reservationAttemptedAt && orderAttempt?.ambiguous
+    ? 'Website gửi thêm yêu cầu giữ vé. Chờ kết quả trên tab; không tải lại hoặc gửi lại.'
+    : invalidModal && !modalVerifying ? 'Chưa xác minh được hạng, khu hoặc giá trong hộp chọn vé. Kiểm tra trực tiếp trước khi tiếp tục.'
     : password || /(?:^|\|\s*)(dang nhap|login|sign in)(\s*\||$)/.test(headings)
     ? 'Đăng nhập trên website rồi bắt đầu camp lại.'
     : /het thoi gian (giu cho|dat ve)|phien (dat ve )?(da )?het han|reservation expired|khong the giu ve|khong the giu cho/.test(headings)
       ? 'Phiên giữ chỗ đã hết hạn hoặc giữ vé thất bại. Kiểm tra trên website.' : undefined;
   return { page: { snapshot, enterCount: enter.length, advanceCount: advance.length, selectable: [...choices.keys()], quantity: quantity?.model, problem,
+    reservationRejectedAt: orderAttempt?.attempt === progress.reservationAttemptedAt ? orderAttempt?.rejectedAt : undefined,
+    emptySelectionVerified: progress.phase === 'RECOVERING' && !modal && snapshot.state === 'SELECTING' && snapshot.supported &&
+      !snapshot.visibleOptions.some(o => o.selected) && ![...document.querySelectorAll('.ticket-list-fixed-bar button[aria-label="Remove ticket"]')].some(reader.isVisible) &&
+      (!document.getElementById('seatio') || (seatsState?.ready === true && !seatsState.pending && !seatsState.problem)),
     loading: snapshot.state === 'NOT_READY' && documentBootPending(document),
     documentStartedAt: document.defaultView?.performance.timeOrigin,
     selectionPending: snapshot.state === 'UNKNOWN' && snapshot.unsupportedVariant === false,
+    stockRetryMs: snapshot.selectionMode === 'PICK_SEAT' && seatsState?.ready
+      ? Math.max(250, Math.min(1000, (seatsState.diagnostics?.readMs ?? 0) * 2)) : undefined,
     entryRetrySafe: snapshot.state === 'EVENT_PAGE' && officialEnter.length === 1 && document.readyState === 'complete' && isSameEvent(snapshot.url, p.eventUrl),
     saleOpen: (snapshot.state === 'EVENT_PAGE' && officialEnter.length === 1 && isSameEvent(snapshot.url, p.eventUrl)) ||
       (snapshot.state === 'SELECTING' && snapshot.supported && (choices.size > 0 || !!modal)),
     selectionRetrySafe: !modal && (optionElements.some(entry => hasMapChoice(entry.element, entry.option.id)) || seatsState?.retrySafe === true),
     ...(addons ? { verifiedAddons: true } : {}),
     ...(modal ? { resumeSelection: modal.entry.option.id } : {}),
-    verificationPending: (['READY', 'OPENING'].includes(progress.phase) && !progress.chosen && progress.reservationAttemptedAt === undefined && snapshot.state === 'CHALLENGE' && isSameEvent(snapshot.url, p.eventUrl) && hasOnezoneVerification(document, reader)) ||
-      (!!progress.chosen?.seatLabels && progress.phase === 'ADVANCING' && snapshot.state === 'CHALLENGE' && isSameEvent(snapshot.url, p.eventUrl) && hasOnezoneVerification(document, reader)) ||
+    verificationPending: (['READY', 'OPENING'].includes(progress.phase) && !progress.chosen && progress.reservationAttemptedAt === undefined && eventVerification) ||
+      (['CHOOSING', 'QUANTITY', 'SETTING_QUANTITY'].includes(progress.phase) && !!progress.chosen && progress.reservationAttemptedAt === undefined && eventVerification) ||
+      (progress.phase === 'RECOVERING' && progress.reservationRejectedAt !== undefined && eventVerification) ||
+      (!!progress.chosen?.seatLabels && progress.phase === 'ADVANCING' && eventVerification) ||
       (!!modal && hasOnezoneVerification(document, reader) && !enabled(modal.advance, reader)) ||
       (snapshot.state === 'CHALLENGE' && isOnezoneQueueFor(snapshot.url, p)) },
     bindings: { enter, advance, choices, quantity, reader, reload: () => document.defaultView!.location.reload(), chooseMap: (element, optionId) => chooseOnezoneMap(element, optionId, p), chooseSeats: (element, optionId) => chooseOnezoneSeats(element, optionId, p) } };

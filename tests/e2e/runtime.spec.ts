@@ -1,6 +1,8 @@
 import { test, expect, chromium } from '@playwright/test';
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { validatePreferences } from '../../src/core/preferences';
+import { preferencesKey } from '../../src/core/automation';
 const { version } = JSON.parse(readFileSync(resolve('package.json'), 'utf8')) as { version: string };
 
 // Node 25's native cpSync on Windows mangles non-ASCII destination paths.
@@ -109,6 +111,62 @@ test('content bị worker cũ từ chối: có lỗi trên panel, không Uncaugh
     await expect(page.locator('article button').first()).not.toHaveAttribute('aria-pressed', 'true');
     expect(errors).toEqual([]);
     await page.screenshot({ path: 'artifacts/content-startup-error.png' });
+  } finally { await context.close(); }
+});
+
+test('đọc phiên lỗi tạm thời: nhận cập nhật hợp lệ rồi tự nối lại phiên cũ, không START hoặc tải lại trang', async ({}, info) => {
+  const extensionPath = info.outputPath('bootstrap-recovery-extension');
+  const preferences = validatePreferences({ platform: 'onezone', eventUrl: 'https://ticket.1zone.vn/events/runtime-recovery',
+    saleStartAt: '2020-01-01T00:00:00.000Z', startMode: 'IMMEDIATE', quantity: 1, preferredZoneLabels: ['VIP'], allowAlternatives: false });
+  copyExtension(resolve(process.env.CAMP_EXTENSION_DIR ?? '.output/chrome-mv3'), extensionPath);
+  writeFileSync(resolve(extensionPath, 'background.js'), `const fixture = globalThis.__bootstrapFixture = { blocked: true, gets: 0, starts: 0, run: null };
+    chrome.runtime.onMessage.addListener((message, sender, reply) => {
+      if (message.type === 'RUNTIME_INFO') reply({ info: { version: ${JSON.stringify(version)}, protocolVersion: 1 } });
+      else if (message.type === 'AUTO_GET') {
+        void chrome.storage.local.get('ticket-assistant.config.v1').then(values => {
+          fixture.run ??= { id: 'existing-run', tabId: sender.tab.id, revision: 0, preferencesKey: ${JSON.stringify(preferencesKey(preferences))}, startedAt: Date.now() - 60000, expiresAt: Date.now() + 3600000, progress: { phase: 'READY', message: '' } };
+          fixture.gets++; reply(fixture.blocked ? { error: 'Tạm mất kết nối phiên camp.' } : { run: fixture.run });
+        }); return true;
+      } else if (message.type === 'AUTO_STEP') {
+        if (message.id !== fixture.run?.id || message.revision !== fixture.run.revision || sender.tab.id !== fixture.run.tabId) reply({ error: 'Stale fixture step' });
+        else { fixture.run = { ...fixture.run, revision: fixture.run.revision + 1, progress: message.progress }; reply({ run: fixture.run }); }
+      } else if (message.type === 'AUTO_START' || message.type === 'AUTO_START_HERE') { fixture.starts++; reply({ error: 'Unexpected START' }); }
+      else reply({ ok: true });
+    });`);
+  const { context } = await launch(extensionPath);
+  const errors: string[] = [];
+  try {
+    const worker = context.serviceWorkers()[0]!;
+    const target = preferences.eventUrl;
+    await worker.evaluate(async preferences => {
+      await chrome.storage.local.set({ 'ticket-assistant.config.v1': { schemaVersion: 1, enabled: true, panelVisible: true,
+        preferences } });
+    }, preferences);
+    let navigations = 0;
+    await context.route('https://ticket.1zone.vn/**', route => {
+      if (route.request().isNavigationRequest()) navigations++;
+      return route.fulfill({ contentType: 'text/html; charset=utf-8', body: readFileSync('fixtures/booking.html', 'utf8') + `<script>
+        document.querySelector('article button').addEventListener('click', function () { this.setAttribute('aria-pressed', 'true'); document.querySelector('[data-next]').disabled = false; });
+        document.querySelector('[data-next]').addEventListener('click', function () { document.querySelector('main').innerHTML = '<h1>Thanh toán</h1><form><p>VIP · 1 vé</p><button>Xác nhận đơn hàng</button></form>'; });
+      </script>` });
+    });
+    const page = await context.newPage(); page.on('pageerror', error => errors.push(error.message));
+    await page.clock.install(); await page.clock.pauseAt(new Date());
+    await page.goto(target.replace('/events/', '/booking/'));
+    await expect(page.getByRole('alert')).toContainText('Tạm mất kết nối');
+    await expect(page.locator('article button').first()).toHaveAttribute('aria-pressed', 'false');
+    await worker.evaluate(async () => {
+      const fixture = (globalThis as unknown as { __bootstrapFixture: { blocked: boolean; run: { tabId: number } } }).__bootstrapFixture;
+      fixture.blocked = false;
+      await chrome.tabs.sendMessage(fixture.run.tabId, { type: 'AUTO_UPDATED', run: fixture.run });
+    });
+    await expect(page.locator('.auto-status')).toHaveAttribute('data-auto-phase', 'CHECKOUT');
+    await expect(page.locator('main form')).toContainText('VIP · 1 vé');
+    expect(await worker.evaluate(() => {
+      const fixture = (globalThis as unknown as { __bootstrapFixture: { gets: number; starts: number; run: { id: string } } }).__bootstrapFixture;
+      return { gets: fixture.gets, starts: fixture.starts, id: fixture.run.id };
+    })).toEqual({ gets: 2, starts: 0, id: 'existing-run' });
+    expect(navigations).toBe(1); expect(errors).toEqual([]);
   } finally { await context.close(); }
 });
 

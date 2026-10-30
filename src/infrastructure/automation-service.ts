@@ -55,7 +55,7 @@ export async function reconcileAutoRun(): Promise<void> {
 /** Called inside the background's serialized queue. Revision checks prevent stale clicks. */
 export async function handleAutoCommand(message: AutoCommand, sender: chrome.runtime.MessageSender): Promise<AutoRun | null> {
   if (sender.frameId !== undefined && sender.frameId !== 0) throw new Error('Camp chỉ chạy trong tab chính.');
-  const run = await readAutoRun();
+  const [run, stepConfig] = await Promise.all([readAutoRun(), message.type === 'AUTO_STEP' ? repository.load() : undefined]);
   const extensionPage = sender.url?.startsWith(chrome.runtime.getURL('/'));
   const owner = extensionPage || sender.tab?.id === run?.tabId;
   if (message.type === 'AUTO_FOCUS') {
@@ -68,7 +68,7 @@ export async function handleAutoCommand(message: AutoCommand, sender: chrome.run
     if (!owner && run) throw new Error('Camp đang chạy ở tab khác.');
     await stopAutoRun(); return null;
   }
-  const config = await repository.load();
+  const config = stepConfig ?? await repository.load();
   const p = config.preferences;
   if (!p) throw new Error('Lưu link concert, giờ bán và ưu tiên trước khi bắt đầu camp.');
   if (message.type === 'AUTO_START' || message.type === 'AUTO_START_HERE') {
@@ -105,7 +105,14 @@ export async function handleAutoCommand(message: AutoCommand, sender: chrome.run
   if (!run || !owner || sender.tab?.id !== run.tabId || message.id !== run.id || message.revision !== run.revision) throw new Error('Phiên camp đã đổi hoặc thao tác cũ đã bị hủy.');
   if (!config.enabled || preferencesKey(p) !== run.preferencesKey) throw new Error('Cấu hình đã đổi hoặc camp đã dừng.');
   if (!isAutoProgress(message.progress) || !allowsAutoTransition(run.progress.phase, message.progress.phase)) throw new Error('Trạng thái hoặc chuyển bước camp không hợp lệ.');
-  if (run.progress.reservationAttemptedAt !== undefined && message.progress.reservationAttemptedAt !== run.progress.reservationAttemptedAt) throw new Error('Không được bỏ dấu yêu cầu giữ vé đã gửi.');
+  const from = run.progress, to = message.progress;
+  const recovering = from.phase === 'ADVANCING' && to.phase === 'RECOVERING';
+  if ((to.reservationRetries ?? 0) !== (from.reservationRetries ?? 0) + (recovering ? 1 : 0) ||
+      (recovering && (from.reservationAttemptedAt === undefined || to.reservationRejectedAt! < from.reservationAttemptedAt || to.reservationRejectedAt! > Date.now()))) throw new Error('Lượt chọn lại vé không hợp lệ.');
+  const clearedRejection = from.phase === 'RECOVERING' && to.phase === 'READY' &&
+    from.reservationRejectedAt !== undefined && from.reservationAttemptedAt !== undefined && from.reservationRejectedAt >= from.reservationAttemptedAt &&
+    to.reservationAttemptedAt === undefined && to.reservationRejectedAt === undefined && to.chosen === undefined;
+  if (from.reservationAttemptedAt !== undefined && to.reservationAttemptedAt !== from.reservationAttemptedAt && !clearedRejection) throw new Error('Không được bỏ dấu yêu cầu giữ vé đã gửi.');
   const next = { ...run, revision: run.revision + 1, progress: message.progress };
   await writeAutoRun(next); return next;
 }

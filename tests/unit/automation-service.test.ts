@@ -19,6 +19,17 @@ beforeEach(() => {
 });
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe('khóa phiên và CAS tại background', () => {
+  it('chỉ mở khóa giữ vé qua hai bước phục hồi có dấu từ chối; không cho nhảy thẳng về chọn vé', async () => {
+    const run = (await handleAutoCommand({ type: 'AUTO_START' }, sender))!;
+    const now = Date.now();
+    run.progress = { phase: 'ADVANCING', message: '', reservationAttemptedAt: now - 10 }; session[AUTO_KEY] = run;
+    await expect(handleAutoCommand({ type: 'AUTO_STEP', id: run.id, revision: run.revision, progress: { phase: 'READY', message: '' } }, sender)).rejects.toThrow();
+    const recovering = (await handleAutoCommand({ type: 'AUTO_STEP', id: run.id, revision: run.revision,
+      progress: { ...run.progress, phase: 'RECOVERING', actionAt: now, reservationRejectedAt: now, reservationRetries: 1 } }, sender))!;
+    const ready = await handleAutoCommand({ type: 'AUTO_STEP', id: run.id, revision: recovering.revision,
+      progress: { phase: 'READY', message: '', reservationRetries: 1 } }, sender);
+    expect(ready?.progress.reservationAttemptedAt).toBeUndefined();
+  });
   it('Chrome thay tab ID: chuyển đúng chủ, giữ dấu giữ vé và từ chối chủ cũ', async () => {
     const run = (await handleAutoCommand({ type: 'AUTO_START' }, sender))!;
     run.progress = { phase: 'ADVANCING', message: '', reservationAttemptedAt: 123 };
@@ -88,12 +99,12 @@ describe('khóa phiên và CAS tại background', () => {
     await expect(handleAutoCommand({ type: 'AUTO_START_HERE' }, { ...sender, tab: { ...sender.tab!, id: 2 } })).rejects.toThrow('giữ vé');
     expect((session[AUTO_KEY] as AutoRun).tabId).toBe(1);
   });
-  it('bật trước giờ bán một ngày: hết phiên một giờ sau giờ bán, không sau lúc bật', async () => {
+  it('bật trước giờ bán một ngày: theo dõi tối đa sáu giờ từ giờ bán, không từ lúc bật', async () => {
     vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-18T05:00:00Z'));
     const config = local[CONFIG_KEY] as TaskConfig;
     config.preferences = { ...prefs, saleStartAt: '2026-10-19T05:00:00Z' };
     const run = await handleAutoCommand({ type: 'AUTO_START' }, sender);
-    expect(run?.expiresAt).toBe(Date.parse('2026-10-19T06:00:00Z'));
+    expect(run?.expiresAt).toBe(Date.parse('2026-10-19T11:00:00Z'));
   });
   it('một tab sở hữu; tab khác không lấy hoặc ghi đè phiên', async () => {
     const run = await handleAutoCommand({ type: 'AUTO_START' }, sender);
